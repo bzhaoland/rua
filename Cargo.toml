@@ -1,9 +1,9 @@
 [package]
-name = "bbox"
+name = "rua"
 version = "0.2.0"
 edition = "2021"
 authors = ["bzhao@hillstonenet.com"]
-description = "A sweet box combining several utilities."
+description = "A tiny box combining many functionalities."
 keywords = ["CLI", "JSON Compilation Database"]
 categories = ["command-line-utilities"]
 

@@ -11,10 +11,10 @@ use submods::profile::{self, dump_perfdata, proc_perfdata};
 
 #[derive(Parser)]
 #[command(
-    name = "bbox",
+    name = "rua",
     author = "bzhao",
     version = "0.2.0",
-    about = r"A sweet box combining several utilities.",
+    about = r"A tiny box combining many functionalities.",
     long_about = None
 )]
 struct Cli {
