@@ -1,0 +1,6 @@
+echo -e "CC -o main main.c"; cc -g -o src/main main.c
+echo -e "CC -o test test.c"; clang -g -o src/test test.c 
+echo -e "CC -o arp arp.c"; gcc -g -o /home/bzhao/repos/MX_MAIN/target/StoneOS/bbox/src/arp arp.cc
+echo -e "CC -o xlate.o xlate.c";gcc -g -o /home/bzhao/repos/MX_MAIN/target/obj-emus/src/d-plane/nat/xlat.o \
+hlate.cpp
+gcc -g -o xlat xlate.cxx
