@@ -95,7 +95,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             num_steps,
             "FAILED".red()
         );
-        return Err(Error::msg("error: failed to build target"))
+        return Err(Error::msg("error: failed to build target"));
     }
     println!(
         "\r[{}/{}] BUILDING TARGET...{}\x1B[0K",
@@ -106,10 +106,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
 
     // Restore the original make files
     curr_step = 4;
-    print!(
-        "[{}/{} RESTORING MAKERULES...]",
-        curr_step, num_steps
-    );
+    print!("[{}/{} RESTORING MAKERULES...]", curr_step, num_steps);
     io::stdout().flush()?;
     fs::write(lastrules_file, lastrules_orig)?;
     fs::write(rules_file, rules_orig)?;
@@ -125,12 +122,20 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     print!("[{}/{}] PARSING BUILD LOG...", curr_step, num_steps);
     io::stdout().flush()?;
     let output_str = String::from_utf8(output.stdout)?;
-    let hackrule_pattern = Regex::new(r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#)?;
+    let hackrule_pattern = Regex::new(
+        r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#,
+    )?;
     let mut records: Vec<CompRecord> = Vec::new();
-    for (_, [dirc, comm, file]) in hackrule_pattern.captures_iter(&output_str).map(|c| c.extract()) {
+    for (_, [dirc, comm, file]) in hackrule_pattern
+        .captures_iter(&output_str)
+        .map(|c| c.extract())
+    {
         let dirc = dirc.to_string();
         let comm = comm.to_string();
-        let file = PathBuf::from(&dirc).join(&file).to_string_lossy().to_string();
+        let file = PathBuf::from(&dirc)
+            .join(&file)
+            .to_string_lossy()
+            .to_string();
         records.push(CompRecord { dirc, comm, file });
     }
     println!(
@@ -152,7 +157,10 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             "file": item.file,
         }));
     }
-    fs::write("compile_commands.json", serde_json::to_string_pretty(&jcdb)?)?;
+    fs::write(
+        "compile_commands.json",
+        serde_json::to_string_pretty(&jcdb)?,
+    )?;
     println!(
         "\r[{}/{}] GENERATING JCDB...{}\x1B[0K",
         curr_step,

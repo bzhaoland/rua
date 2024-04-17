@@ -6,9 +6,9 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use submods::compdb::gen_compdb;
-use submods::silist::gen_silist;
 use submods::mkinfo::{self, BuildMode, InetVer, MakeOpt};
 use submods::profile::{self, dump_perfdata, proc_perfdata};
+use submods::silist::gen_silist;
 
 #[derive(Parser)]
 #[command(
@@ -32,16 +32,16 @@ enum Comm {
             help = r"The directory containing makefiles for the specified product"
         )]
         product_dir: String,
-        #[arg(
-            value_name = "MAKE_TARGET",
-            help = r"Target to make"
-        )]
+        #[arg(value_name = "MAKE_TARGET", help = r"Target to make")]
         make_target: String,
     },
 
     /// Generate file list used by Source Insight
     Silist {
-        #[arg(value_name = "PRODUCT_DIR", help = "The directory containing makefiles for the specified product")]
+        #[arg(
+            value_name = "PRODUCT_DIR",
+            help = "The directory containing makefiles for the specified product"
+        )]
         product_dir: String,
         #[arg(value_name = "MAKE_TARGET", help = "Target to make")]
         make_target: String,
@@ -132,11 +132,18 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Comm::Compdb { product_dir, make_target } => {
+        Comm::Compdb {
+            product_dir,
+            make_target,
+        } => {
             gen_compdb(&product_dir, &make_target)?;
             Ok(())
         }
-        Comm::Silist { product_dir, make_target, project_root } => {
+        Comm::Silist {
+            product_dir,
+            make_target,
+            project_root,
+        } => {
             gen_silist(&product_dir, &make_target, &project_root)?;
             Ok(())
         }

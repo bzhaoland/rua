@@ -114,16 +114,32 @@ pub fn gen_silist(product_dir: &str, make_target: &str, project_root: &str) -> R
     print!("[{}/{}] PARSING BUILD LOG...", curr_step, num_steps);
     io::stdout().flush()?;
     let output_str = String::from_utf8(output.stdout)?;
-    let hackrule_pattern = Regex::new(r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#)?;
+    let hackrule_pattern = Regex::new(
+        r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#,
+    )?;
     let current_dir = env::current_dir()?;
     let mut records: Vec<String> = Vec::new();
-    for (_, [dirc, _, file]) in hackrule_pattern.captures_iter(&output_str).map(|c| c.extract()) {
+    for (_, [dirc, _, file]) in hackrule_pattern
+        .captures_iter(&output_str)
+        .map(|c| c.extract())
+    {
         let dirc = dirc.to_string();
-        let file = PathBuf::from(&dirc).join(file).strip_prefix(&current_dir)?.to_owned();
-        let file = PathBuf::from(project_root).join(file).to_string_lossy().to_string();
+        let file = PathBuf::from(&dirc)
+            .join(file)
+            .strip_prefix(&current_dir)?
+            .to_owned();
+        let file = PathBuf::from(project_root)
+            .join(file)
+            .to_string_lossy()
+            .to_string();
         records.push(file);
     }
-    println!("\r[{}/{}] PARSING BUILD LOG...{}\x1B[0K", curr_step, num_steps, "OK".green());
+    println!(
+        "\r[{}/{}] PARSING BUILD LOG...{}\x1B[0K",
+        curr_step,
+        num_steps,
+        "OK".green()
+    );
 
     // Generate FILELIST
     curr_step = 6;
