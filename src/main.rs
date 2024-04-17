@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use submods::gencc::gen_compdb;
+use submods::compdb::gen_compdb;
 use submods::mkinfo::{self, BuildMode, InetVer, MakeOpt};
 use submods::profile::{self, dump_perfdata, proc_perfdata};
 
@@ -24,7 +24,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate JSON compilation database from build log
+    /// Generate JSON Compilation Database for the specified target
     Compdb {
         #[arg(
             value_name = "PRODUCT_DIR",
@@ -38,7 +38,7 @@ enum Commands {
         make_target: String,
     },
 
-    /// Generate make info for the given platform name
+    /// Generate make info for the specified product
     Mkinfo {
         #[arg(
             short = '4',
