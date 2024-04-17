@@ -6,6 +6,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use submods::compdb::gen_compdb;
+use submods::silist::gen_silist;
 use submods::mkinfo::{self, BuildMode, InetVer, MakeOpt};
 use submods::profile::{self, dump_perfdata, proc_perfdata};
 
@@ -13,22 +14,22 @@ use submods::profile::{self, dump_perfdata, proc_perfdata};
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.2.0",
+    version = "0.3.0",
     about = r"A tiny box combining many functionalities.",
     long_about = None
 )]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Comm,
 }
 
 #[derive(Subcommand)]
-enum Commands {
+enum Comm {
     /// Generate JSON Compilation Database for the specified target
     Compdb {
         #[arg(
             value_name = "PRODUCT_DIR",
-            help = r"The directory containing make files for the given product"
+            help = r"The directory containing makefiles for the specified product"
         )]
         product_dir: String,
         #[arg(
@@ -36,6 +37,16 @@ enum Commands {
             help = r"Target to make"
         )]
         make_target: String,
+    },
+
+    /// Generate file list used by Source Insight
+    Silist {
+        #[arg(value_name = "PRODUCT_DIR", help = "The directory containing makefiles for the specified product")]
+        product_dir: String,
+        #[arg(value_name = "MAKE_TARGET", help = "Target to make")]
+        make_target: String,
+        #[arg(value_name = "PROJECT_ROOT", help = "Project root path on winbuilder")]
+        project_root: String,
     },
 
     /// Generate make info for the specified product
@@ -121,11 +132,15 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Compdb { product_dir, make_target } => {
+        Comm::Compdb { product_dir, make_target } => {
             gen_compdb(&product_dir, &make_target)?;
             Ok(())
         }
-        Commands::Mkinfo {
+        Comm::Silist { product_dir, make_target, project_root } => {
+            gen_silist(&product_dir, &make_target, &project_root)?;
+            Ok(())
+        }
+        Comm::Mkinfo {
             coverity,
             ipv4: _,
             ipv6,
@@ -160,7 +175,7 @@ fn main() -> Result<()> {
 
             Ok(())
         }
-        Commands::Digest {
+        Comm::Digest {
             file: datafile,
             daemon,
             dso: sofile,
