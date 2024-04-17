@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use submods::gencc::gencc;
+use submods::gencc::gen_compdb;
 use submods::mkinfo::{self, BuildMode, InetVer, MakeOpt};
 use submods::profile::{self, dump_perfdata, proc_perfdata};
 
@@ -25,12 +25,17 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Generate JSON compilation database from build log
-    Gencc {
+    Compdb {
         #[arg(
-            value_name = "LOGFILE",
-            help = r"The log for building a specific target"
+            value_name = "PRODUCT_DIR",
+            help = r"The directory containing make files for the given product"
         )]
-        logfile: PathBuf,
+        product_dir: String,
+        #[arg(
+            value_name = "MAKE_TARGET",
+            help = r"Target to make"
+        )]
+        make_target: String,
     },
 
     /// Generate make info for the given platform name
@@ -116,8 +121,8 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Gencc { logfile } => {
-            gencc(&logfile)?;
+        Commands::Compdb { product_dir, make_target } => {
+            gen_compdb(&product_dir, &make_target)?;
             Ok(())
         }
         Commands::Mkinfo {
