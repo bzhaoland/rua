@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+use submods::clean::clean_build;
 use submods::compdb::gen_compdb;
 use submods::mkinfo::{self, BuildMode, InetVer, MakeOpt};
 use submods::profile::{self, dump_perfdata, proc_perfdata};
@@ -25,6 +26,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Comm {
+    /// Clean build files
+    Clean,
+
     /// Generate JSON Compilation Database for the specified target
     Compdb {
         #[arg(
@@ -132,20 +136,21 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
+        Comm::Clean => {
+            clean_build()
+        }
         Comm::Compdb {
             product_dir,
             make_target,
         } => {
-            gen_compdb(&product_dir, &make_target)?;
-            Ok(())
+            gen_compdb(&product_dir, &make_target)
         }
         Comm::Silist {
             product_dir,
             make_target,
             project_root,
         } => {
-            gen_silist(&product_dir, &make_target, &project_root)?;
-            Ok(())
+            gen_silist(&product_dir, &make_target, &project_root)
         }
         Comm::Mkinfo {
             coverity,

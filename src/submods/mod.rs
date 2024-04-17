@@ -1,3 +1,4 @@
+pub mod clean;
 pub mod compdb;
 pub mod mkinfo;
 pub mod profile;
