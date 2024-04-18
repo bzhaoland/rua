@@ -15,7 +15,7 @@ pub fn clean_build() -> AResult<()> {
     println!("[{}/{}] REMOVING TARGET DIRECTORY...{}\x1B[0K", curr_step, num_steps, "OK".green());
 
     // Clean the unversioned entries
-    curr_step = 2usize;
+    curr_step = 2;
     print!("[{}/{}] FINDING UNVERSIONED ENTRIES...", curr_step, num_steps);
     io::stdout().flush()?;
     let output = process::Command::new("svn").args(["status", "src"]).output().map_err(|e| { println!("\r[{}/{}] FINDING UNVERSIONED ENTRIES...{}\x1B[0K", curr_step, num_steps, "FAILED".red()); Error::msg(format!("Failed to execute `svn status src`: {}", e.to_string())) })?;

@@ -10,11 +10,11 @@ use regex::Regex;
 pub fn gen_silist(product_dir: &str, make_target: &str, project_root: &str) -> Result<()> {
     let lastrules_file = "./scripts/last-rules.mk";
     let rules_file = "./scripts/rules.mk";
-    let num_steps = 6;
+    let num_steps = 6usize;
     let mut curr_step;
 
     // Checking running directory, should run under project root
-    curr_step = 1;
+    curr_step = 1usize;
     print!("[{}/{}] CHECKING LOCATION...", curr_step, num_steps);
     io::stdout().flush()?;
     let mut location_ok = true;
