@@ -145,7 +145,7 @@ pub fn gen_silist(product_dir: &str, make_target: &str, project_root: &str) -> R
     curr_step = 6;
     print!("[{}/{}] GENERATING FILELIST...", curr_step, num_steps);
     io::stdout().flush()?;
-    let filelist_str = records.join("\n");
+    let filelist_str = records.join("\r\n");
     fs::write("filelist.txt", filelist_str)?;
     println!(
         "\r[{}/{}] GENERATING FILELIST...{}\x1B[0K",
