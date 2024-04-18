@@ -41,7 +41,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             num_steps,
             "FAILED".red()
         );
-        return Err(Error::msg("Run this command under project root."));
+        return Result::Err(Error::msg("Error: Run this command under project root."));
     }
     println!(
         "\r[{}/{}] CHECKING LOCATION...{}\x1B[0K",
@@ -87,15 +87,18 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             "HS_SHELL_PASSWORD=0",
             "IMG_NAME=RUAIHA",
         ])
-        .output()?;
-    if output.status.success() != true {
-        eprintln!(
+        .output().map_err(|e| {
+            println!("\r[{}/{}] BUILDING TARGET...{}\x1B[0K", curr_step, num_steps, "FAILED".red()); Error::msg(format!("Failed to execute `hsdocker7 make ...`: {}", &e.to_string()))
+        })?;
+    let status = output.status;
+    if status.success() != true {
+        println!(
             "\r[{}/{}] BUILDING TARGET...{}\x1B[0K",
             curr_step,
             num_steps,
             "FAILED".red()
         );
-        return Err(Error::msg("error: failed to build target"));
+        return Result::Err(Error::msg(format!("Error: Failed to build target: {}", status)));
     }
     println!(
         "\r[{}/{}] BUILDING TARGET...{}\x1B[0K",
@@ -104,12 +107,18 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         "OK".green()
     );
 
-    // Restore the original make files
+    // Restore original makefiles
     curr_step = 4;
     print!("[{}/{} RESTORING MAKERULES...]", curr_step, num_steps);
     io::stdout().flush()?;
-    fs::write(lastrules_file, lastrules_orig)?;
-    fs::write(rules_file, rules_orig)?;
+    fs::write(lastrules_file, lastrules_orig).map_err(|e| {
+        println!("[{}/{} RESTORING MAKERULES...{}\x1B[0K", curr_step, num_steps, "FAILED".red());
+        e
+    })?;
+    fs::write(rules_file, rules_orig).map_err(|e| {
+        println!("[{}/{} RESTORING MAKERULES...{}\x1B[0K", curr_step, num_steps, "FAILED".red());
+        e
+    })?;
     println!(
         "\r[{}/{}] RESTORING MAKERULES...{}\x1B[0K",
         curr_step,
@@ -121,7 +130,10 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     curr_step = 5;
     print!("[{}/{}] PARSING BUILD LOG...", curr_step, num_steps);
     io::stdout().flush()?;
-    let output_str = String::from_utf8(output.stdout)?;
+    let output_str = String::from_utf8(output.stdout).map_err(|e| {
+        println!("\r[{}/{}] PARSING BUILD LOG...{}\x1B[0K", curr_step, num_steps, "FAILED".red());
+        e
+    })?;
     let hackrule_pattern = Regex::new(
         r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#,
     )?;
