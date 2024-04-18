@@ -15,7 +15,7 @@ use submods::silist::gen_silist;
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.3.0",
+    version = "0.3.1",
     about = r"A tiny box combining many functionalities.",
     long_about = None
 )]

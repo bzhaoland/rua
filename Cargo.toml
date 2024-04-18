@@ -1,6 +1,6 @@
 [package]
 name = "rua"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 authors = ["bzhao@hillstonenet.com"]
 description = "A tiny box combining many functionalities."
