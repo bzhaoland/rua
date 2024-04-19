@@ -15,7 +15,7 @@ use submods::silist::gen_silist;
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.3.1",
+    version = "0.4.0",
     about = r"A tiny box combining many functionalities.",
     long_about = None
 )]
@@ -42,13 +42,6 @@ enum Comm {
 
     /// Generate file list used by Source Insight
     Silist {
-        #[arg(
-            value_name = "PRODUCT_DIR",
-            help = "The directory containing makefiles for the specified product"
-        )]
-        product_dir: String,
-        #[arg(value_name = "MAKE_TARGET", help = "Target to make")]
-        make_target: String,
         #[arg(value_name = "PROJECT_ROOT", help = "Project root path on winbuilder")]
         project_root: String,
     },
@@ -146,11 +139,9 @@ fn main() -> Result<()> {
             gen_compdb(&product_dir, &make_target)
         }
         Comm::Silist {
-            product_dir,
-            make_target,
             project_root,
         } => {
-            gen_silist(&product_dir, &make_target, &project_root)
+            gen_silist(&project_root)
         }
         Comm::Mkinfo {
             coverity,
