@@ -106,10 +106,9 @@ pub fn gen_silist(repo_root_on_winbuilder: &str) -> Result<()> {
         let entry_relative = entry.strip_prefix(&curr_dir).map_err(|e| {
             println!();
             Error::msg(format!(
-                "{}: {}\n{:?}",
+                "{}: {}",
                 curr_dir.to_string_lossy().to_string(),
-                e.to_string(),
-                entry
+                e.to_string()
             ))
         })?;
 
