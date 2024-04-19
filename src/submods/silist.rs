@@ -7,7 +7,7 @@ use anyhow::{Error, Result};
 use colored::Colorize;
 use regex::Regex;
 
-pub fn gen_silist(product_dir: &str, make_target: &str, project_root: &str) -> Result<()> {
+pub fn gen_silist(product_dir: &str, make_target: &str, repo_root: &str) -> Result<()> {
     let lastrules_file = "./scripts/last-rules.mk";
     let rules_file = "./scripts/rules.mk";
     let num_steps = 6usize;
@@ -88,58 +88,72 @@ pub fn gen_silist(product_dir: &str, make_target: &str, project_root: &str) -> R
 
     // Parse the build log
     curr_step = 5;
-    print!("[{}/{}] PARSING BUILD LOG...", curr_step, num_steps);
+    print!("[{}/{}] PARSING BUILDLOG...", curr_step, num_steps);
     io::stdout().flush()?;
     let output_str = String::from_utf8(output.stdout)?;
     let hackrule_pattern = Regex::new(
         r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#,
     )?;
     let current_dir = env::current_dir()?;
-    let project_root_on_winbuilder = PathBuf::from(project_root);
+    let repo_root_on_winbuilder = PathBuf::from(repo_root);
     let mut srcfiles: Vec<String> = Vec::new();
     let mut incdirs: Vec<String> = Vec::new();
-    let incdir_pattern = Regex::new(r#"-I\s*(\S+)"#)?;
+    let incdir_pattern = Regex::new(r#"\s+-I\s*(\S+)\s+"#)?;
     for (_, [dirc, comm, file]) in hackrule_pattern.captures_iter(&output_str).map(|c| c.extract()) {
-        let dirc = dirc.to_string();
-        let file = PathBuf::from(&dirc).join(file).strip_prefix(&current_dir)?.to_owned();
-        let file = project_root_on_winbuilder.join(file).to_string_lossy().to_string();
-        srcfiles.push(file);
+        let file = PathBuf::from(dirc).join(file);
+        srcfiles.push(file.to_string_lossy().to_string());
 
-        for item in incdir_pattern.find_iter(comm) {
+        for (_, [item]) in incdir_pattern.captures_iter(comm).map(|c| c.extract() ) {
             // Check whether the incdir has already been cached
-            let mut should_append = true;
-            let incdir = PathBuf::from(&dirc).join(item.as_str());
-            let mut tmpdir = incdir.as_path();
+            if let Ok(incdir) = PathBuf::from(dirc).join(item).canonicalize() {
+                let mut should_append = true;
+                let mut tmpdir = incdir.as_path();
 
-            while tmpdir != current_dir.as_path() {
-                if incdirs.contains(&tmpdir.to_string_lossy().to_string()) {
-                    should_append = false;
+                while tmpdir != current_dir.as_path() {
+                    if incdirs.contains(&tmpdir.to_string_lossy().to_string()) {
+                        should_append = false;
+                        break;
+                    }
+
+                    if let Some(v) = tmpdir.parent() {
+                        tmpdir = v;
+                        continue
+                    }
+
                     break;
                 }
 
-                let parent = tmpdir.parent();
-                if parent.is_none() {
-                    break;
+                if should_append {
+                    incdirs.push(incdir.to_string_lossy().to_string());
                 }
-
-                tmpdir = parent.unwrap();
-            }
-            if should_append {
-                let incdir_relative = incdir.strip_prefix(current_dir.as_path())?;
-                let incdir_on_winbuilder = project_root_on_winbuilder.join(incdir_relative);
-                incdirs.push(incdir_on_winbuilder.to_string_lossy().to_string());
             }
         }
     }
-    println!("\r[{}/{}] PARSING BUILD LOG...{}\x1B[0K", curr_step, num_steps, "OK".green());
+    println!("\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K", curr_step, num_steps, "OK".green());
 
     // Generate FILELIST
     curr_step = 6;
     print!("[{}/{}] GENERATING FILELIST...", curr_step, num_steps);
     io::stdout().flush()?;
-    let srcfiles_str = srcfiles.join("\r\n");
-    let incdirs_str = incdirs.join("\r\n");
-    let allfiles_str = format!("{}\r\n{}", srcfiles_str, incdirs_str);
+    let srcfiles_on_winbuilder: Vec<String> = srcfiles
+        .iter()
+        .map(|x| {
+            let file = PathBuf::from(x);
+            let file_rel = file.strip_prefix(&current_dir).unwrap();
+            repo_root_on_winbuilder.join(file_rel).to_string_lossy().to_string()
+        })
+        .collect();
+    let srcfiles_str = srcfiles_on_winbuilder.join("\r\n");
+    let incdirs_on_winbuilder: Vec<String> = incdirs
+        .iter()
+        .map(|x| {
+            let incdir = PathBuf::from(x);
+            let incdir_rel = incdir.strip_prefix(&current_dir).unwrap();
+            repo_root_on_winbuilder.join(incdir_rel).to_string_lossy().to_string()
+        })
+        .collect();
+    let incdirs_str = incdirs_on_winbuilder.join("\r\n");
+    let allfiles_str = format!("{}\r\n{}", incdirs_str, srcfiles_str);
     fs::write("filelist.txt", &allfiles_str)?;
     println!("\r[{}/{}] GENERATING FILELIST...{}\x1B[0K", curr_step, num_steps, "OK".green());
 
