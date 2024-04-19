@@ -88,7 +88,8 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             "IMG_NAME=RUAIHA",
         ])
         .output().map_err(|e| {
-            println!("\r[{}/{}] BUILDING TARGET...{}\x1B[0K", curr_step, num_steps, "FAILED".red()); Error::msg(format!("Failed to execute `hsdocker7 make ...`: {}", &e.to_string()))
+            println!("\r[{}/{}] BUILDING TARGET...{}\x1B[0K", curr_step, num_steps, "FAILED".red());
+            Error::msg(format!("Failed to execute `hsdocker7 make ...`: {}", &e.to_string()))
         })?;
     let status = output.status;
     if status.success() != true {
