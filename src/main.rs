@@ -42,8 +42,8 @@ enum Comm {
 
     /// Generate file list used by Source Insight
     Silist {
-        #[arg(value_name = "PROJECT_ROOT", help = "Project root path on winbuilder")]
-        project_root: String,
+        #[arg(value_name = "PREFIX", help = "Prefixing the relative file paths of the repo. When generate a list for SourceInsight, it should be the project root path on your WinBuilder machine")]
+        prefix: String,
     },
 
     /// Generate make info for the specified product
@@ -139,7 +139,7 @@ fn main() -> Result<()> {
             gen_compdb(&product_dir, &make_target)
         }
         Comm::Silist {
-            project_root,
+            prefix: project_root,
         } => {
             gen_silist(&project_root)
         }

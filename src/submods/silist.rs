@@ -11,12 +11,14 @@ use walkdir::WalkDir;
 /// Generate filelist for SourceInsight editor.
 ///
 /// This function just searches and collects all c/c++ source and header files over the project.
+/// 
+/// Parameter `prefix` means the repo's root path on WinBuilder.
 ///
 /// Note: The method used by `compdb` command does not suit here for SourceInsight, bacause it is
 /// time-consuming and does not collect header files. In order to collect header files, we have to
 /// parse all the '#include' directives in all compilation units. This is also a very time-consuming
 /// job.
-pub fn gen_silist(repo_root_on_winbuilder: &str) -> Result<()> {
+pub fn gen_silist(prefix: &str) -> Result<()> {
     // Generate FILELIST
     print!("GENERATING FILELIST...");
     io::stdout().flush()?;
@@ -32,7 +34,7 @@ pub fn gen_silist(repo_root_on_winbuilder: &str) -> Result<()> {
     ];
     let mut files = Vec::new();
     let curr_dir = env::current_dir()?;
-    let repo_root_on_winbuilder = PathBuf::from(repo_root_on_winbuilder);
+    let repo_root_on_winbuilder = PathBuf::from(prefix);
 
     // Search over src directory
     for entry in WalkDir::new("src") {
