@@ -16,7 +16,7 @@ use submods::silist::gen_silist;
     name = "rua",
     author = "bzhao",
     version = "0.4.0",
-    about = r"A tiny box combining many functionalities.",
+    about = "A tiny box for StoneOS devel.",
     long_about = None
 )]
 struct Cli {
@@ -32,11 +32,11 @@ enum Comm {
     /// Generate JSON Compilation Database for the specified target
     Compdb {
         #[arg(
-            value_name = "PRODUCT_DIR",
-            help = r"The directory containing makefiles for the specified product"
+            value_name = "PRODUCT-DIR",
+            help = "The directory containing makefiles for the specified product"
         )]
         product_dir: String,
-        #[arg(value_name = "MAKE_TARGET", help = r"Target to make")]
+        #[arg(value_name = "MAKE-TARGET", help = "Target to make")]
         make_target: String,
     },
 
@@ -79,7 +79,7 @@ enum Comm {
         debug: bool,
 
         /// Output format
-        #[arg(long = "ofmt", default_value = "list", value_name = "OUTPUT FORMAT")]
+        #[arg(long = "ofmt", default_value = "list", value_name = "OUTPUT-FORMAT")]
         ofmt: mkinfo::DumpFormat,
 
         /// Build with password
@@ -92,7 +92,7 @@ enum Comm {
 
         /// Product name, such as 'A3000', 'VM04', etc.
         /// Regex is supported, e.g. 'X\d+80'
-        #[arg(value_name = "PRODNAME")]
+        #[arg(value_name = "PRODUCT-NAME")]
         prodname: String,
     },
 
@@ -112,7 +112,7 @@ enum Comm {
         #[arg(
             short = 's',
             long = "shared-object",
-            value_name = "SHARED OBJECT",
+            value_name = "SHARED-OBJECT",
             help = "The binary file used to translate the addressesto file lines"
         )]
         dso: PathBuf,
@@ -129,20 +129,12 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Comm::Clean => {
-            clean_build()
-        }
+        Comm::Clean => clean_build(),
         Comm::Compdb {
             product_dir,
             make_target,
-        } => {
-            gen_compdb(&product_dir, &make_target)
-        }
-        Comm::Silist {
-            prefix,
-        } => {
-            gen_silist(&prefix)
-        }
+        } => gen_compdb(&product_dir, &make_target),
+        Comm::Silist { prefix } => gen_silist(&prefix),
         Comm::Mkinfo {
             coverity,
             ipv4: _,
