@@ -1,35 +1,50 @@
+use std::fs;
 use std::io::{self, Write};
 use std::process;
 
-use anyhow::{Error, Result as AResult};
+use anyhow::Context;
+use anyhow::Error as AnyError;
+use anyhow::Result as AnyResult;
 use colored::Colorize;
 use regex;
 
-pub fn clean_build() -> AResult<()> {
-    let num_steps = 7usize;
-    let mut curr_step;
+pub fn clean_build() -> AnyResult<()> {
+    let num_steps: usize = 2;
+    let mut curr_step: usize;
 
     // Clean the target directory
-    curr_step = 1usize;
+    curr_step = 1;
     print!("[{}/{}] REMOVING TARGET DIRECTORY...", curr_step, num_steps);
-    println!("[{}/{}] REMOVING TARGET DIRECTORY...{}\x1B[0K", curr_step, num_steps, "OK".green());
+    fs::remove_dir_all("target")?;
+    println!("{}", "DONE".green());
 
     // Clean the unversioned entries
     curr_step = 2;
-    print!("[{}/{}] FINDING UNVERSIONED ENTRIES...", curr_step, num_steps);
+    print!(
+        "[{}/{}] FINDING UNVERSIONED ENTRIES...",
+        curr_step, num_steps
+    );
     io::stdout().flush()?;
-    let output = process::Command::new("svn").args(["status", "src"]).output().map_err(|e| { println!("\r[{}/{}] FINDING UNVERSIONED ENTRIES...{}\x1B[0K", curr_step, num_steps, "FAILED".red()); Error::msg(format!("Failed to execute `svn status src`: {}", e.to_string())) })?;
-    if output.status.success() != true {
-        println!("\r[{}/{}] FINDING UNVERSIONED ENTRIES...{}\x1B[0K", curr_step, num_steps, "FAILED".red());
-        return Err(Error::msg("Error: Failed to execute `svn status src`"));
+    let output = process::Command::new("svn")
+        .args(["status", "src"])
+        .output()
+        .with_context(|| {
+            println!("{}", "FAILED".red());
+            format!("Failed to exec `svn status src`")
+        })?;
+
+    if !output.status.success() {
+        println!("{}", "FAILED".red());
+        return Err(AnyError::msg("Error: Failed to execute `svn status src`"));
     }
-    let file_pattern = regex::Regex::new(r#"\?\s+(\S+)\n"#)?;
-    let output_str = String::from_utf8(output.stdout)?;
+    let file_pattern =
+        regex::Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| format!("Error regex pattern"))?;
+    let output_str = String::from_utf8(output.stdout).with_context(|| format!("Failed to convert output to String type"))?;
     let mut filelist = Vec::new();
     for (_, [file]) in file_pattern.captures_iter(&output_str).map(|c| c.extract()) {
-       filelist.push(file.to_string());
+        filelist.push(file.to_string());
     }
-    println!("\r[{}/{}] FINDING UNVERSIONED ENTRIES...{}\x1B[0K", curr_step, num_steps, "OK".green());
+    println!("{}", "OK".green());
 
     Ok(())
 }
