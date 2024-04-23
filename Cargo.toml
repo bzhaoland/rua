@@ -25,6 +25,6 @@ walkdir = "2.5.0"
 
 [profile.release]
 lto = true
-opt-level = "z"
+opt-level = "s"
 panic = "abort"
 strip = true
