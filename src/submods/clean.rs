@@ -17,6 +17,7 @@ pub fn clean_build() -> AnyResult<()> {
     // Clean the target directory
     curr_step = 1;
     print!("[{}/{}] REMOVING TARGET DIRECTORY...", curr_step, num_steps);
+    io::stdout().flush()?;
     fs::remove_dir_all("target").map_err(|e| {
         println!("{}", "FAILED".red());
         e
