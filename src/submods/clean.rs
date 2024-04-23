@@ -44,7 +44,7 @@ pub fn clean_build() -> AnyResult<()> {
     for (_, [file]) in file_pattern.captures_iter(&output_str).map(|c| c.extract()) {
         filelist.push(file.to_string());
     }
-    println!("{}", "OK".green());
+    println!("[{}/{}] FINDING UNVERSIONED ENTRIES...{}, {} FILES FOUND", curr_step, num_steps, "DONE".green(), filelist.len());
 
     Ok(())
 }
