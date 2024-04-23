@@ -1,12 +1,14 @@
 use std::fs;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process;
 
 use anyhow::Context;
 use anyhow::Error as AnyError;
 use anyhow::Result as AnyResult;
 use colored::Colorize;
-use regex;
+use indicatif::ProgressIterator;
+use regex::Regex;
 
 pub fn clean_build() -> AnyResult<()> {
     let num_steps: usize = 2;
@@ -15,8 +17,11 @@ pub fn clean_build() -> AnyResult<()> {
     // Clean the target directory
     curr_step = 1;
     print!("[{}/{}] REMOVING TARGET DIRECTORY...", curr_step, num_steps);
-    fs::remove_dir_all("target")?;
-    println!("{}", "DONE".green());
+    fs::remove_dir_all("target").map_err(|e| {
+        println!("{}", "FAILED".red());
+        e
+    })?;
+    println!("REMOVED TARGET DIRECTORY");
 
     // Clean the unversioned entries
     curr_step = 2;
@@ -38,13 +43,51 @@ pub fn clean_build() -> AnyResult<()> {
         return Err(AnyError::msg("Error: Failed to execute `svn status src`"));
     }
     let file_pattern =
-        regex::Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| format!("Error regex pattern"))?;
-    let output_str = String::from_utf8(output.stdout).with_context(|| format!("Failed to convert output to String type"))?;
+        Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| format!("Error regex pattern"))?;
+    let output_str = String::from_utf8(output.stdout)
+        .with_context(|| format!("Failed to convert output to String type"))?;
     let mut filelist = Vec::new();
     for (_, [file]) in file_pattern.captures_iter(&output_str).map(|c| c.extract()) {
         filelist.push(file.to_string());
+        print!(
+            "\r[{}/{}] FINDING UNVERSIONED ENTRIES...{} FILES FOUND\x1B[0K",
+            curr_step,
+            num_steps,
+            filelist.len().to_string().green()
+        );
     }
-    println!("[{}/{}] FINDING UNVERSIONED ENTRIES...{}, {} FILES FOUND", curr_step, num_steps, "DONE".green(), filelist.len());
+    print!(
+        "\r[{}/{}] FOUND {} UNVERSIONED ENTRIES\x1B[0K",
+        curr_step,
+        num_steps,
+        filelist.len().to_string().green()
+    );
+
+    print!(
+        "\r[{}/{}] CLEANING UNVERSIONED ENTRIES...\x1B[0K",
+        curr_step,
+        num_steps
+    );
+    for item in filelist.iter().progress() {
+        let entry = PathBuf::from(item);
+        if entry.is_file() || entry.is_symlink() {
+            fs::remove_file(item).map_err(|e| {
+                println!();
+                e
+            })?;
+        } else if entry.is_dir() {
+            fs::remove_dir_all(entry).map_err(|e| {
+                println!();
+                e
+            })?;
+        }
+    }
+    println!(
+        "\r[{}/{}] CLEANED {} UNVERSIONED ENTRIES\x1B[0K",
+        curr_step,
+        num_steps,
+        filelist.len().to_string().green()
+    );
 
     Ok(())
 }

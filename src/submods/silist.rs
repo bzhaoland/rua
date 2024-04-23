@@ -11,7 +11,7 @@ use walkdir::WalkDir;
 /// Generate filelist for SourceInsight editor.
 ///
 /// This function just searches and collects all c/c++ source and header files over the project.
-/// 
+///
 /// Parameter `prefix` means the repo's root path on WinBuilder.
 ///
 /// Note: The method used by `compdb` command does not suit here for SourceInsight, bacause it is
@@ -74,7 +74,10 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
-        print!("\rGENERATING FILELIST...{} FILES FOUND\x1B[0K", files.len().to_string().green());
+        print!(
+            "\rGENERATING FILELIST...{} FILES FOUND\x1B[0K",
+            files.len().to_string().green()
+        );
         io::stdout().flush()?;
     }
 
@@ -116,7 +119,10 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
-        print!("\rGENERATING FILELIST...{} FILES FOUND\x1B[0K", files.len().to_string().green());
+        print!(
+            "\rGENERATING FILELIST...{} FILES FOUND\x1B[0K",
+            files.len().to_string().green()
+        );
         io::stdout().flush()?;
     }
 
