@@ -21,7 +21,10 @@ pub fn clean_build() -> AnyResult<()> {
         println!("{}", "FAILED".red());
         e
     })?;
-    println!("REMOVED TARGET DIRECTORY");
+    println!(
+        "\r[{}/{}] REMOVED TARGET DIRECTORY\x1B[0K",
+        curr_step, num_steps
+    );
 
     // Clean the unversioned entries
     curr_step = 2;
@@ -65,8 +68,7 @@ pub fn clean_build() -> AnyResult<()> {
 
     print!(
         "\r[{}/{}] CLEANING UNVERSIONED ENTRIES...\x1B[0K",
-        curr_step,
-        num_steps
+        curr_step, num_steps
     );
     for item in filelist.iter().progress() {
         let entry = PathBuf::from(item);
