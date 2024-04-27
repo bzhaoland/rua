@@ -54,7 +54,7 @@ pub fn clean_build() -> AnyResult<()> {
     for (_, [file]) in file_pattern.captures_iter(&output_str).map(|c| c.extract()) {
         filelist.push(file.to_string());
         print!(
-            "\r[{}/{}] FINDING UNVERSIONED ENTRIES...{} FILES FOUND\x1B[0K",
+            "\r[{}/{}] FINDING UNVERSIONED ENTRIES...{}\x1B[0K",
             curr_step,
             num_steps,
             filelist.len().to_string().green()
