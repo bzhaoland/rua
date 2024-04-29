@@ -7,7 +7,7 @@ use anyhow::Context;
 use anyhow::Error as AnyError;
 use anyhow::Result as AnyResult;
 use colored::Colorize;
-use indicatif::ProgressIterator;
+use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
 pub fn clean_build() -> AnyResult<()> {
@@ -67,11 +67,17 @@ pub fn clean_build() -> AnyResult<()> {
         filelist.len().to_string().green()
     );
 
-    print!(
-        "\r[{}/{}] CLEANING UNVERSIONED ENTRIES...\x1B[0K",
-        curr_step, num_steps
+    print!("\r\x1B[0K");
+    let pb = ProgressBar::new(filelist.len() as u64);
+    pb.set_style(
+        ProgressStyle::with_template(
+            "{spinner:.green} {prefix} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+        )
+        .unwrap()
+        .progress_chars("#>-"),
     );
-    for item in filelist.iter().progress() {
+    pb.set_prefix(format!("{}/{} CLEANING", curr_step, num_steps));
+    for item in filelist.iter() {
         let entry = PathBuf::from(item);
         if entry.is_file() || entry.is_symlink() {
             fs::remove_file(item).map_err(|e| {
@@ -84,7 +90,9 @@ pub fn clean_build() -> AnyResult<()> {
                 e
             })?;
         }
+        pb.inc(1);
     }
+    pb.finish_and_clear();
     println!(
         "\r[{}/{}] CLEANED {} UNVERSIONED ENTRIES\x1B[0K",
         curr_step,
