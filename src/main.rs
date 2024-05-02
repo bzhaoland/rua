@@ -32,11 +32,11 @@ enum Comm {
     /// Generate JSON Compilation Database for the specified target
     Compdb {
         #[arg(
-            value_name = "PRODUCT-DIR",
-            help = "The directory containing makefiles for the specified product"
+            value_name = "PATH",
+            help = "Make path for the target, such as 'products/vfw', 'products/ngfw_as', etc."
         )]
         product_dir: String,
-        #[arg(value_name = "MAKE-TARGET", help = "Target to make")]
+        #[arg(value_name = "TARGET", help = "Target to make, such as 'aws', 'a-dnv', etc.")]
         make_target: String,
     },
 
