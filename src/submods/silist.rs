@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Error, Result};
-use console::Style;
+use console::{Style, Term};
 use walkdir::WalkDir;
 
 /// Generate filelist for SourceInsight editor.
@@ -19,8 +19,9 @@ use walkdir::WalkDir;
 /// parse all the '#include' directives in all compilation units. This is also a very time-consuming
 /// job.
 pub fn gen_silist(prefix: &str) -> Result<()> {
-    // Style control
+    // Term control
     let color_grn = Style::new().green();
+    let term_stdout = Term::stdout();
     
     // Generate FILELIST
     print!("GENERATING FILELIST...");
@@ -77,8 +78,9 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
+        term_stdout.clear_line()?;
         print!(
-            "\rGENERATING FILELIST...{} FILES FOUND\x1B[0K",
+            "GENERATING FILELIST...{} FILES FOUND",
             files.len().to_string()
         );
         io::stdout().flush()?;
@@ -122,8 +124,9 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
+        term_stdout.clear_line()?;
         print!(
-            "\rGENERATING FILELIST...{} FILES FOUND\x1B[0K",
+            "GENERATING FILELIST...{} FILES FOUND",
             color_grn.apply_to(files.len().to_string())
         );
         io::stdout().flush()?;
@@ -131,7 +134,8 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
     let filelist = files.join("\r\n");
     fs::write("filelist.txt", filelist)?;
-    println!("\rGENERATING FILELIST...{}\x1B[0K", color_grn.apply_to("DONE"));
+    term_stdout.clear_line()?;
+    println!("GENERATING FILELIST...{}", color_grn.apply_to("DONE"));
 
     Ok(())
 }

@@ -6,7 +6,7 @@ use std::process;
 use anyhow::Context;
 use anyhow::Error as AnyError;
 use anyhow::Result as AnyResult;
-use console::Style;
+use console::{Style, Term};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
@@ -14,9 +14,10 @@ pub fn clean_build() -> AnyResult<()> {
     let num_steps: usize = 2;
     let mut curr_step: usize;
 
-    // Style control
+    // Term control
     let color_grn = Style::new().green();
     let color_red = Style::new().red();
+    let term_stdout = Term::stdout();
 
     // Clean the target directory
     curr_step = 1;
@@ -26,10 +27,8 @@ pub fn clean_build() -> AnyResult<()> {
         println!("{}", color_red.apply_to("FAILED"));
         e
     })?;
-    println!(
-        "\r[{}/{}] REMOVED TARGET DIRECTORY\x1B[0K",
-        curr_step, num_steps
-    );
+    term_stdout.clear_line()?;
+    println!("[{}/{}] REMOVED TARGET DIRECTORY", curr_step, num_steps);
 
     // Clean the unversioned entries
     curr_step = 2;
@@ -57,21 +56,23 @@ pub fn clean_build() -> AnyResult<()> {
     let mut filelist = Vec::new();
     for (_, [file]) in file_pattern.captures_iter(&output_str).map(|c| c.extract()) {
         filelist.push(file.to_string());
+        term_stdout.clear_line()?;
         print!(
-            "\r[{}/{}] FINDING UNVERSIONED ENTRIES...{}\x1B[0K",
+            "[{}/{}] FINDING UNVERSIONED ENTRIES...{}",
             curr_step,
             num_steps,
             color_grn.apply_to(filelist.len().to_string())
         );
     }
+    term_stdout.clear_line()?;
     print!(
-        "\r[{}/{}] FOUND {} UNVERSIONED ENTRIES\x1B[0K",
+        "[{}/{}] FOUND {} UNVERSIONED ENTRIES",
         curr_step,
         num_steps,
         color_grn.apply_to(filelist.len().to_string())
     );
 
-    print!("\r\x1B[0K");
+    term_stdout.clear_line()?;
     let pb = ProgressBar::new(filelist.len() as u64);
     pb.set_style(
         ProgressStyle::with_template(
@@ -97,8 +98,9 @@ pub fn clean_build() -> AnyResult<()> {
         pb.inc(1);
     }
     pb.finish_and_clear();
+    term_stdout.clear_line()?;
     println!(
-        "\r[{}/{}] CLEANED {} UNVERSIONED ENTRIES\x1B[0K",
+        "[{}/{}] CLEANED {} UNVERSIONED ENTRIES",
         curr_step,
         num_steps,
         color_grn.apply_to(filelist.len().to_string())
