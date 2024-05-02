@@ -15,7 +15,7 @@ use submods::silist::gen_silist;
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.4.0",
+    version = "0.5.0",
     about = "A tiny box for StoneOS devel.",
     long_about = None
 )]
@@ -96,7 +96,7 @@ enum Comm {
         prodname: String,
     },
 
-    /// Stat the given profiling file (only perf anno output supported now)
+    /// Analyze the given profiling file (perf tool)
     Perfan {
         #[arg(help = "File to be processed", value_name = "FILE")]
         file: PathBuf,
