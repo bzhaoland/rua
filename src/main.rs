@@ -97,7 +97,7 @@ enum Comm {
     },
 
     /// Stat the given profiling file (only perf anno output supported now)
-    Digest {
+    Perfan {
         #[arg(help = "File to be processed", value_name = "FILE")]
         file: PathBuf,
 
@@ -170,7 +170,7 @@ fn main() -> Result<()> {
 
             Ok(())
         }
-        Comm::Digest {
+        Comm::Perfan {
             file: datafile,
             daemon,
             dso: sofile,

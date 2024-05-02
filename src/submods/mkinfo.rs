@@ -5,13 +5,11 @@ use std::process::Command;
 use std::{fs::File, str::FromStr};
 
 use anyhow::{anyhow, Ok, Result};
-use atty::{self, Stream};
 use chrono::Local;
 use clap::ValueEnum;
-use colored::Colorize;
+use console::{Style, Term};
 use regex::Regex;
 use serde_json::{json, Value};
-use terminal_size::{terminal_size, Height, Width};
 
 #[derive(Debug, PartialEq)]
 pub enum InetVer {
@@ -361,67 +359,52 @@ fn dump_json(infos: &Vec<PrintInfo>) -> Result<()> {
 }
 
 fn dump_list(infos: &Vec<PrintInfo>) -> Result<()> {
+    // Style control
+    let color_grn = Style::new().green();
+    let color_ylw = Style::new().yellow();
+    let (_, width) = Term::stdout().size();
+    
     if infos.is_empty() {
         println!("No matched makeinfo.");
         return Ok(());
     }
-
-    let mut out = String::new();
-
-    let Width(width) = terminal_size()
-        .unwrap_or_else(|| (Width(100u16), Height(23u16)))
-        .0;
     let head_decor = "=".repeat(width as usize);
     let data_decor = "-".repeat(width as usize);
 
+    let mut out = String::new();
     out.push_str(&format!(
         "{} matched makeinfo{}:\n",
         infos.len(),
         if infos.len() > 1 { "s" } else { "" }
     ));
 
-    let is_tty = atty::is(Stream::Stdout);
-
     out.push_str(&format!(
         "{}\n",
-        if is_tty {
-            head_decor.green()
-        } else {
-            head_decor.normal()
-        }
+        color_grn.apply_to(&head_decor)
     ));
 
     for (idx, item) in infos.iter().enumerate() {
         out.push_str(&format!(
-            "ProdName  : {}\nPlatModel : {}\nMakeGoal  : {}\nMakePath  : {}\nMakeComm  : {}\n",
+            "Product  : {}\nPlatform : {}\nTarget   : {}\nPath     : {}\nCommand  : {}\n",
             item.prod_name, item.plat_model, item.make_goal, item.make_dirc, item.make_comm
         ));
 
         if idx < infos.len() - 1 {
             out.push_str(&format!(
                 "{}\n",
-                if is_tty {
-                    data_decor.green()
-                } else {
-                    data_decor.normal()
-                }
+                color_grn.apply_to(&data_decor)
             ));
         }
     }
 
     out.push_str(&format!(
         "{}\n",
-        if is_tty {
-            head_decor.green()
-        } else {
-            head_decor.normal()
-        }
+        color_grn.apply_to(&head_decor)
     ));
 
-    let hint = "Run compile command under project root, such as 'MX_MAIN'.";
     out.push_str(&format!(
         "{}\n",
-        if is_tty { hint.yellow() } else { hint.normal() }
+        color_ylw.apply_to("Run compile command under project root, such as 'MX_MAIN'.")
     ));
 
     print!("{}", out);

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Error, Result};
-use colored::Colorize;
+use console::Style;
 use regex::Regex;
 use serde_json::{self, json};
 
@@ -16,10 +16,15 @@ struct CompRecord {
 }
 
 pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
+    // Resources later used
     let lastrules_file = "./scripts/last-rules.mk";
     let rules_file = "./scripts/rules.mk";
     let num_steps = 6usize;
     let mut curr_step;
+
+    // Style control
+    let color_grn = Style::new().green();
+    let color_red = Style::new().red();
 
     // Checking running directory, should run under project root
     curr_step = 1usize;
@@ -35,10 +40,10 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         location_ok = false;
     }
     if location_ok == false {
-        println!("{}", "FAILED".red());
+        println!("{}", color_red.apply_to("FAILED"));
         return Result::Err(Error::msg("Error: Run this command under project root."));
     }
-    println!("{}", "OK".green());
+    println!("{}", color_grn.apply_to("OK"));
 
     // Inject hacked make rules
     curr_step = 2;
@@ -52,7 +57,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     let rules_orig = fs::read_to_string(rules_file)?;
     let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP)$2 >>:file:>> $$<\n${1}").to_string();
     fs::write(rules_file, rules_hack)?;
-    println!("{}", "DONE".green());
+    println!("{}", color_grn.apply_to("DONE"));
 
     // Build the target (pseudo)
     curr_step = 3;
@@ -74,7 +79,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         ])
         .output()
         .map_err(|e| {
-            println!("{}", "FAILED".red());
+            println!("{}", color_red.apply_to("FAILED"));
             Error::msg(format!(
                 "Failed to execute `hsdocker7 make ...`: {}",
                 &e.to_string()
@@ -82,34 +87,34 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         })?;
     let status = output.status;
     if !status.success() {
-        println!("{}", "FAILED".red());
+        println!("{}", color_red.apply_to("FAILED"));
         return Result::Err(Error::msg(format!(
             "Error: Failed to build target: {}",
             status
         )));
     }
-    println!("{}", "DONE".green());
+    println!("{}", color_grn.apply_to("DONE"));
 
     // Restore original makefiles
     curr_step = 4;
     print!("[{}/{}] RESTORING MAKERULES...", curr_step, num_steps);
     io::stdout().flush()?;
     fs::write(lastrules_file, lastrules_orig).map_err(|e| {
-        println!("{}", "FAILED".red());
+        println!("{}", color_red.apply_to("FAILED"));
         e
     })?;
     fs::write(rules_file, rules_orig).map_err(|e| {
-        println!("{}", "FAILED".red());
+        println!("{}", color_grn.apply_to("FAILED"));
         e
     })?;
-    println!("{}", "DONE".green());
+    println!("{}", color_grn.apply_to("DONE"));
 
     // Parse the build log
     curr_step = 5;
     print!("[{}/{}] PARSING BUILD LOG...", curr_step, num_steps);
     io::stdout().flush()?;
     let output_str = String::from_utf8(output.stdout).map_err(|e| {
-        println!("{}", "FAILED".red());
+        println!("{}", color_red.apply_to("FAILED"));
         e
     })?;
     let hackrule_pattern = Regex::new(
@@ -128,7 +133,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             .to_string();
         records.push(CompRecord { dirc, comm, file });
     }
-    println!("{}", "DONE".green());
+    println!("{}", color_grn.apply_to("DONE"));
 
     // Generate JCDB
     curr_step = 6;
@@ -146,7 +151,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         "compile_commands.json",
         serde_json::to_string_pretty(&jcdb)?,
     )?;
-    println!("{}", "DONE".green());
+    println!("{}", color_grn.apply_to("DONE"));
 
     Ok(())
 }

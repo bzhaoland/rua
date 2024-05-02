@@ -6,7 +6,7 @@ use std::process;
 use anyhow::Context;
 use anyhow::Error as AnyError;
 use anyhow::Result as AnyResult;
-use colored::Colorize;
+use console::Style;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
@@ -14,12 +14,16 @@ pub fn clean_build() -> AnyResult<()> {
     let num_steps: usize = 2;
     let mut curr_step: usize;
 
+    // Style control
+    let color_grn = Style::new().green();
+    let color_red = Style::new().red();
+
     // Clean the target directory
     curr_step = 1;
     print!("[{}/{}] REMOVING TARGET DIRECTORY...", curr_step, num_steps);
     io::stdout().flush()?;
     fs::remove_dir_all("target").map_err(|e| {
-        println!("{}", "FAILED".red());
+        println!("{}", color_red.apply_to("FAILED"));
         e
     })?;
     println!(
@@ -38,12 +42,12 @@ pub fn clean_build() -> AnyResult<()> {
         .args(["status", "src"])
         .output()
         .with_context(|| {
-            println!("{}", "FAILED".red());
+            println!("{}", color_red.apply_to("FAILED"));
             format!("Failed to exec `svn status src`")
         })?;
 
     if !output.status.success() {
-        println!("{}", "FAILED".red());
+        println!("{}", color_red.apply_to("FAILED"));
         return Err(AnyError::msg("Error: Failed to execute `svn status src`"));
     }
     let file_pattern =
@@ -57,14 +61,14 @@ pub fn clean_build() -> AnyResult<()> {
             "\r[{}/{}] FINDING UNVERSIONED ENTRIES...{}\x1B[0K",
             curr_step,
             num_steps,
-            filelist.len().to_string().green()
+            color_grn.apply_to(filelist.len().to_string())
         );
     }
     print!(
         "\r[{}/{}] FOUND {} UNVERSIONED ENTRIES\x1B[0K",
         curr_step,
         num_steps,
-        filelist.len().to_string().green()
+        color_grn.apply_to(filelist.len().to_string())
     );
 
     print!("\r\x1B[0K");
@@ -97,7 +101,7 @@ pub fn clean_build() -> AnyResult<()> {
         "\r[{}/{}] CLEANED {} UNVERSIONED ENTRIES\x1B[0K",
         curr_step,
         num_steps,
-        filelist.len().to_string().green()
+        color_grn.apply_to(filelist.len().to_string())
     );
 
     Ok(())
