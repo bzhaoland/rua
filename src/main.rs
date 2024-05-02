@@ -36,13 +36,19 @@ enum Comm {
             help = "Make path for the target, such as 'products/vfw', 'products/ngfw_as', etc."
         )]
         product_dir: String,
-        #[arg(value_name = "TARGET", help = "Target to make, such as 'aws', 'a-dnv', etc.")]
+        #[arg(
+            value_name = "TARGET",
+            help = "Target to make, such as 'aws', 'a-dnv', etc."
+        )]
         make_target: String,
     },
 
     /// Generate file list used by Source Insight
     Silist {
-        #[arg(value_name = "PREFIX", help = "Prefix for relative file paths")]
+        #[arg(
+            value_name = "PREFIX",
+            help = "Prefix for file paths, such as '/home/user/repos/MX_MAIN' (for Linux use), 'F:/repos/MX_MAIN' (for Windows use), etc."
+        )]
         prefix: String,
     },
 
