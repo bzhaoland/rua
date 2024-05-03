@@ -22,11 +22,11 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
     // Term control
     let color_grn = Style::new().green();
     let term_stdout = Term::stdout();
-    
+
     // Generate FILELIST
     print!("GENERATING FILELIST...");
     io::stdout().flush()?;
-    let extensions = vec![
+    let extensions = [
         "c".to_string(),
         "cc".to_string(),
         "cxx".to_string(),
@@ -69,20 +69,13 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_relative = entry.strip_prefix(&curr_dir).map_err(|e| {
             println!();
-            Error::msg(format!(
-                "{}: {}",
-                curr_dir.to_string_lossy().to_string(),
-                e.to_string()
-            ))
+            Error::msg(format!("{}: {}", curr_dir.to_string_lossy(), e))
         })?;
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
         term_stdout.clear_line()?;
-        print!(
-            "GENERATING FILELIST...{} FILES FOUND",
-            files.len().to_string()
-        );
+        print!("GENERATING FILELIST...{} FILES FOUND", files.len());
         io::stdout().flush()?;
     }
 
@@ -115,11 +108,7 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_relative = entry.strip_prefix(&curr_dir).map_err(|e| {
             println!();
-            Error::msg(format!(
-                "{}: {}",
-                curr_dir.to_string_lossy().to_string(),
-                e.to_string()
-            ))
+            Error::msg(format!("{}: {}", curr_dir.to_string_lossy(), e))
         })?;
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);

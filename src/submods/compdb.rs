@@ -32,14 +32,14 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     io::stdout().flush()?;
     let mut location_ok = true;
     let attr = fs::metadata(lastrules_file);
-    if attr.is_err() || attr.unwrap().is_file() != true {
+    if attr.is_err() || !attr.unwrap().is_file() {
         location_ok = false;
     }
     let attr = fs::metadata(rules_file);
-    if attr.is_err() || attr.unwrap().is_file() != true {
+    if attr.is_err() || !attr.unwrap().is_file() {
         location_ok = false;
     }
-    if location_ok == false {
+    if !location_ok {
         println!("{}", color_red.apply_to("FAILED"));
         return Result::Err(Error::msg("Error: Run this command under project root."));
     }
@@ -128,7 +128,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         let dirc = dirc.to_string();
         let comm = comm.to_string();
         let file = PathBuf::from(&dirc)
-            .join(&file)
+            .join(file)
             .to_string_lossy()
             .to_string();
         records.push(CompRecord { dirc, comm, file });

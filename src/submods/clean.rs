@@ -42,17 +42,16 @@ pub fn clean_build() -> AnyResult<()> {
         .output()
         .with_context(|| {
             println!("{}", color_red.apply_to("FAILED"));
-            format!("Failed to exec `svn status src`")
+            "Failed to exec `svn status src`"
         })?;
 
     if !output.status.success() {
         println!("{}", color_red.apply_to("FAILED"));
         return Err(AnyError::msg("Error: Failed to execute `svn status src`"));
     }
-    let file_pattern =
-        Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| format!("Error regex pattern"))?;
+    let file_pattern = Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| "Error regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
-        .with_context(|| format!("Failed to convert output to String type"))?;
+        .with_context(|| "Failed to convert output to String type")?;
     let mut filelist = Vec::new();
     for (_, [file]) in file_pattern.captures_iter(&output_str).map(|c| c.extract()) {
         filelist.push(file.to_string());

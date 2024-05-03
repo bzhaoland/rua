@@ -133,13 +133,13 @@ fn get_current_username() -> Option<String> {
     Some(
         String::from_utf8(output.stdout)
             .unwrap()
-            .strip_suffix("\n")
+            .strip_suffix('\n')
             .unwrap()
             .to_string(),
     )
 }
 
-// When svn is available and `svn info` ran successfully
+/// When `svn` utility is available and `svn info` ran successfully
 fn get_current_branch() -> Option<String> {
     let output = Command::new("svn").arg("info").output();
 
@@ -156,12 +156,8 @@ fn get_current_branch() -> Option<String> {
     let output = String::from_utf8(output.stdout).unwrap();
     let match_res = branch_pat.captures(&output);
 
-    if match_res.is_none() {
-        return None;
-    }
-
-    let captures = match_res.unwrap();
-    let branch_fullname = captures.get(1).unwrap().as_str().to_string();
+    let captures = match_res.as_ref()?;
+    let branch_fullname = captures.get(1)?.as_str().to_string();
     let pat = Regex::new(r"R\d+").unwrap();
     let ret = pat.find(&branch_fullname);
     return match ret {
@@ -324,12 +320,12 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
 }
 
 /// Dump mkinfo records as csv
-fn dump_csv(infos: &Vec<PrintInfo>) -> Result<()> {
+fn dump_csv(infos: &[PrintInfo]) -> Result<()> {
     let mut writer = csv::Writer::from_writer(std::io::stdout());
 
-    writer.write_record(&["ProdName", "PlatModel", "MakeGoal", "MakePath", "MakeComm"])?;
+    writer.write_record(["ProdName", "PlatModel", "MakeGoal", "MakePath", "MakeComm"])?;
     for info in infos.iter() {
-        writer.write_record(&[
+        writer.write_record([
             info.prod_name.as_str(),
             info.plat_model.as_str(),
             info.make_goal.as_str(),
@@ -342,7 +338,7 @@ fn dump_csv(infos: &Vec<PrintInfo>) -> Result<()> {
     Ok(())
 }
 
-fn dump_json(infos: &Vec<PrintInfo>) -> Result<()> {
+fn dump_json(infos: &[PrintInfo]) -> Result<()> {
     let mut out: Value = json!([]);
     for info in infos.iter() {
         out.as_array_mut().unwrap().push(json!({
@@ -358,12 +354,12 @@ fn dump_json(infos: &Vec<PrintInfo>) -> Result<()> {
     Ok(())
 }
 
-fn dump_list(infos: &Vec<PrintInfo>) -> Result<()> {
+fn dump_list(infos: &[PrintInfo]) -> Result<()> {
     // Style control
     let color_grn = Style::new().green();
     let color_ylw = Style::new().yellow();
     let (_, width) = Term::stdout().size();
-    
+
     if infos.is_empty() {
         println!("No matched makeinfo.");
         return Ok(());
@@ -378,10 +374,7 @@ fn dump_list(infos: &Vec<PrintInfo>) -> Result<()> {
         if infos.len() > 1 { "s" } else { "" }
     ));
 
-    out.push_str(&format!(
-        "{}\n",
-        color_grn.apply_to(&head_decor)
-    ));
+    out.push_str(&format!("{}\n", color_grn.apply_to(&head_decor)));
 
     for (idx, item) in infos.iter().enumerate() {
         out.push_str(&format!(
@@ -390,17 +383,11 @@ fn dump_list(infos: &Vec<PrintInfo>) -> Result<()> {
         ));
 
         if idx < infos.len() - 1 {
-            out.push_str(&format!(
-                "{}\n",
-                color_grn.apply_to(&data_decor)
-            ));
+            out.push_str(&format!("{}\n", color_grn.apply_to(&data_decor)));
         }
     }
 
-    out.push_str(&format!(
-        "{}\n",
-        color_grn.apply_to(&head_decor)
-    ));
+    out.push_str(&format!("{}\n", color_grn.apply_to(&head_decor)));
 
     out.push_str(&format!(
         "{}\n",
@@ -412,15 +399,15 @@ fn dump_list(infos: &Vec<PrintInfo>) -> Result<()> {
     Ok(())
 }
 
-fn dump_tsv(infos: &Vec<PrintInfo>) -> Result<()> {
+fn dump_tsv(infos: &[PrintInfo]) -> Result<()> {
     let mut writer = csv::WriterBuilder::new()
         .delimiter(b'\t')
         .quote_style(csv::QuoteStyle::NonNumeric)
         .from_writer(std::io::stdout());
 
-    writer.write_record(&["ProdName", "PlatModel", "MakeGoal", "MakePath", "MakeComm"])?;
+    writer.write_record(["ProdName", "PlatModel", "MakeGoal", "MakePath", "MakeComm"])?;
     for info in infos.iter() {
-        writer.write_record(&[
+        writer.write_record([
             info.prod_name.as_str(),
             info.plat_model.as_str(),
             info.make_goal.as_str(),
@@ -434,7 +421,7 @@ fn dump_tsv(infos: &Vec<PrintInfo>) -> Result<()> {
 }
 
 /// Dump the make information to the screen.
-pub fn dump_mkinfo(infos: &Vec<PrintInfo>, format: DumpFormat) -> Result<()> {
+pub fn dump_mkinfo(infos: &[PrintInfo], format: DumpFormat) -> Result<()> {
     match format {
         DumpFormat::Csv => dump_csv(infos),
         DumpFormat::Json => dump_json(infos),
