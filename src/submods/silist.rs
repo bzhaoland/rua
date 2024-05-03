@@ -124,7 +124,7 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
     let filelist = files.join("\r\n");
     fs::write("filelist.txt", filelist)?;
     term_stdout.clear_line()?;
-    println!("GENERATING FILELIST...{}", color_grn.apply_to("DONE"));
+    println!("GENERATING FILELIST...{}", color_grn.apply_to("OK"));
 
     Ok(())
 }

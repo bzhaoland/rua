@@ -57,7 +57,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     let rules_orig = fs::read_to_string(rules_file)?;
     let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP)$2 >>:file:>> $$<\n${1}").to_string();
     fs::write(rules_file, rules_hack)?;
-    println!("{}", color_grn.apply_to("DONE"));
+    println!("{}", color_grn.apply_to("OK"));
 
     // Build the target (pseudo)
     curr_step = 3;
@@ -93,7 +93,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             status
         )));
     }
-    println!("{}", color_grn.apply_to("DONE"));
+    println!("{}", color_grn.apply_to("OK"));
 
     // Restore original makefiles
     curr_step = 4;
@@ -107,7 +107,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         println!("{}", color_grn.apply_to("FAILED"));
         e
     })?;
-    println!("{}", color_grn.apply_to("DONE"));
+    println!("{}", color_grn.apply_to("OK"));
 
     // Parse the build log
     curr_step = 5;
@@ -133,7 +133,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             .to_string();
         records.push(CompRecord { dirc, comm, file });
     }
-    println!("{}", color_grn.apply_to("DONE"));
+    println!("{}", color_grn.apply_to("OK"));
 
     // Generate JCDB
     curr_step = 6;
@@ -151,7 +151,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         "compile_commands.json",
         serde_json::to_string_pretty(&jcdb)?,
     )?;
-    println!("{}", color_grn.apply_to("DONE"));
+    println!("{}", color_grn.apply_to("OK"));
 
     Ok(())
 }
