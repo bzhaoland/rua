@@ -29,7 +29,7 @@ enum Comm {
     /// Clean build files
     Clean,
 
-    /// Generate JSON Compilation Database for the specified target
+    /// Generate JSON Compilation Database for the specified make target
     Compdb {
         #[arg(
             value_name = "PATH",
@@ -43,7 +43,7 @@ enum Comm {
         make_target: String,
     },
 
-    /// Generate file list used by Source Insight
+    /// Generate a filelist for Source Insight
     Silist {
         #[arg(
             value_name = "PREFIX",
@@ -52,7 +52,7 @@ enum Comm {
         prefix: String,
     },
 
-    /// Generate make info for the specified product
+    /// Get all makeinfos for the given product
     Mkinfo {
         #[arg(
             short = '4',
