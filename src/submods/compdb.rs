@@ -70,7 +70,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             product_dir,
             make_target,
             "-j16",
-            "-inwB",
+            "-iknwB",
             "HS_BUILD_COVERITY=0",
             "ISBUILDRELEASE=1",
             "HS_BUILD_UNIWEBUI=0",
