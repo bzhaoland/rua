@@ -15,8 +15,8 @@ use submods::silist::gen_silist;
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.5.1",
-    about = "A tiny box for StoneOS devel.",
+    version = "0.5.2",
+    about = "A sweety box for StoneOS devel.",
     long_about = None
 )]
 struct Cli {
@@ -33,12 +33,12 @@ enum Comm {
     Compdb {
         #[arg(
             value_name = "PATH",
-            help = "Make path for the target, such as 'products/vfw', 'products/ngfw_as', etc."
+            help = "Make path for the target, such as 'products/vfw'"
         )]
         product_dir: String,
         #[arg(
             value_name = "TARGET",
-            help = "Target to make, such as 'aws', 'a-dnv', etc."
+            help = "Target to make, such as 'aws'"
         )]
         make_target: String,
     },
@@ -47,7 +47,7 @@ enum Comm {
     Silist {
         #[arg(
             value_name = "PREFIX",
-            help = "Prefix for file paths, such as '/home/user/repos/MX_MAIN' (for Linux use), 'F:/repos/MX_MAIN' (for Windows use), etc."
+            help = "Path prefix for source files, such as '/home/user/repos/MX_MAIN' (for Linux) or 'F:/repos/MX_MAIN' (for Windows), etc."
         )]
         prefix: String,
     },
@@ -59,7 +59,7 @@ enum Comm {
             long = "ipv4",
             default_value_t = true,
             conflicts_with = "ipv6",
-            help = r"Build with ipv4 only"
+            help = r"Build with IPv4 only"
         )]
         ipv4: bool,
 
@@ -68,7 +68,7 @@ enum Comm {
             long = "ipv6",
             default_value_t = false,
             conflicts_with = "ipv4",
-            help = r"Build with ipv4 & ipv6"
+            help = r"Build with IPv4 & IPv6"
         )]
         ipv6: bool,
 
