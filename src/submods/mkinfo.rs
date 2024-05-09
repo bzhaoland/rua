@@ -152,13 +152,15 @@ fn get_current_branch() -> Option<String> {
         return None;
     }
 
-    let branch_pat = Regex::new("URL:[^\n]+/branches/([\\w\\-]+)\n").unwrap();
+    // Get the full branch name from the svn info
+    let branch_pat = Regex::new(r#"Relative URL: \^/branches/([\w-]+)\n"#).unwrap();
     let output = String::from_utf8(output.stdout).unwrap();
     let match_res = branch_pat.captures(&output);
 
+    // If contains some patterns like R10 or R10_F
     let captures = match_res.as_ref()?;
     let branch_fullname = captures.get(1)?.as_str().to_string();
-    let pat = Regex::new(r"R\d+").unwrap();
+    let pat = Regex::new(r"R\d+[\w-]*").unwrap();
     let ret = pat.find(&branch_fullname);
     return match ret {
         Some(v) => Some(v.as_str().to_string()),

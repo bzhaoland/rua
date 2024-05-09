@@ -38,7 +38,7 @@ pub fn clean_build() -> AnyResult<()> {
     );
     io::stdout().flush()?;
     let output = process::Command::new("svn")
-        .args(["status", "src"])
+        .args(["status", "src", "bin"])
         .output()
         .with_context(|| {
             println!("{}", color_red.apply_to("FAILED"));
