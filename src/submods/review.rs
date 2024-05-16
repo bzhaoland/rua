@@ -1,50 +1,28 @@
-use std::ffi::OsString;
-use std::os::unix::ffi::OsStringExt;
 use std::process::Command;
 
 use anyhow::{Error, Result};
-use libc;
 use regex::Regex;
 use reqwest::Client;
 
-/// Get current machine's hostname
-pub fn get_hostname() -> Result<OsString> {
-    let hostname_bufsize = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) } as usize;
-    let mut hostname_buf = vec![0; hostname_bufsize + 1];
-    let retcode = unsafe {
-        libc::gethostname(
-            hostname_buf.as_mut_ptr() as *mut libc::c_char,
-            hostname_buf.len(),
-        )
-    };
-    if retcode != 0 {
-        return Err(Error::msg("Failed to get hostname"));
-    }
-
-    let end = hostname_buf
-        .iter()
-        .position(|&b| b == 0)
-        .unwrap_or(hostname_buf.len());
-    hostname_buf.resize(end, 0);
-    Ok(OsString::from_vec(hostname_buf))
+pub struct ReviewOptions {
+    pub bug_id: u32,
+    pub review_id: Option<u32>,
+    pub file_list: Option<Vec<String>>,
+    pub diff_file: Option<String>,
+    pub reviewers: Option<Vec<String>>,
+    pub branch_name: Option<String>,
+    pub repo_name: Option<String>,
+    pub revisions: Option<String>,
 }
 
-pub async fn review(
-    bug_id: u32,
-    review_id: Option<u32>,
-    file_list: &Option<Vec<String>>,
-    diff_file: &Option<String>,
-    reviewers: &Option<Vec<String>>,
-    branch_name: &Option<String>,
-    repo_name: &Option<String>,
-    revision: &Option<String>,
-) -> Result<()> {
-    // Get bug class via http request. If the bug class is CustomerIssue,
-    // then reject this review request.
+pub async fn review(options: &ReviewOptions) -> Result<()> {
+    // Make a http request and get the response. The response text indicates
+    // the category of the bug.
     let client = Client::new();
     let bug_class = client
         .get(format!(
-            r#"http://10.100.1.150/api/bugz_new.php?type=get_bugclass&bug_id={bug_id}"#
+            r#"http://10.100.1.150/api/bugz_new.php?type=get_bugclass&bug_id={}"#,
+            options.bug_id
         ))
         .send()
         .await?
@@ -54,8 +32,8 @@ pub async fn review(
         return Err(Error::msg("CustomerIssues cannot be reviewed"));
     }
 
-    // Get branch name
-    let branch_name = match branch_name {
+    // Get branch name from the output of svn info
+    let branch_name = match options.branch_name.as_ref() {
         Some(v) => v.to_owned(),
         None => {
             let cmdres = Command::new("svn").arg("info").output()?;
@@ -73,7 +51,7 @@ pub async fn review(
         }
     };
 
-    // Get modified files
+    // Get files to be commited from the output of svn status.
     let cmdres = Command::new("svn").args(["status", "-q"]).output()?;
     if !cmdres.status.success() {
         return Err(Error::msg("Failed to execute `svn status -q`"));
@@ -81,23 +59,20 @@ pub async fn review(
 
     let mut comm = Command::new("python2");
     comm.arg("/usr/lib/python2.7/site-packages/RBTools-0.4.1-py2.7.egg/rbtools/postreview-cops.py")
-        .args([
-            "--summary",
-            format!("Code review for bug {bug_id}").as_str(),
-        ])
-        .arg(format!("--bugs-closed={bug_id}"))
-        .arg(format!("--branch={branch_name}"))
+        .arg(format!("--summary=Code review for bug {}", options.bug_id))
+        .arg(format!("--bugs-closed={}", options.bug_id))
+        .arg(format!("--branch={}", branch_name))
         .arg("--server=http://cops-server.hillstonedev.com:8181")
-        .arg("-p");
+        .arg("-p"); // Publish it immediately
 
     // If review id is not given, then start a new one
-    match review_id {
+    match options.review_id {
         Some(v) => comm.args(["-r", v.to_string().as_str()]),
         None => comm.arg(r#"--description-file=/devel/sw/bin/review_template"#),
     };
 
-    if file_list.is_some() {
-        comm.args(file_list.to_owned().unwrap());
+    if options.file_list.is_some() {
+        comm.args(options.file_list.as_ref().unwrap());
     }
 
     let status = comm.status()?;

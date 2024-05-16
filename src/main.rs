@@ -1,4 +1,5 @@
 mod submods;
+mod utils;
 
 use std::path::PathBuf;
 
@@ -143,7 +144,7 @@ enum Comm {
             long = "file-list",
             help = "Files to be reviewed (svn diff would only perform on these files)"
         )]
-        files: Option<Vec<String>>,
+        file_list: Option<Vec<String>>,
         #[arg(
             value_name = "DIFF-FILE",
             short = 'd',
@@ -178,7 +179,7 @@ enum Comm {
             long = "revision",
             help = "Revision to be used"
         )]
-        revision: Option<String>,
+        revisions: Option<String>,
     },
 }
 
@@ -230,9 +231,7 @@ async fn main() -> Result<()> {
                 },
             )?;
 
-            mkinfo::dump_mkinfo(&printinfos, ofmt)?;
-
-            Ok(())
+            mkinfo::dump_mkinfo(&printinfos, ofmt)
         }
         Comm::Perfan {
             file: datafile,
@@ -240,30 +239,29 @@ async fn main() -> Result<()> {
             dso: sofile,
         } => {
             let data = proc_perfdata(&datafile, &sofile, &daemon)?;
-            dump_perfdata(&data, profile::DumpFormat::Table)?;
-            Ok(())
+            dump_perfdata(&data, profile::DumpFormat::Table)
         }
         Comm::Review {
             bug_id,
             review_id,
-            files,
+            file_list,
             diff_file,
             reviewers,
             branch_name,
             repo_name,
-            revision,
+            revisions,
         } => {
-            review::review(
+            let options = review::ReviewOptions {
                 bug_id,
                 review_id,
-                &files,
-                &diff_file,
-                &reviewers,
-                &branch_name,
-                &repo_name,
-                &revision,
-            )
-            .await
+                file_list,
+                diff_file,
+                reviewers,
+                branch_name,
+                repo_name,
+                revisions,
+            };
+            review::review(&options).await
         }
     }
 }
