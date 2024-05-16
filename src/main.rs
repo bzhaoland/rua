@@ -9,6 +9,7 @@ use submods::clean::clean_build;
 use submods::compdb::gen_compdb;
 use submods::mkinfo::{self, BuildMode, InetVer, MakeOpt};
 use submods::profile::{self, dump_perfdata, proc_perfdata};
+use submods::review;
 use submods::silist::gen_silist;
 
 #[derive(Parser)]
@@ -36,10 +37,7 @@ enum Comm {
             help = "Make path for the target, such as 'products/vfw'"
         )]
         product_dir: String,
-        #[arg(
-            value_name = "TARGET",
-            help = "Target to make, such as 'aws'"
-        )]
+        #[arg(value_name = "TARGET", help = "Target to make, such as 'aws'")]
         make_target: String,
     },
 
@@ -123,9 +121,69 @@ enum Comm {
         )]
         dso: PathBuf,
     },
+    /// Start a new review request on cops-server. If a review id is given, then reuse the existing one
+    Review {
+        #[arg(
+            value_name = "BUG-ID",
+            short = 'n',
+            long = "bug-id",
+            help = "Bug id for this review request"
+        )]
+        bug_id: u32,
+        #[arg(
+            value_name = "REVIEW-ID",
+            short = 'r',
+            long = "review-id",
+            help = "Review id assigned for this review request"
+        )]
+        review_id: Option<u32>,
+        #[arg(
+            value_name = "FILES",
+            short = 'f',
+            long = "file-list",
+            help = "Files to be reviewed (svn diff would only perform on these files)"
+        )]
+        files: Option<Vec<String>>,
+        #[arg(
+            value_name = "DIFF-FILE",
+            short = 'd',
+            long = "diff-file",
+            help = "Diff file to upload"
+        )]
+        diff_file: Option<String>,
+        #[arg(
+            value_name = "REVIEWERS",
+            short = 'u',
+            long = "reviewers",
+            help = "Reviewers who will review this commit"
+        )]
+        reviewers: Option<Vec<String>>,
+        #[arg(
+            value_name = "BRANCH-NAME",
+            short = 'b',
+            long = "branch-name",
+            help = "Branch name for this commit"
+        )]
+        branch_name: Option<String>,
+        #[arg(
+            value_name = "REPO-NAME",
+            short = 'p',
+            long = "repo-name",
+            help = "Repository name"
+        )]
+        repo_name: Option<String>,
+        #[arg(
+            value_name = "REVISION",
+            short = 's',
+            long = "revision",
+            help = "Revision to be used"
+        )]
+        revision: Option<String>,
+    },
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // Suppress the following error info:
     // failed printing to stdout: Broken pipe
     unsafe {
@@ -184,6 +242,28 @@ fn main() -> Result<()> {
             let data = proc_perfdata(&datafile, &sofile, &daemon)?;
             dump_perfdata(&data, profile::DumpFormat::Table)?;
             Ok(())
+        }
+        Comm::Review {
+            bug_id,
+            review_id,
+            files,
+            diff_file,
+            reviewers,
+            branch_name,
+            repo_name,
+            revision,
+        } => {
+            review::review(
+                bug_id,
+                review_id,
+                &files,
+                &diff_file,
+                &reviewers,
+                &branch_name,
+                &repo_name,
+                &revision,
+            )
+            .await
         }
     }
 }
