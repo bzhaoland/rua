@@ -325,7 +325,7 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
 fn dump_csv(infos: &[PrintInfo]) -> Result<()> {
     let mut writer = csv::Writer::from_writer(std::io::stdout());
 
-    writer.write_record(["ProdName", "PlatModel", "MakeGoal", "MakePath", "MakeComm"])?;
+    writer.write_record(["Product", "Platform", "Target", "Path", "Command"])?;
     for info in infos.iter() {
         writer.write_record([
             info.prod_name.as_str(),
@@ -344,11 +344,11 @@ fn dump_json(infos: &[PrintInfo]) -> Result<()> {
     let mut out: Value = json!([]);
     for info in infos.iter() {
         out.as_array_mut().unwrap().push(json!({
-            "ProdName": info.prod_name,
-            "PlatModel": info.plat_model,
-            "MakeGoal": info.make_goal,
-            "MakePath": info.make_dirc,
-            "MakeComm": info.make_comm,
+            "Product": info.prod_name,
+            "Platform": info.plat_model,
+            "Target": info.make_goal,
+            "Path": info.make_dirc,
+            "Command": info.make_comm,
         }));
     }
     println!("{}", serde_json::to_string_pretty(&out)?);
@@ -407,7 +407,7 @@ fn dump_tsv(infos: &[PrintInfo]) -> Result<()> {
         .quote_style(csv::QuoteStyle::NonNumeric)
         .from_writer(std::io::stdout());
 
-    writer.write_record(["ProdName", "PlatModel", "MakeGoal", "MakePath", "MakeComm"])?;
+    writer.write_record(["Product", "Platform", "Target", "Path", "Command"])?;
     for info in infos.iter() {
         writer.write_record([
             info.prod_name.as_str(),
