@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use regex::Regex;
 use reqwest::Client;
 
@@ -46,7 +46,7 @@ pub async fn review(options: &ReviewOptions) -> Result<()> {
                 Regex::new(r#"Relative URL: \^/(?:(?:tags|branches)/([\w-]+)|(trunk))"#).unwrap();
             let caps = branch_pattern
                 .captures(&output)
-                .expect("Failed to capture branch name");
+                .context("Failed to capture branch name")?;
             caps.get(1).unwrap().as_str().to_owned()
         }
     };

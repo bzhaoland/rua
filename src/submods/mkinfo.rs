@@ -153,15 +153,19 @@ fn get_current_branch() -> Option<String> {
     }
 
     // Get the full branch name from the svn info
-    let branch_pat = Regex::new(r#"Relative URL: \^/branches/([\w-]+)\n"#).unwrap();
+    let branch_pattern = Regex::new(r#"Relative URL: \^/branches/([\w-]+)\n"#)
+        .context("Error building regex pattern for capturing branch name")
+        .unwrap();
     let output = String::from_utf8(output.stdout).unwrap();
-    let match_res = branch_pat.captures(&output);
+    let match_res = branch_pattern.captures(&output);
 
     // If contains some patterns like R10 or R10_F
     let captures = match_res.as_ref()?;
     let branch_fullname = captures.get(1)?.as_str().to_string();
-    let pat = Regex::new(r"R\d+[\w-]*").unwrap();
-    let ret = pat.find(&branch_fullname);
+    let branch_nickname_pattern = Regex::new(r"R\d+[\w-]*")
+        .context("Error building regex pattern for getting branch name")
+        .unwrap();
+    let ret = branch_nickname_pattern.find(&branch_fullname);
     return match ret {
         Some(v) => Some(v.as_str().to_string()),
         None => Some(branch_fullname),
@@ -170,25 +174,25 @@ fn get_current_branch() -> Option<String> {
 
 /// Generate the make information for the given platform.
 pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
-    let plat_regist_file = PathBuf::from_str("./src/libplatform/hs_platform.c")
+    let plat_registry_file = PathBuf::from_str("./src/libplatform/hs_platform.c")
         .context(Error::msg("Error to convert str to PathBuf"))?;
     let plat_mkinfo_file = PathBuf::from_str("./scripts/platform_table")
         .context(Error::msg("Error to convert str to PathBuf"))?;
 
     // Check current working directory
-    if !(plat_regist_file.is_file() && plat_mkinfo_file.is_file()) {
+    if !(plat_registry_file.is_file() && plat_mkinfo_file.is_file()) {
         return Err(Error::msg(
             "Wrong location! Run this command under project root.",
         ));
     }
 
     // Get all matched records from src/libplatform/hs_platform for the given platform name
-    let platinfo_reader = BufReader::new(File::open(plat_regist_file).unwrap());
+    let platinfo_reader = BufReader::new(File::open(plat_registry_file).unwrap());
     let platinfo_pat_1 = Regex::new(
         &format!(r#"(?i)\{{\s*\w+\s*,\s*\w+\s*,\s*\d+\s*,\s*\w+\s*,\s*\w+\s*,\s*"[\w\-]+"\s*,\s*"[\w\-]+?-{}"\s*,\s*".+?"\s*,\s*"[\d.]+?"\s*,\s*(?:"(.*?)"|NULL)\s*\}}"#,
-        nick_name)).unwrap();
+        nick_name)).context("Error building regex pattern for product search with product name")?;
     let platinfo_pat_2 = Regex::new(
-        r#"(?i)\{\s*(\w+)\s*,\s*(\w+)\s*,\s*(\d+)\s*,\s*(\w+)\s*,\s*(\w+)\s*,\s*"([\w\-]+)"\s*,\s*"([\w\-]+)"\s*,\s*"(.+?)"\s*,\s*"([\d.]+?)"\s*,\s*(?:"(.*?)"|NULL)\s*\}"#).unwrap();
+        r#"(?i)\{\s*(\w+)\s*,\s*(\w+)\s*,\s*(\d+)\s*,\s*(\w+)\s*,\s*(\w+)\s*,\s*"([\w\-]+)"\s*,\s*"([\w\-]+)"\s*,\s*"(.+?)"\s*,\s*"([\d.]+?)"\s*,\s*(?:"(.*?)"|NULL)\s*\}"#).context("Error building regex pattern for makeinfo search with matched platform id")?;
     let mut prods: Vec<ProdInfo> = Vec::new();
     for line in platinfo_reader.lines().map(|l| l.unwrap()) {
         if platinfo_pat_1.find(&line).is_none() {

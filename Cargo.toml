@@ -3,7 +3,7 @@ name = "rua"
 version = "0.7.0"
 edition = "2021"
 authors = ["bzhao@hillstonenet.com"]
-description = "A tiny box combining many functionalities."
+description = "A sweety box combining several utilities."
 keywords = ["CLI"]
 categories = ["command-line-utilities"]
 
