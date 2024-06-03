@@ -70,10 +70,13 @@ pub fn proc_perfanno<P: AsRef<Path>>(
                 .get(curr_modkey.as_ref().context("None is encountered")?)
                 .is_none()
             {
-                json_data["mods"].as_object_mut().unwrap().insert(
-                    curr_modkey.as_ref().context("None is encountered")?.clone(),
-                    json!({ "counter": 0, "funcs": [], "num_funcs": 0, "num_lines": 0 }),
-                );
+                json_data["mods"]
+                    .as_object_mut()
+                    .context("Error casting to a mutable object")?
+                    .insert(
+                        curr_modkey.as_ref().context("None is encountered")?.clone(),
+                        json!({ "counter": 0, "funcs": [], "num_funcs": 0, "num_lines": 0 }),
+                    );
                 json_data["num_mods"] = json!(
                     json_data["num_mods"]
                         .as_u64()
@@ -101,7 +104,7 @@ pub fn proc_perfanno<P: AsRef<Path>>(
             );
             curr_modval["funcs"]
                 .as_array_mut()
-                .expect("Error casting to a mutable array")
+                .context("Error casting to a mutable array")?
                 .push(json!({"counter": 0, "lines": []}));
         } else if let Some(captures) = dataline_pattern.captures(line) {
             let counter: u64 = captures
@@ -193,7 +196,6 @@ pub fn proc_perfanno<P: AsRef<Path>>(
                 16,
             )
             .context("Error converting string to a 64-bit unsigned integer")?;
-            println!("{:?}", addr);
             for item in loader
                 .find_frames(addr)
                 .expect("Frames not found for the given address")
@@ -206,13 +208,13 @@ pub fn proc_perfanno<P: AsRef<Path>>(
                 let location = frame.location.map_or("?:?".to_string(), |x| {
                     format!(
                         "{}:{}",
-                        PathBuf::from_str(x.file.expect("Source file not found"))
+                        PathBuf::from_str(x.file.expect("Error extracting the source file part"))
                             .expect("Error creating a PathBuf from a string slice")
                             .file_name()
                             .expect("File path terminates in ..")
                             .to_str()
                             .expect("Invalid UTF-8 encoded string"),
-                        x.line.expect("Line number not found")
+                        x.line.expect("Error extracting the line number part")
                     )
                 });
                 line["frames"]
@@ -239,8 +241,8 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
         }
         DumpFormat::Table => {
             // table
-            let decor: String = "#".repeat(100);
-            let long_pad: String = " ".repeat(8);
+            let summary_decor: String = "S".repeat(100);
+            let spacer: String = " ".repeat(6);
             let top_counter = data["counter"]
                 .as_u64()
                 .context("Error casting to a 64-bit unsigned integer")?;
@@ -255,15 +257,15 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                 .context("Error casting to a 64-bit unsigned integer")?;
 
             // Print text title
-            println!("{}", decor);
+            println!("{}", summary_decor);
             println!(
-                "[SUMMARY]{0}Samples:{1}{0}NumDaemons:{2}{0}NumFuncs:{3}{0}NumLines:{4}",
-                long_pad, top_counter, top_num_mods, top_num_funcs, top_num_lines,
+                "[SUMMARY]{0}Samples:{1}{0}Daemons:{2}{0}Funcs:{3}{0}Lines:{4}",
+                spacer, top_counter, top_num_mods, top_num_funcs, top_num_lines,
             );
-            println!("{}", decor);
+            println!("{}", summary_decor);
             print!("\n\n");
 
-            let mod_decor: String = "M".repeat(100);
+            let module_decor: String = "M".repeat(100);
             let mut mod_count: usize = 0;
             for (modk, modv) in data["mods"]
                 .as_object()
@@ -282,16 +284,16 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                     .context("Error casting to a 64-bit unsigned integer")?;
 
                 // Module-level title
-                println!("{}", mod_decor);
+                println!("{}", module_decor);
                 println!(
-                    "[{0}]{long_pad} Percent:{1:.4}%{long_pad}Samples:{2}{long_pad}NumFuncs:{3}{long_pad}NumLines:{4}",
+                    "[{0}]{spacer}Percent:{1:.2}%{spacer}Samples:{2}{spacer}Funcs:{3}{spacer}Lines:{4}",
                     modk,
                     mod_counter as f64 / top_counter as f64 * 100f64,
                     format_args!("{}/{}", mod_counter, top_counter),
                     format_args!("{}/{}", mod_num_funcs, top_num_funcs),
                     format_args!("{}/{}", mod_num_lines, top_num_lines),
                 );
-                println!("{}\n\n", mod_decor);
+                println!("{}\n\n", module_decor);
 
                 let table_borderline = "=".repeat(100);
                 let table_centerline: String = format!(
@@ -299,7 +301,7 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                     "-+-",
                     "-".repeat(100),
                 );
-                let short_pad = " ".repeat(3);
+                let spacer_2 = " ".repeat(3);
                 for (func_idx, func) in modv["funcs"]
                     .as_array()
                     .context("Error casting to an array")?
@@ -318,12 +320,12 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                     println!("{}", table_borderline);
                     println!(
                         "{1:>8}{0}{2:>13}{0}{3:>12.12}{0}{4:30}{0}Func&Location",
-                        short_pad, "Percent", "Samples", "Address", "Instruction",
+                        spacer_2, "Percent", "Samples", "Address", "Instruction",
                     );
                     println!("{}", table_centerline);
                     println!(
                         "{1:>8.4}{0}{2:>13}{0}{3:>12}{0}{4:30.30}{0}",
-                        short_pad,
+                        spacer_2,
                         func_counter as f64 / top_counter as f64 * 100f64,
                         func_counter_str,
                         "[TOTAL]",
@@ -350,10 +352,14 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                             .rev()
                             .enumerate()
                         {
-                            let frame = item.as_object().unwrap();
-                            let funcname = frame["funcname"].as_str().unwrap_or("??");
-                            let fileloca = frame["location"].as_str().unwrap_or("?:?");
-                            if idx > 1 {
+                            let frame = item.as_object().context("Error casting to an object")?;
+                            let funcname = frame["funcname"]
+                                .as_str()
+                                .context("Error casting to a string slice")?;
+                            let fileloca = frame["location"]
+                                .as_str()
+                                .context("Error casting to a string slice")?;
+                            if idx > 0 {
                                 location.push_str("->");
                             }
                             location.push_str(&format!("{}@{}", funcname, fileloca));
@@ -361,7 +367,7 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
 
                         println!(
                             "{1:>8.4}{0}{2:>13}{0}{3:>12}{0}{4:30.30}{0}{5}",
-                            short_pad, share, counter_str, address, instruction, location
+                            spacer_2, share, counter_str, address, instruction, location
                         );
                     }
 

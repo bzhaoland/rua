@@ -2,7 +2,6 @@ use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 
 use anyhow::{Error, Result};
-use libc;
 
 /// Get current machine's hostname
 #[allow(dead_code)]
