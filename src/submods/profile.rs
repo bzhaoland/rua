@@ -1,9 +1,10 @@
-use std::fs;
 use std::path::Path;
-use std::process;
+use std::str::FromStr;
+use std::{fs, path::PathBuf};
 
-use anyhow::{Context, Result};
-use regex::Regex;
+use addr2line::{self, fallible_iterator::FallibleIterator};
+use anyhow::{self, Context};
+use regex as re;
 use serde_json::{self, json, Value};
 
 #[allow(dead_code)]
@@ -12,21 +13,18 @@ pub enum DumpFormat {
     Json,
 }
 
-/// Process the profiling result measured by cycles.
-pub fn proc_perfdata<P: AsRef<Path>>(
+/// Process the perf-annotated data
+pub fn proc_perfanno<P: AsRef<Path>>(
     data_file: P,
     binary_file: P,
     daemon_name: &str,
-) -> Result<Value> {
-    let text = fs::read_to_string(&data_file).with_context(|| {
-        format!(
-            "Error reading file {}",
-            data_file.as_ref().to_str().unwrap()
-        )
-    })?;
-    let headline_pattern =
-        Regex::new(r#"Samples\s*\|\s*.*?of (.*?) for.*?\((\d+)\s*samples"#).unwrap();
-    let dataline_pattern = Regex::new(r#"(\d+)\s*:\s*([0-9a-zA-Z]+)\s*:\s*(.*?)\s*$"#).unwrap();
+) -> anyhow::Result<Value> {
+    let text = fs::read_to_string(&data_file).context(anyhow::Error::msg(format!(
+        "Error reading file {}",
+        data_file.as_ref().to_string_lossy()
+    )))?;
+    let headline_pattern = re::Regex::new(r#"Samples\s*\|\s*.*?of (.*?) for.*?\((\d+)\s*samples"#)?;
+    let dataline_pattern = re::Regex::new(r#"(\d+)\s*:\s*([0-9a-zA-Z]+)\s*:\s*(.*?)\s*$"#)?;
     let mut json_data = json!({
         "counter": 0,
         "mods": {},
@@ -38,139 +36,250 @@ pub fn proc_perfdata<P: AsRef<Path>>(
 
     // Extract data from profiling output
     for line in text.lines() {
+        // Check whether is a header line
         if let Some(captures) = headline_pattern.captures(line) {
-            curr_modkey = Some(captures.get(1).unwrap().as_str().to_string());
-            let counter: u64 = captures.get(2).unwrap().as_str().parse().unwrap();
+            curr_modkey = Some(
+                captures
+                    .get(1)
+                    .context("Error extracting the module name part from the captures")?
+                    .as_str()
+                    .to_string(),
+            );
+            let counter: u64 = captures
+                .get(2)
+                .context(
+                    "Error extracting the number of samples of current module from the captures",
+                )?
+                .as_str()
+                .parse()?;
 
-            // top-level data
-            json_data["num_funcs"] = json!(json_data["num_funcs"].as_u64().unwrap() + 1u64);
-            json_data["counter"] = json!(json_data["counter"].as_u64().unwrap() + counter);
+            // Top-level data
+            json_data["num_funcs"] = json!(
+                json_data["num_funcs"]
+                    .as_u64()
+                    .context("Error casting to a 64-bit unsigned integer")?
+                    + 1u64
+            );
+            json_data["counter"] = json!(
+                json_data["counter"]
+                    .as_u64()
+                    .context("Error casting to a 64-bit unsigned integer")?
+                    + counter
+            );
             if json_data["mods"]
-                .get(curr_modkey.as_ref().unwrap())
+                .get(curr_modkey.as_ref().context("None is encountered")?)
                 .is_none()
             {
                 json_data["mods"].as_object_mut().unwrap().insert(
-                    curr_modkey.as_ref().unwrap().clone(),
+                    curr_modkey.as_ref().context("None is encountered")?.clone(),
                     json!({ "counter": 0, "funcs": [], "num_funcs": 0, "num_lines": 0 }),
                 );
-                json_data["num_mods"] = json!(json_data["num_mods"].as_u64().unwrap() + 1u64);
+                json_data["num_mods"] = json!(
+                    json_data["num_mods"]
+                        .as_u64()
+                        .context("Error casting to a 64-bit unsigned integer")?
+                        + 1u64
+                );
             }
 
             // mod-level data
-            let curr_modval = json_data["mods"][curr_modkey.as_ref().unwrap()]
-                .as_object_mut()
-                .unwrap();
-            curr_modval["counter"] = json!(curr_modval["counter"].as_u64().unwrap() + counter);
-            curr_modval["num_funcs"] = json!(curr_modval["num_funcs"].as_u64().unwrap() + 1u64);
+            let curr_modval = json_data["mods"]
+                [curr_modkey.as_ref().context("None is encountered")?]
+            .as_object_mut()
+            .context("Error casting to an object")?;
+            curr_modval["counter"] = json!(
+                curr_modval["counter"]
+                    .as_u64()
+                    .context("Error casting to a 64-bit unsigned integer")?
+                    + counter
+            );
+            curr_modval["num_funcs"] = json!(
+                curr_modval["num_funcs"]
+                    .as_u64()
+                    .context("Error casting to a 64-bit unsigned integer")?
+                    + 1u64
+            );
             curr_modval["funcs"]
                 .as_array_mut()
-                .unwrap()
+                .expect("Error casting to a mutable array")
                 .push(json!({"counter": 0, "lines": []}));
-        }
-        if let Some(captures) = dataline_pattern.captures(line) {
-            let counter: u64 = captures.get(1).unwrap().as_str().parse().unwrap();
-            let address = captures.get(2).unwrap().as_str();
-            let instruction = captures.get(3).unwrap().as_str();
+        } else if let Some(captures) = dataline_pattern.captures(line) {
+            let counter: u64 = captures
+                .get(1)
+                .context("Error extracting the counter part from the captures")?
+                .as_str()
+                .parse()?;
+            let address = captures
+                .get(2)
+                .context("Error extracting the address part from the captures")?
+                .as_str();
+            let instruction = captures
+                .get(3)
+                .context("Error extracting the instruction part from the captures")?
+                .as_str();
 
             // top-level data
-            json_data["num_lines"] = json!(json_data["num_lines"].as_u64().unwrap() + 1u64);
+            json_data["num_lines"] = json!(
+                json_data["num_lines"]
+                    .as_u64()
+                    .context("Error casting to an 64-bit unsigned integer")?
+                    + 1u64
+            );
 
             // mod-level data
-            let curr_modval = json_data["mods"][curr_modkey.as_ref().unwrap()]
-                .as_object_mut()
-                .unwrap();
-            curr_modval["num_lines"] = json!(curr_modval["num_lines"].as_u64().unwrap() + 1u64);
+            let curr_modval = json_data["mods"]
+                [curr_modkey.as_ref().context("None is encountered")?]
+            .as_object_mut()
+            .context("Not an object")?;
+            curr_modval["num_lines"] = json!(
+                curr_modval["num_lines"]
+                    .as_u64()
+                    .context("Error casting to an 64-bit unsigned integer")?
+                    + 1u64
+            );
 
             // func-level data
-            let num_funcs = curr_modval["funcs"].as_array().unwrap().len();
+            let num_funcs = curr_modval["funcs"]
+                .as_array()
+                .context("Error casting to an array")?
+                .len();
             let curr_func = curr_modval["funcs"]
                 .get_mut(num_funcs - 1)
-                .unwrap()
+                .context("Error getting the value at the index")?
                 .as_object_mut()
-                .unwrap();
-            curr_func["counter"] = json!(curr_func["counter"].as_u64().unwrap() + counter);
-            let curr_lines = curr_func["lines"].as_array_mut().unwrap();
+                .context("Error casting to a mutable object")?;
+            curr_func["counter"] = json!(
+                curr_func["counter"]
+                    .as_u64()
+                    .context("Error casting to an 64-bit unsigned integer")?
+                    + counter
+            );
+            let curr_lines = curr_func["lines"]
+                .as_array_mut()
+                .context("Error casting to an array")?;
             curr_lines.push(json!({
                 "address": address,
                 "counter": counter,
                 "instruction": instruction,
-                "location": Value::Null,
-                "funcname": Value::Null,
+                "frames": json!([])
             }));
         }
     }
 
     // Get function name and location for each line
-    let mut addrs: Vec<String> = Vec::new();
+    let loader = addr2line::Loader::new(binary_file.as_ref().as_os_str())
+        .expect("Error creating the loader");
     let modval = json_data["mods"]
         .get_mut(daemon_name)
-        .expect("Daemon not found");
-    let funcs = modval["funcs"].as_array_mut().unwrap();
-    for func in funcs.iter_mut() {
-        let lines = func["lines"].as_array_mut().unwrap();
-        for line in lines.iter_mut() {
-            let addr = line.as_object().unwrap()["address"]
-                .as_str()
-                .unwrap()
-                .to_string();
-            addrs.push(addr);
-        }
-    }
-
-    let out = process::Command::new("addr2line")
-        .arg("-Cfs")
-        .arg("-e")
-        .arg(binary_file.as_ref().as_os_str())
-        .args(&addrs)
-        .output()
-        .expect("Failed to execute command");
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let mut olines_iter = stdout.lines();
-
-    for func in funcs.iter_mut() {
-        let lines = func["lines"].as_array_mut().unwrap();
-        for line in lines.iter_mut() {
-            let funcname = olines_iter.next().unwrap();
-            let location = olines_iter.next().unwrap();
-            line["funcname"] = json!(funcname);
-            line["location"] = json!(location);
+        .context("Daemon not found")?;
+    let funcs = modval["funcs"]
+        .as_array_mut()
+        .context("Error casting to a mutable array")?;
+    for func in funcs.iter_mut().map(|x| {
+        x.as_object_mut()
+            .expect("Error casting to a mutable object")
+    }) {
+        let lines = func["lines"]
+            .as_array_mut()
+            .context("Error casting a mutable array")?;
+        for line in lines.iter_mut().map(|x| {
+            x.as_object_mut()
+                .expect("Error casting to a mutable object")
+        }) {
+            let addr = u64::from_str_radix(
+                line["address"]
+                    .as_str()
+                    .context("Error casting to a string slice")?,
+                16,
+            )
+            .context("Error converting string to a 64-bit unsigned integer")?;
+            println!("{:?}", addr);
+            for item in loader
+                .find_frames(addr)
+                .expect("Frames not found for the given address")
+                .iterator()
+            {
+                let frame = item?;
+                let funcname = frame
+                    .function
+                    .map_or("??".to_string(), |x| x.name.to_string_lossy().to_string());
+                let location = frame.location.map_or("?:?".to_string(), |x| {
+                    format!(
+                        "{}:{}",
+                        PathBuf::from_str(x.file.expect("Source file not found"))
+                            .expect("Error creating a PathBuf from a string slice")
+                            .file_name()
+                            .expect("File path terminates in ..")
+                            .to_str()
+                            .expect("Invalid UTF-8 encoded string"),
+                        x.line.expect("Line number not found")
+                    )
+                });
+                line["frames"]
+                    .as_array_mut()
+                    .context("Error casting to a mutable array")?
+                    .push(json!({ "funcname": funcname, "location": location }));
+            }
         }
     }
 
     Ok(json_data)
 }
 
-pub fn dump_perfdata(data: &Value, format: DumpFormat) -> Result<()> {
+pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
     match format {
         DumpFormat::Json => {
             // json
-            println!("{}", serde_json::to_string_pretty(data).unwrap());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(data)
+                    .context("Error serializing to a prettyt-printed string")?
+            );
             Ok(())
         }
         DumpFormat::Table => {
             // table
             let decor: String = "#".repeat(100);
             let long_pad: String = " ".repeat(8);
-            let top_counter = data["counter"].as_u64().unwrap();
-            let top_num_mods = data["num_mods"].as_u64().unwrap();
-            let top_num_funcs = data["num_funcs"].as_u64().unwrap();
-            let top_num_lines = data["num_lines"].as_u64().unwrap();
+            let top_counter = data["counter"]
+                .as_u64()
+                .context("Error casting to a 64-bit unsigned integer")?;
+            let top_num_mods = data["num_mods"]
+                .as_u64()
+                .context("Error casting to a 64-bit unsigned integer")?;
+            let top_num_funcs = data["num_funcs"]
+                .as_u64()
+                .context("Error casting to a 64-bit unsigned integer")?;
+            let top_num_lines = data["num_lines"]
+                .as_u64()
+                .context("Error casting to a 64-bit unsigned integer")?;
 
             // Print text title
-            println!("{}\n", decor);
+            println!("{}", decor);
             println!(
                 "[SUMMARY]{0}Samples:{1}{0}NumDaemons:{2}{0}NumFuncs:{3}{0}NumLines:{4}",
                 long_pad, top_counter, top_num_mods, top_num_funcs, top_num_lines,
             );
-            println!("{}\n\n", decor);
+            println!("{}", decor);
+            print!("\n\n");
 
             let mod_decor: String = "M".repeat(100);
             let mut mod_count: usize = 0;
-            for (modk, modv) in data["mods"].as_object().unwrap().iter() {
+            for (modk, modv) in data["mods"]
+                .as_object()
+                .context("Error casting to an object")?
+                .iter()
+            {
                 mod_count += 1;
-                let mod_counter = modv["counter"].as_u64().unwrap();
-                let mod_num_funcs = modv["num_funcs"].as_u64().unwrap();
-                let mod_num_lines = modv["num_lines"].as_u64().unwrap();
+                let mod_counter = modv["counter"]
+                    .as_u64()
+                    .context("Error casting to a 64-bit unsigned integer")?;
+                let mod_num_funcs = modv["num_funcs"]
+                    .as_u64()
+                    .context("Error casting to a 64-bit unsigned integer")?;
+                let mod_num_lines = modv["num_lines"]
+                    .as_u64()
+                    .context("Error casting to a 64-bit unsigned integer")?;
 
                 // Module-level title
                 println!("{}", mod_decor);
@@ -191,11 +300,20 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> Result<()> {
                     "-".repeat(100),
                 );
                 let short_pad = " ".repeat(3);
-                for (func_idx, func) in modv["funcs"].as_array().unwrap().iter().enumerate() {
-                    let func_counter = func["counter"].as_u64().unwrap();
+                for (func_idx, func) in modv["funcs"]
+                    .as_array()
+                    .context("Error casting to an array")?
+                    .iter()
+                    .enumerate()
+                {
+                    let func_counter = func["counter"]
+                        .as_u64()
+                        .context("Error casting to a 64-bit unsigned integer")?;
                     let func_counter_str = format!("{}/{}", func_counter, top_counter);
                     let modfunc_str = format!("[{}][Func#{}]", modk, func_idx + 1);
-                    let lines = func["lines"].as_array().unwrap();
+                    let lines = func["lines"]
+                        .as_array()
+                        .context("Error casting to an array")?;
 
                     println!("{}", table_borderline);
                     println!(
@@ -213,14 +331,33 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> Result<()> {
                     );
 
                     for line in lines.iter() {
-                        let address = line["address"].as_str().unwrap();
-                        let counter = line["counter"].as_u64().unwrap();
+                        let address = line["address"]
+                            .as_str()
+                            .context("Error casting to a string slice")?;
+                        let counter = line["counter"]
+                            .as_u64()
+                            .context("Error casting to a 64-bit unsigned integer")?;
                         let counter_str = format!("{}/{}", counter, top_counter);
                         let share = counter as f64 / top_counter as f64 * 100f64;
-                        let instruction = line["instruction"].as_str().unwrap();
-                        let funcname = line["funcname"].as_str().unwrap_or("??");
-                        let location = line["location"].as_str().unwrap_or("??:0");
-                        let location = format!("{}@{}", funcname, location);
+                        let instruction = line["instruction"]
+                            .as_str()
+                            .context("Error casting to a string slice")?;
+                        let mut location = String::new();
+                        for (idx, item) in line["frames"]
+                            .as_array()
+                            .context("Error casting to an array")?
+                            .iter()
+                            .rev()
+                            .enumerate()
+                        {
+                            let frame = item.as_object().unwrap();
+                            let funcname = frame["funcname"].as_str().unwrap_or("??");
+                            let fileloca = frame["location"].as_str().unwrap_or("?:?");
+                            if idx > 1 {
+                                location.push_str("->");
+                            }
+                            location.push_str(&format!("{}@{}", funcname, fileloca));
+                        }
 
                         println!(
                             "{1:>8.4}{0}{2:>13}{0}{3:>12}{0}{4:30.30}{0}{5}",
@@ -231,14 +368,12 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> Result<()> {
                     println!("{}", table_borderline);
 
                     if func_idx < (mod_num_funcs - 1) as usize {
-                        println!();
-                        println!();
+                        print!("\n\n");
                     }
                 }
 
                 if mod_count < top_num_mods as usize {
-                    println!();
-                    println!();
+                    print!("\n\n");
                 }
             }
             Ok(())

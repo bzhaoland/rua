@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::{fs::File, str::FromStr};
 
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{anyhow, Context, Error, Ok, Result};
 use chrono::Local;
 use clap::ValueEnum;
 use console::{Style, Term};
@@ -170,8 +170,10 @@ fn get_current_branch() -> Option<String> {
 
 /// Generate the make information for the given platform.
 pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
-    let plat_regist_file = PathBuf::from_str("./src/libplatform/hs_platform.c").unwrap();
-    let plat_mkinfo_file = PathBuf::from_str("./scripts/platform_table").unwrap();
+    let plat_regist_file = PathBuf::from_str("./src/libplatform/hs_platform.c")
+        .context(Error::msg("Error to convert str to PathBuf"))?;
+    let plat_mkinfo_file = PathBuf::from_str("./scripts/platform_table")
+        .context(Error::msg("Error to convert str to PathBuf"))?;
 
     // Check current working directory
     if !(plat_regist_file.is_file() && plat_mkinfo_file.is_file()) {

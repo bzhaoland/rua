@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 use submods::clean::clean_build;
 use submods::compdb::gen_compdb;
 use submods::mkinfo::{self, BuildMode, InetVer, MakeOpt};
-use submods::profile::{self, dump_perfdata, proc_perfdata};
+use submods::profile::{self, dump_perfdata, proc_perfanno};
 use submods::review;
 use submods::silist::gen_silist;
 
@@ -238,7 +238,7 @@ async fn main() -> Result<()> {
             daemon,
             dso: sofile,
         } => {
-            let data = proc_perfdata(&datafile, &sofile, &daemon)?;
+            let data = proc_perfanno(&datafile, &sofile, &daemon)?;
             dump_perfdata(&data, profile::DumpFormat::Table)
         }
         Comm::Review {
