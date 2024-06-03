@@ -114,9 +114,18 @@ enum Comm {
             short = 'd',
             long = "daemon",
             value_name = "DAEMON",
-            help = "Only resolve addresses who is owned by this daemon"
+            help = "Only resolve addresses owned by this daemon"
         )]
         daemon: String,
+
+        #[arg(
+            short = 'o',
+            long = "outfmt",
+            value_name = "OUTFMT",
+            default_value = "table",
+            help = "Output format"
+        )]
+        outfmt: profile::DumpFormat,
 
         #[arg(
             short = 'b',
@@ -238,12 +247,13 @@ async fn main() -> Result<()> {
             mkinfo::dump_mkinfo(&printinfos, ofmt)
         }
         Comm::Perfan {
-            file: datafile,
+            file,
             daemon,
-            bin: sofile,
+            bin,
+            outfmt,
         } => {
-            let data = proc_perfanno(&datafile, &sofile, &daemon)?;
-            dump_perfdata(&data, profile::DumpFormat::Table)
+            let data = proc_perfanno(&file, &bin, &daemon)?;
+            dump_perfdata(&data, outfmt)
         }
         Comm::Review {
             bug_id,
