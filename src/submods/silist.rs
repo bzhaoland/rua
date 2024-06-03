@@ -5,7 +5,8 @@ use std::{
 };
 
 use anyhow::{Error, Result};
-use console::{Style, Term};
+use console::Term;
+use crossterm::style::Stylize;
 use walkdir::WalkDir;
 
 /// Generate filelist for SourceInsight editor.
@@ -20,7 +21,6 @@ use walkdir::WalkDir;
 /// job.
 pub fn gen_silist(prefix: &str) -> Result<()> {
     // Term control
-    let color_grn = Style::new().green();
     let term_stdout = Term::stdout();
 
     // Generate FILELIST
@@ -116,7 +116,7 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
         term_stdout.clear_line()?;
         print!(
             "GENERATING FILELIST...{} FILES FOUND",
-            color_grn.apply_to(files.len().to_string())
+            files.len().to_string().green()
         );
         io::stdout().flush()?;
     }
@@ -124,7 +124,7 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
     let filelist = files.join("\r\n");
     fs::write("filelist.txt", filelist)?;
     term_stdout.clear_line()?;
-    println!("GENERATING FILELIST...{}", color_grn.apply_to("OK"));
+    println!("GENERATING FILELIST...{}", "OK".green());
 
     Ok(())
 }

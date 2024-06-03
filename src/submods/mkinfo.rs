@@ -1,7 +1,6 @@
 use std::fmt::Display;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::process::Command;
 use std::{fs::File, str::FromStr};
 
 use anyhow::{Context, Error, Ok, Result};
@@ -10,6 +9,8 @@ use clap::ValueEnum;
 use console::{Style, Term};
 use regex::Regex;
 use serde_json::{json, Value};
+
+use crate::utils;
 
 #[derive(Debug, PartialEq)]
 pub enum InetVer {
@@ -110,66 +111,6 @@ impl Display for PrintInfo {
             self.plat_model, self.make_goal, self.make_dirc, self.make_comm,
         )
     }
-}
-
-/// Get current username through external command `id -un`.
-/// Unfortunately, crates `whoami` and `users` both function uncorrectly,
-/// they got nothing when call corresponding function to get current username.
-/// Besides, method using `libc::getuid` + `libc::getpwid` wrapped in an unsafe
-/// block functioned uncorrectly too in company's CentOS7 server. Maybe it is
-/// because there is no `passwd` table available on the server.
-fn get_current_username() -> Option<String> {
-    let output = Command::new("id").arg("-un").output();
-
-    if output.is_err() {
-        return None;
-    }
-
-    let output = output.unwrap();
-    if !output.status.success() {
-        return None;
-    }
-
-    Some(
-        String::from_utf8(output.stdout)
-            .unwrap()
-            .strip_suffix('\n')
-            .unwrap()
-            .to_string(),
-    )
-}
-
-/// When `svn` utility is available and `svn info` ran successfully
-fn get_current_branch() -> Option<String> {
-    let output = Command::new("svn").arg("info").output();
-
-    if output.is_err() {
-        return None;
-    }
-
-    let output = output.unwrap();
-    if !output.status.success() {
-        return None;
-    }
-
-    // Get the full branch name from the svn info
-    let branch_pattern = Regex::new(r#"Relative URL: \^/branches/([\w-]+)\n"#)
-        .context("Error building regex pattern for capturing branch name")
-        .unwrap();
-    let output = String::from_utf8(output.stdout).unwrap();
-    let match_res = branch_pattern.captures(&output);
-
-    // If contains some patterns like R10 or R10_F
-    let captures = match_res.as_ref()?;
-    let branch_fullname = captures.get(1)?.as_str().to_string();
-    let branch_nickname_pattern = Regex::new(r"R\d+[\w-]*")
-        .context("Error building regex pattern for getting branch name")
-        .unwrap();
-    let ret = branch_nickname_pattern.find(&branch_fullname);
-    return match ret {
-        Some(v) => Some(v.as_str().to_string()),
-        None => Some(branch_fullname),
-    };
 }
 
 /// Generate the make information for the given platform.
@@ -300,7 +241,7 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
 
     let image_name_prefix = String::from("SG6000-");
 
-    let mut image_name_suffix = get_current_branch().unwrap_or("UB".to_string());
+    let mut image_name_suffix = utils::get_current_branch().unwrap_or("UB".to_string());
     image_name_suffix.push('-');
 
     // When IPv6 is enabled
@@ -316,7 +257,7 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
     image_name_suffix.push_str(&Local::now().format("%m%d").to_string());
 
     // Username
-    if let Some(username) = get_current_username() {
+    if let Some(username) = utils::get_current_username() {
         image_name_suffix.push('-');
         image_name_suffix.push_str(&username);
     }

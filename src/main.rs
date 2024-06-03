@@ -17,7 +17,7 @@ use submods::silist::gen_silist;
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.7.0",
+    version = "0.8.0",
     about = "A sweety box for StoneOS devel.",
     long_about = None
 )]
@@ -28,7 +28,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Comm {
-    /// Clean build files
+    /// Clean build files (run under project root)
     Clean,
 
     /// Generate JSON Compilation Database for the specified make target
@@ -51,7 +51,7 @@ enum Comm {
         prefix: String,
     },
 
-    /// Get all makeinfos for the given product
+    /// Get all makeinfos for the given product name
     Mkinfo {
         #[arg(
             short = '4',
@@ -101,26 +101,30 @@ enum Comm {
         prodname: String,
     },
 
-    /// Analyze the given profiling file (perf tool)
+    /// Annotate the given perf-annotated extensively, i.e. suffix each line
+    /// with corresponding function and location (inline stack is expanded as a call chain)
     Perfan {
-        #[arg(help = "File to be processed", value_name = "FILE")]
+        #[arg(
+            help = "Annotated file to be processed, which is typically profiling output (perf)",
+            value_name = "FILE"
+        )]
         file: PathBuf,
 
         #[arg(
             short = 'd',
             long = "daemon",
             value_name = "DAEMON",
-            help = "Only match addresses owned by this daemon"
+            help = "Only resolve addresses who is owned by this daemon"
         )]
         daemon: String,
 
         #[arg(
-            short = 's',
-            long = "shared-object",
-            value_name = "SHARED-OBJECT",
-            help = "The binary file used to translate the addressesto file lines"
+            short = 'b',
+            long = "bin",
+            value_name = "BIN",
+            help = "The binary used to resolve the addresses"
         )]
-        dso: PathBuf,
+        bin: PathBuf,
     },
     /// Start a new review request on cops-server. If a review id is given, then reuse the existing one
     Review {
@@ -236,7 +240,7 @@ async fn main() -> Result<()> {
         Comm::Perfan {
             file: datafile,
             daemon,
-            dso: sofile,
+            bin: sofile,
         } => {
             let data = proc_perfanno(&datafile, &sofile, &daemon)?;
             dump_perfdata(&data, profile::DumpFormat::Table)
