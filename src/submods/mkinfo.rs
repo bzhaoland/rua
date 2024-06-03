@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::{fs::File, str::FromStr};
 
-use anyhow::{anyhow, Context, Error, Ok, Result};
+use anyhow::{Context, Error, Ok, Result};
 use chrono::Local;
 use clap::ValueEnum;
 use console::{Style, Term};
@@ -177,8 +177,8 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
 
     // Check current working directory
     if !(plat_regist_file.is_file() && plat_mkinfo_file.is_file()) {
-        return Err(anyhow!(
-            "Wrong location! Run this command under project root."
+        return Err(Error::msg(
+            "Wrong location! Run this command under project root.",
         ));
     }
 
@@ -197,15 +197,52 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
         match platinfo_pat_2.captures(&line) {
             Some(v) => {
                 prods.push(ProdInfo {
-                    plat_model: v.get(1).unwrap().as_str().to_string(),
-                    prod_model: v.get(2).unwrap().as_str().to_string(),
-                    name_id: v.get(3).unwrap().as_str().parse::<usize>().unwrap(),
-                    oem_id: v.get(4).unwrap().as_str().to_string(),
-                    family: v.get(5).unwrap().as_str().to_string(),
-                    prod_shortname: v.get(6).unwrap().as_str().to_string(),
-                    prod_longname: v.get(7).unwrap().as_str().to_string(),
-                    prod_descr: v.get(8).unwrap().as_str().to_string(),
-                    snmp_oid: v.get(9).unwrap().as_str().to_string(),
+                    plat_model: v
+                        .get(1)
+                        .context("Error extracting the platform model part")?
+                        .as_str()
+                        .to_string(),
+                    prod_model: v
+                        .get(2)
+                        .context("Error extracting the product model part")?
+                        .as_str()
+                        .to_string(),
+                    name_id: v
+                        .get(3)
+                        .context("Error extracting the name part")?
+                        .as_str()
+                        .parse::<usize>()
+                        .unwrap(),
+                    oem_id: v
+                        .get(4)
+                        .context("Error extracting the oem-id part")?
+                        .as_str()
+                        .to_string(),
+                    family: v
+                        .get(5)
+                        .context("Error extracting the product family part")?
+                        .as_str()
+                        .to_string(),
+                    prod_shortname: v
+                        .get(6)
+                        .context("Error extracting the short name part")?
+                        .as_str()
+                        .to_string(),
+                    prod_longname: v
+                        .get(7)
+                        .context("Error extracting the long name part")?
+                        .as_str()
+                        .to_string(),
+                    prod_descr: v
+                        .get(8)
+                        .context("Error extracting the description part")?
+                        .as_str()
+                        .to_string(),
+                    snmp_oid: v
+                        .get(9)
+                        .context("Error extracting the snmp-oid part")?
+                        .as_str()
+                        .to_string(),
                     icon_path: match v.get(10) {
                         Some(v) => {
                             if v.as_str() == "NULL" {
@@ -225,18 +262,30 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
     }
 
     // Fetch makeinfo for each product
-    let makeinfo_reader = BufReader::new(File::open(plat_mkinfo_file).unwrap());
+    let makeinfo_reader = BufReader::new(File::open(plat_mkinfo_file).context("File not found")?);
     let makeinfo_pat =
         Regex::new(r#"(?i)^\s*(\w+),([\w-]+),[^,]*,\s*"\s*(?:cd)?\s*([0-9A-Za-z_\-/]+)\s*","#)
-            .unwrap();
+            .context("Error composing a regex pattern")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
     for line in makeinfo_reader.lines().map(|l| l.unwrap()) {
         match makeinfo_pat.captures(&line) {
             Some(v) => {
                 mkinfos.push(MakeInfo {
-                    plat_model: v.get(1).unwrap().as_str().to_string(),
-                    make_goal: v.get(2).unwrap().as_str().to_string(),
-                    make_dirc: v.get(3).unwrap().as_str().to_string(),
+                    plat_model: v
+                        .get(1)
+                        .context("Error extracting the platform part")?
+                        .as_str()
+                        .to_string(),
+                    make_goal: v
+                        .get(2)
+                        .context("Error extracting the make target part")?
+                        .as_str()
+                        .to_string(),
+                    make_dirc: v
+                        .get(3)
+                        .context("Error extracting the directory part")?
+                        .as_str()
+                        .to_string(),
                 });
             }
             None => {

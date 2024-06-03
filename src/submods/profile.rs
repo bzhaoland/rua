@@ -3,8 +3,8 @@ use std::str::FromStr;
 use std::{fs, path::PathBuf};
 
 use addr2line::{self, fallible_iterator::FallibleIterator};
-use anyhow::{self, Context};
-use regex as re;
+use anyhow::{Context, Error, Result};
+use regex::Regex;
 use serde_json::{self, json, Value};
 
 #[allow(dead_code)]
@@ -18,13 +18,13 @@ pub fn proc_perfanno<P: AsRef<Path>>(
     data_file: P,
     binary_file: P,
     daemon_name: &str,
-) -> anyhow::Result<Value> {
-    let text = fs::read_to_string(&data_file).context(anyhow::Error::msg(format!(
+) -> Result<Value> {
+    let text = fs::read_to_string(&data_file).context(Error::msg(format!(
         "Error reading file {}",
         data_file.as_ref().to_string_lossy()
     )))?;
-    let headline_pattern = re::Regex::new(r#"Samples\s*\|\s*.*?of (.*?) for.*?\((\d+)\s*samples"#)?;
-    let dataline_pattern = re::Regex::new(r#"(\d+)\s*:\s*([0-9a-zA-Z]+)\s*:\s*(.*?)\s*$"#)?;
+    let headline_pattern = Regex::new(r#"Samples\s*\|\s*.*?of (.*?) for.*?\((\d+)\s*samples"#)?;
+    let dataline_pattern = Regex::new(r#"(\d+)\s*:\s*([0-9a-zA-Z]+)\s*:\s*(.*?)\s*$"#)?;
     let mut json_data = json!({
         "counter": 0,
         "mods": {},
@@ -228,7 +228,7 @@ pub fn proc_perfanno<P: AsRef<Path>>(
     Ok(json_data)
 }
 
-pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
+pub fn dump_perfdata(data: &Value, format: DumpFormat) -> Result<()> {
     match format {
         DumpFormat::Json => {
             // json
