@@ -40,25 +40,24 @@ pub fn get_current_branch() -> Option<String> {
     if !output.status.success() {
         return None;
     }
+    let output = String::from_utf8(output.stdout).unwrap();
 
     // Get the full branch name from the svn info
     let branch_pattern = Regex::new(r#"Relative URL: \^/branches/([\w-]+)\n"#)
         .context("Error building regex pattern for capturing branch name")
         .unwrap();
-    let output = String::from_utf8(output.stdout).unwrap();
-    let match_res = branch_pattern.captures(&output);
+    let branch_fullname = branch_pattern.captures(&output)?.get(1)?.as_str();
 
     // If contains some patterns like R10 or R10_F
-    let captures = match_res.as_ref()?;
-    let branch_fullname = captures.get(1)?.as_str().to_string();
-    let branch_nickname_pattern = Regex::new(r"R\d+[\w-]*")
-        .context("Error building regex pattern for getting branch name")
+    let branch_nickname_pattern = Regex::new(r"_(R\d+[\w-]*)")
+        .context("Error building regex pattern for composing branch nickname")
         .unwrap();
-    let ret = branch_nickname_pattern.find(&branch_fullname);
-    return match ret {
-        Some(v) => Some(v.as_str().to_string()),
-        None => Some(branch_fullname),
-    };
+    let branch_nickname = branch_nickname_pattern
+        .captures(&branch_fullname)?
+        .get(1)
+        .map_or(branch_fullname, |x| x.as_str());
+
+    Some(branch_nickname.to_string())
 }
 
 /// Get current username through external command `id -un`.

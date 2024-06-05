@@ -101,8 +101,7 @@ enum Comm {
         prodname: String,
     },
 
-    /// Annotate the given perf-annotated extensively, i.e. suffix each line
-    /// with corresponding function and location (inline stack is expanded as a call chain)
+    /// Annotate the given perf-annotated extensively with address translation
     Perfan {
         #[arg(
             help = "Annotated file to be processed, which is typically profiling output (perf)",
