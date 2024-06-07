@@ -3,32 +3,34 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process;
 
-use anyhow::Context;
-use anyhow::Error as AnyError;
-use anyhow::Result as AnyResult;
-use console::{Style, Term};
+use anyhow::{Context, Error, Result};
+use console::Term;
+use crossterm::style::Stylize;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
-pub fn clean_build() -> AnyResult<()> {
+pub fn clean_build() -> Result<()> {
     let num_steps: usize = 2;
     let mut curr_step: usize;
 
     // Term control
-    let color_grn = Style::new().green();
-    let color_red = Style::new().red();
     let term_stdout = Term::stdout();
 
-    // Clean the target directory
+    // Totally remove the target directory
     curr_step = 1;
-    print!("[{}/{}] REMOVING TARGET DIRECTORY...", curr_step, num_steps);
+    print!("[{}/{}] REMOVING TARGET...", curr_step, num_steps);
     io::stdout().flush()?;
     fs::remove_dir_all("target").map_err(|e| {
-        println!("{}", color_red.apply_to("FAILED"));
+        println!("{}", "FAILED".red());
         e
     })?;
     term_stdout.clear_line()?;
-    println!("[{}/{}] REMOVED TARGET DIRECTORY", curr_step, num_steps);
+    println!(
+        "[{}/{}] REMOVING TARGET...{}",
+        curr_step,
+        num_steps,
+        "OK".green()
+    );
 
     // Clean the unversioned entries
     curr_step = 2;
@@ -41,13 +43,13 @@ pub fn clean_build() -> AnyResult<()> {
         .args(["status", "src", "bin"])
         .output()
         .with_context(|| {
-            println!("{}", color_red.apply_to("FAILED"));
+            println!("{}", "FAILED".red());
             "Failed to exec `svn status src`"
         })?;
 
     if !output.status.success() {
-        println!("{}", color_red.apply_to("FAILED"));
-        return Err(AnyError::msg("Error: Failed to execute `svn status src`"));
+        println!("{}", "FAILED".red());
+        return Err(Error::msg("Error: Failed to execute `svn status src`"));
     }
     let file_pattern = Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| "Error regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
@@ -60,7 +62,7 @@ pub fn clean_build() -> AnyResult<()> {
             "[{}/{}] FINDING UNVERSIONED ENTRIES...{}",
             curr_step,
             num_steps,
-            color_grn.apply_to(filelist.len().to_string())
+            filelist.len().to_string().green()
         );
     }
     term_stdout.clear_line()?;
@@ -68,7 +70,7 @@ pub fn clean_build() -> AnyResult<()> {
         "[{}/{}] FOUND {} UNVERSIONED ENTRIES",
         curr_step,
         num_steps,
-        color_grn.apply_to(filelist.len().to_string())
+        filelist.len().to_string().green()
     );
 
     term_stdout.clear_line()?;
@@ -102,7 +104,7 @@ pub fn clean_build() -> AnyResult<()> {
         "[{}/{}] CLEANED {} UNVERSIONED ENTRIES",
         curr_step,
         num_steps,
-        color_grn.apply_to(filelist.len().to_string())
+        filelist.len().to_string().green()
     );
 
     Ok(())

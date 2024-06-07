@@ -31,7 +31,7 @@ enum Comm {
     /// Clean build files (run under project root)
     Clean,
 
-    /// Generate JSON Compilation Database for the specified make target
+    /// Generate a JSON Compilation Database for the target
     Compdb {
         #[arg(
             value_name = "PATH",
@@ -42,7 +42,7 @@ enum Comm {
         make_target: String,
     },
 
-    /// Generate a filelist for Source Insight
+    /// Generate a filelist only consisting of c/c++ source files
     Silist {
         #[arg(
             value_name = "PREFIX",
@@ -51,7 +51,7 @@ enum Comm {
         prefix: String,
     },
 
-    /// Get all makeinfos for the given product name
+    /// Get all matched makeinfos for the product
     Mkinfo {
         #[arg(
             short = '4',
@@ -84,7 +84,7 @@ enum Comm {
         debug: bool,
 
         /// Output format
-        #[arg(long = "ofmt", default_value = "list", value_name = "OUTPUT-FORMAT")]
+        #[arg(long = "outfmt", default_value = "list", value_name = "OUTPUT-FORMAT")]
         ofmt: mkinfo::DumpFormat,
 
         /// Build with password
@@ -95,8 +95,7 @@ enum Comm {
         #[arg(short = 'w', long = "webui")]
         webui: bool,
 
-        /// Product name, such as 'A3000', 'VM04', etc.
-        /// Regex is supported, e.g. 'X\d+80'
+        /// Product name, such as 'A1000'. Regex is also supported, e.g. 'X\d+80'
         #[arg(value_name = "PRODUCT-NAME")]
         prodname: String,
     },
@@ -134,7 +133,7 @@ enum Comm {
         )]
         bin: PathBuf,
     },
-    /// Start a new review request on cops-server. If a review id is given, then reuse the existing one
+    /// Start a new review request on cops-server or reuse an existing one
     Review {
         #[arg(
             value_name = "BUG-ID",

@@ -241,7 +241,23 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
 
     let image_name_prefix = String::from("SG6000-");
 
-    let mut image_name_suffix = utils::get_current_branch().unwrap_or("UB".to_string());
+    // Extracting patterns like R10 or R10_F from branch name
+    let branch_name = utils::get_svn_branch();
+    let branch_nickname = match &branch_name {
+        Some(name) => {
+            let nickname_pattern = Regex::new(r"HAWAII_([\w-]+)")
+                .context("Error building regex pattern for nickname")
+                .unwrap();
+            let captures = nickname_pattern.captures(name);
+            match captures {
+                Some(v) => v.get(1).map_or(name.to_owned(), |x| x.as_str().to_string()),
+                None => name.to_owned(),
+            }
+        }
+        None => "UB".to_string(),
+    };
+
+    let mut image_name_suffix = branch_nickname;
     image_name_suffix.push('-');
 
     // When IPv6 is enabled

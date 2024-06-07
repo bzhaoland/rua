@@ -29,7 +29,7 @@ pub fn get_hostname() -> Result<OsString> {
 }
 
 /// When `svn` utility is available and `svn info` ran successfully
-pub fn get_current_branch() -> Option<String> {
+pub fn get_svn_branch() -> Option<String> {
     let output = Command::new("svn").arg("info").output();
 
     if output.is_err() {
@@ -46,18 +46,9 @@ pub fn get_current_branch() -> Option<String> {
     let branch_pattern = Regex::new(r#"Relative URL: \^/branches/([\w-]+)\n"#)
         .context("Error building regex pattern for capturing branch name")
         .unwrap();
-    let branch_fullname = branch_pattern.captures(&output)?.get(1)?.as_str();
+    let branch_name = branch_pattern.captures(&output)?.get(1)?.as_str();
 
-    // If contains some patterns like R10 or R10_F
-    let branch_nickname_pattern = Regex::new(r"_(R\d+[\w-]*)")
-        .context("Error building regex pattern for composing branch nickname")
-        .unwrap();
-    let branch_nickname = branch_nickname_pattern
-        .captures(&branch_fullname)?
-        .get(1)
-        .map_or(branch_fullname, |x| x.as_str());
-
-    Some(branch_nickname.to_string())
+    Some(branch_name.to_string())
 }
 
 /// Get current username through external command `id -un`.
