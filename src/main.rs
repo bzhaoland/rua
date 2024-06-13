@@ -85,7 +85,7 @@ enum Comm {
 
         /// Output format
         #[arg(long = "outfmt", default_value = "list", value_name = "OUTPUT-FORMAT")]
-        ofmt: mkinfo::DumpFormat,
+        outfmt: mkinfo::DumpFormat,
 
         /// Build with password
         #[arg(short = 'p', long = "password", default_value_t = false)]
@@ -100,12 +100,9 @@ enum Comm {
         prodname: String,
     },
 
-    /// Annotate the given perf-annotated extensively with address translation
+    /// Enhance the given perf-annotated text extensively with address translation
     Perfan {
-        #[arg(
-            help = "Annotated file to be processed, which is typically profiling output (perf)",
-            value_name = "FILE"
-        )]
+        #[arg(help = "Annotated file to be processed (perf)", value_name = "FILE")]
         file: PathBuf,
 
         #[arg(
@@ -129,31 +126,31 @@ enum Comm {
             short = 'b',
             long = "bin",
             value_name = "BIN",
-            help = "The binary used to resolve the addresses"
+            help = "The binary file used to resolve the addresses"
         )]
         bin: PathBuf,
     },
-    /// Start a new review request on cops-server or reuse an existing one
+    /// Launch a new review request or reuse an existing one
     Review {
         #[arg(
             value_name = "BUG-ID",
             short = 'n',
             long = "bug-id",
-            help = "Bug id for this review request"
+            help = "The bug id used for this review request"
         )]
         bug_id: u32,
         #[arg(
             value_name = "REVIEW-ID",
             short = 'r',
             long = "review-id",
-            help = "Review id assigned for this review request"
+            help = "The review id of an existing review request"
         )]
         review_id: Option<u32>,
         #[arg(
             value_name = "FILES",
             short = 'f',
             long = "file-list",
-            help = "Files to be reviewed (svn diff would only perform on these files)"
+            help = "Files to be reviewed"
         )]
         file_list: Option<Vec<String>>,
         #[arg(
@@ -171,9 +168,9 @@ enum Comm {
         )]
         reviewers: Option<Vec<String>>,
         #[arg(
-            value_name = "BRANCH-NAME",
+            value_name = "BRANCH",
             short = 'b',
-            long = "branch-name",
+            long = "branch",
             help = "Branch name for this commit"
         )]
         branch_name: Option<String>,
@@ -219,17 +216,14 @@ async fn main() -> Result<()> {
             prodname,
             debug,
             webui,
-            ofmt,
+            outfmt,
         } => {
-            let mut inet_ver = InetVer::IPv4;
-            if ipv6 {
-                inet_ver = InetVer::IPv6;
-            }
-
-            let mut buildtyp = BuildMode::Release;
-            if debug {
-                buildtyp = BuildMode::Debug;
-            }
+            let inet_ver = if ipv6 { InetVer::IPv6 } else { InetVer::IPv4 };
+            let build_mode = if debug {
+                BuildMode::Debug
+            } else {
+                BuildMode::Release
+            };
 
             let printinfos = mkinfo::gen_mkinfo(
                 &prodname,
@@ -237,12 +231,12 @@ async fn main() -> Result<()> {
                     coverity: coverity.to_owned(),
                     inet_ver,
                     passwd: password.to_owned(),
-                    buildmode: buildtyp,
+                    buildmode: build_mode,
                     webui: webui.to_owned(),
                 },
             )?;
 
-            mkinfo::dump_mkinfo(&printinfos, ofmt)
+            mkinfo::dump_mkinfo(&printinfos, outfmt)
         }
         Comm::Perfan {
             file,
