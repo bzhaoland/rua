@@ -1,9 +1,10 @@
 use std::env;
 use std::fs;
+use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::{Error, Result};
-use console::Term;
 use crossterm::style::Stylize;
 use walkdir::WalkDir;
 
@@ -19,11 +20,11 @@ use walkdir::WalkDir;
 /// job.
 pub fn gen_silist(prefix: &str) -> Result<()> {
     // Term control
-    let term_stdout = Term::stdout();
+    let mut stdout = io::stdout();
 
     // Generate FILELIST
     print!("GENERATING FILELIST...");
-    term_stdout.flush()?;
+    stdout.flush()?;
     let extensions = [
         "c".to_string(),
         "cc".to_string(),
@@ -40,7 +41,7 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
     // Search over src directory
     print!("GENERATING FILELIST...{} FILES FOUND", "0".yellow());
-    term_stdout.flush()?;
+    stdout.flush()?;
     for entry in WalkDir::new("src") {
         if entry.is_err() {
             continue;
@@ -74,8 +75,11 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
-        print!("\rGENERATING FILELIST...{} FILES FOUND\x1B[K", files.len());
-        term_stdout.flush()?;
+        print!(
+            "\rGENERATING FILELIST...{} FILES FOUND\x1B[K",
+            files.len().to_string().yellow(),
+        );
+        stdout.flush()?;
     }
 
     // Search over gshare directory
@@ -112,12 +116,11 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
-        term_stdout.clear_line()?;
         print!(
-            "GENERATING FILELIST...{} FILES FOUND",
+            "\rGENERATING FILELIST...{} FILES FOUND\x1B[K",
             files.len().to_string().yellow()
         );
-        term_stdout.flush()?;
+        stdout.flush()?;
     }
 
     let filelist = files.join("\r\n");
