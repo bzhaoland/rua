@@ -17,7 +17,7 @@ use submods::silist::gen_silist;
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.8.0",
+    version = "0.8.1",
     about = "A sweety box for StoneOS devel.",
     long_about = None
 )]
