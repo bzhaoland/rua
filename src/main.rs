@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand};
 
 use submods::clean::clean_build;
 use submods::compdb::gen_compdb;
+use submods::getcc::fetch_compile_command;
 use submods::mkinfo::{self, BuildMode, InetVer, MakeOpt};
 use submods::profile::{self, dump_perfdata, proc_perfanno};
 use submods::review;
@@ -40,6 +41,12 @@ enum Comm {
         product_dir: String,
         #[arg(value_name = "TARGET", help = "Target to make, such as 'aws'")]
         make_target: String,
+    },
+
+    /// Show the compile command for a specific file (depends on compilation database)
+    Showcc {
+        #[arg(value_name = "FILENAME", help = "Fetch compile command of which file")]
+        filename: String
     },
 
     /// Generate a filelist only consisting of c/c++ source files
@@ -207,6 +214,14 @@ async fn main() -> Result<()> {
             product_dir,
             make_target,
         } => gen_compdb(&product_dir, &make_target),
+        Comm::Showcc { filename } => {
+            let commands = fetch_compile_command(filename.as_str())?;
+            for (idx, item) in commands.iter().enumerate() {
+                println!("{}: {}", idx + 1, item);
+            }
+
+            Ok(())
+        },
         Comm::Silist { prefix } => gen_silist(&prefix),
         Comm::Mkinfo {
             coverity,
