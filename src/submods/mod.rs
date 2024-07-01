@@ -1,7 +1,7 @@
 pub mod clean;
 pub mod compdb;
-pub mod getcc;
 pub mod mkinfo;
-pub mod profile;
+pub mod perfan;
 pub mod review;
+pub mod showcc;
 pub mod silist;

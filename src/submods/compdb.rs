@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -6,14 +7,27 @@ use std::process::Command;
 use anyhow::{Error, Result};
 use console::Style;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 
-#[derive(Debug)]
-struct CompRecord {
-    dirc: String,
-    comm: String,
-    file: String,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CompDBRecord {
+    pub command: String,
+    pub directory: String,
+    pub file: String,
 }
+
+impl fmt::Display for CompDBRecord {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            r"{{ command: {}, directory: {}, file: {} }}",
+            self.command, self.directory, self.file
+        )
+    }
+}
+
+pub type CompDB = Vec<CompDBRecord>;
 
 pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     // Resources later used
@@ -120,7 +134,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     let hackrule_pattern = Regex::new(
         r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#,
     )?;
-    let mut records: Vec<CompRecord> = Vec::new();
+    let mut records: Vec<CompDBRecord> = Vec::new();
     for (_, [dirc, comm, file]) in hackrule_pattern
         .captures_iter(&output_str)
         .map(|c| c.extract())
@@ -131,7 +145,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             .join(file)
             .to_string_lossy()
             .to_string();
-        records.push(CompRecord { dirc, comm, file });
+        records.push(CompDBRecord { directory: dirc, command: comm, file });
     }
     println!("{}", color_grn.apply_to("OK"));
 
@@ -142,8 +156,8 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     let mut jcdb = json!([]);
     for item in records.iter() {
         jcdb.as_array_mut().unwrap().push(json!({
-            "directory": item.dirc,
-            "command": item.comm,
+            "directory": item.directory,
+            "command": item.command,
             "file": item.file,
         }));
     }

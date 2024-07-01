@@ -6,20 +6,20 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use submods::clean::clean_build;
-use submods::compdb::gen_compdb;
-use submods::getcc::fetch_compile_command;
-use submods::mkinfo::{self, BuildMode, InetVer, MakeOpt};
-use submods::profile::{self, dump_perfdata, proc_perfanno};
-use submods::review;
-use submods::silist::gen_silist;
+use crate::submods::clean;
+use crate::submods::compdb;
+use crate::submods::mkinfo;
+use crate::submods::perfan;
+use crate::submods::review;
+use crate::submods::showcc;
+use crate::submods::silist;
 
 #[derive(Parser)]
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.8.1",
-    about = "A sweety box for StoneOS devel.",
+    version = "0.9.0",
+    about = "A dev box for StoneOS project.",
     long_about = None
 )]
 struct Cli {
@@ -46,7 +46,7 @@ enum Comm {
     /// Show the compile command for a specific file (depends on compilation database)
     Showcc {
         #[arg(value_name = "FILENAME", help = "Fetch compile command of which file")]
-        filename: String
+        filename: String,
     },
 
     /// Generate a filelist only consisting of c/c++ source files
@@ -127,7 +127,7 @@ enum Comm {
             default_value = "table",
             help = "Output format"
         )]
-        outfmt: profile::DumpFormat,
+        outfmt: perfan::DumpFormat,
 
         #[arg(
             short = 'b',
@@ -209,20 +209,17 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Comm::Clean => clean_build(),
+        Comm::Clean => clean::clean_build(),
         Comm::Compdb {
             product_dir,
             make_target,
-        } => gen_compdb(&product_dir, &make_target),
+        } => compdb::gen_compdb(&product_dir, &make_target),
         Comm::Showcc { filename } => {
-            let commands = fetch_compile_command(filename.as_str())?;
-            for (idx, item) in commands.iter().enumerate() {
-                println!("{}: {}", idx + 1, item);
-            }
-
+            let records = showcc::fetch_compile_command(filename.as_str())?;
+            showcc::print_records(&records)?;
             Ok(())
-        },
-        Comm::Silist { prefix } => gen_silist(&prefix),
+        }
+        Comm::Silist { prefix } => silist::gen_silist(&prefix),
         Comm::Mkinfo {
             coverity,
             ipv4: _,
@@ -233,16 +230,20 @@ async fn main() -> Result<()> {
             webui,
             outfmt,
         } => {
-            let inet_ver = if ipv6 { InetVer::IPv6 } else { InetVer::IPv4 };
-            let build_mode = if debug {
-                BuildMode::Debug
+            let inet_ver = if ipv6 {
+                mkinfo::InetVer::IPv6
             } else {
-                BuildMode::Release
+                mkinfo::InetVer::IPv4
+            };
+            let build_mode = if debug {
+                mkinfo::BuildMode::Debug
+            } else {
+                mkinfo::BuildMode::Release
             };
 
             let printinfos = mkinfo::gen_mkinfo(
                 &prodname,
-                &MakeOpt {
+                &mkinfo::MakeOpt {
                     coverity: coverity.to_owned(),
                     inet_ver,
                     passwd: password.to_owned(),
@@ -259,8 +260,8 @@ async fn main() -> Result<()> {
             bin,
             outfmt,
         } => {
-            let data = proc_perfanno(&file, &bin, &daemon)?;
-            dump_perfdata(&data, outfmt)
+            let data = perfan::proc_perfanno(&file, &bin, &daemon)?;
+            perfan::dump_perfdata(&data, outfmt)
         }
         Comm::Review {
             bug_id,
