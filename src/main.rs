@@ -32,7 +32,7 @@ enum Comm {
     /// Clean build files (run under project root)
     Clean,
 
-    /// Generate a JSON Compilation Database for the target
+    /// Generate JSON Compilation Database for target
     Compdb {
         #[arg(
             value_name = "PATH",
@@ -41,21 +41,6 @@ enum Comm {
         product_dir: String,
         #[arg(value_name = "TARGET", help = "Target to make, such as 'aws'")]
         make_target: String,
-    },
-
-    /// Show the compile command for a specific file (depends on compilation database)
-    Showcc {
-        #[arg(value_name = "FILENAME", help = "Fetch compile command of which file")]
-        filename: String,
-    },
-
-    /// Generate a filelist only consisting of c/c++ source files
-    Silist {
-        #[arg(
-            value_name = "PREFIX",
-            help = "Path prefix for source files, such as '/home/user/repos/MX_MAIN' (for Linux) or 'F:/repos/MX_MAIN' (for Windows), etc."
-        )]
-        prefix: String,
     },
 
     /// Get all matched makeinfos for the product
@@ -86,7 +71,7 @@ enum Comm {
         )]
         coverity: bool,
 
-        /// Build in debug mode (default is release)
+        /// Build in debug mode (default is release mode)
         #[arg(short = 'd', long = "debug", default_value_t = false)]
         debug: bool,
 
@@ -107,7 +92,7 @@ enum Comm {
         prodname: String,
     },
 
-    /// Enhance the given perf-annotated text extensively with address translation
+    /// Extensively translate addresses to corresponding functions and locations
     Perfan {
         #[arg(help = "Annotated file to be processed (perf)", value_name = "FILE")]
         file: PathBuf,
@@ -137,7 +122,8 @@ enum Comm {
         )]
         bin: PathBuf,
     },
-    /// Launch a new review request or reuse an existing one
+
+    /// Initiate a new review request or refresh an existing one
     Review {
         #[arg(
             value_name = "BUG-ID",
@@ -195,6 +181,21 @@ enum Comm {
             help = "Revision to be used"
         )]
         revisions: Option<String>,
+    },
+
+    /// Show all possible compile commands for filename (based on compilation database)
+    Showcc {
+        #[arg(value_name = "FILENAME", help = "Fetch compile command of which file")]
+        filename: String,
+    },
+
+    /// Generate a filelist for Source Insight
+    Silist {
+        #[arg(
+            value_name = "PREFIX",
+            help = "Path prefix for source files, such as '/home/user/repos/MX_MAIN' (for Linux) or 'F:/repos/MX_MAIN' (for Windows), etc."
+        )]
+        prefix: String,
     },
 }
 
