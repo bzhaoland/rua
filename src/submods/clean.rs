@@ -18,7 +18,7 @@ pub fn clean_build() -> Result<()> {
 
     // Totally remove the target directory
     curr_step = 1;
-    print!("[{}/{}] REMOVING TARGET...", curr_step, num_steps);
+    print!("[{}/{}] REMOVING TARGET DIRECTORY...", curr_step, num_steps);
     io::stdout().flush()?;
     fs::remove_dir_all("target").map_err(|e| {
         println!("{}", "FAILED".red());
@@ -26,13 +26,13 @@ pub fn clean_build() -> Result<()> {
     })?;
     term_stdout.clear_line()?;
     println!(
-        "[{}/{}] REMOVING TARGET...{}",
+        "[{}/{}] REMOVING TARGET DIRECTORY...{}",
         curr_step,
         num_steps,
         "OK".green()
     );
 
-    // Clean the unversioned entries
+    // Clean unversioned entries
     curr_step = 2;
     print!(
         "[{}/{}] FINDING UNVERSIONED ENTRIES...",
@@ -40,7 +40,7 @@ pub fn clean_build() -> Result<()> {
     );
     io::stdout().flush()?;
     let output = process::Command::new("svn")
-        .args(["status", "src", "bin"])
+        .args(["status", "src", "bin", "lib"])
         .output()
         .with_context(|| {
             println!("{}", "FAILED".red());
