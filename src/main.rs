@@ -43,7 +43,7 @@ enum Comm {
         make_target: String,
     },
 
-    /// Get all matched makeinfos for the product
+    /// Get all matched makeinfos for product
     Mkinfo {
         #[arg(
             short = '4',

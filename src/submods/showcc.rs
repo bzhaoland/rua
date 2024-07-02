@@ -22,7 +22,7 @@ pub fn fetch_compile_command(filename: &str) -> Result<Vec<CompDBRecord>> {
             .to_str()
             .context("Not valid Unicode")?;
         if tmp == filename {
-            let pattern = Regex::new("-M(D|F|G|M|MD|P|Q|T) ")?;
+            let pattern = Regex::new(r"-M(?:[DGMP]|MD|no-modules|[FTQ]\s*\S+)?\s+")?;
             let new_command = pattern.replace(&item.command, "").to_string();
             commands.push(CompDBRecord {
                 command: new_command,
