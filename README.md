@@ -44,3 +44,11 @@ We need give the full path to the project root to the command. For example:
 ```shell
 rua silist 'F:/repos/MX_MAIN'
 ```
+
+## `showcc`
+
+Users can use this command to fetch the compile command for a specific filename. This is useful for who want to check the compilation error only.
+
+> This functionality depends on JSON Compilation database. So you have to 
+> generate it using `compdb` command firstly. Besides, the output is
+> specific to the product used to generate the JSON compilation database.
