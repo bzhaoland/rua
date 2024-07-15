@@ -92,7 +92,7 @@ enum Comm {
         prodname: String,
     },
 
-    /// Extensively translate addresses to corresponding functions and locations
+    /// Extensively translate addresses to file and locations
     Perfan {
         #[arg(help = "Annotated file to be processed (perf)", value_name = "FILE")]
         file: PathBuf,
@@ -150,14 +150,14 @@ enum Comm {
             value_name = "DIFF-FILE",
             short = 'd',
             long = "diff-file",
-            help = "Diff file to upload"
+            help = "Diff files to be uploaded"
         )]
         diff_file: Option<String>,
         #[arg(
             value_name = "REVIEWERS",
             short = 'u',
             long = "reviewers",
-            help = "Reviewers who will review this commit"
+            help = "Reviewers"
         )]
         reviewers: Option<Vec<String>>,
         #[arg(

@@ -31,25 +31,24 @@ pub type CompDB = Vec<CompDBRecord>;
 
 pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     // Resources later used
-    let lastrules_file = "./scripts/last-rules.mk";
-    let rules_file = "./scripts/rules.mk";
-    let num_steps = 6usize;
-    let mut curr_step;
+    const LASTRULE_MKFILE: &str = "./scripts/last-rules.mk";
+    const RULES_MKFILE: &str = "./scripts/rules.mk";
+    const NSTEPS: usize = 6;
+    let mut step: usize = 1;
 
     // Style control
     let color_grn = Style::new().green();
     let color_red = Style::new().red();
 
-    // Checking running directory, should run under project root
-    curr_step = 1usize;
-    print!("[{}/{}] CHECKING LOCATION...", curr_step, num_steps);
+    // Checking working directory, should run under project root
+    print!("[{}/{}] CHECKING LOCATION...", step, NSTEPS);
     io::stdout().flush()?;
     let mut location_ok = true;
-    let attr = fs::metadata(lastrules_file);
+    let attr = fs::metadata(LASTRULE_MKFILE);
     if attr.is_err() || !attr.unwrap().is_file() {
         location_ok = false;
     }
-    let attr = fs::metadata(rules_file);
+    let attr = fs::metadata(RULES_MKFILE);
     if attr.is_err() || !attr.unwrap().is_file() {
         location_ok = false;
     }
@@ -60,22 +59,22 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     println!("{}", color_grn.apply_to("OK"));
 
     // Inject hacked make rules
-    curr_step = 2;
-    print!("[{}/{}] INJECTING MAKEFILES...", curr_step, num_steps);
+    step += 1;
+    print!("[{}/{}] INJECTING MAKEFILES...", step, NSTEPS);
     io::stdout().flush()?;
     let recipe_pattern_c = Regex::new(r#"(\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c(\s+-E)?\s+-o\s+\$@\s+\$<\s*?\n?)"#).unwrap();
-    let lastrules_orig = fs::read_to_string(lastrules_file)?;
+    let lastrules_orig = fs::read_to_string(LASTRULE_MKFILE)?;
     let lastrules_hack = recipe_pattern_c.replace_all(&lastrules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c$2 -o $$@ $$< >>:file:>> $$<\n${1}").to_string();
-    fs::write(lastrules_file, lastrules_hack)?;
+    fs::write(LASTRULE_MKFILE, lastrules_hack)?;
     let recipe_pattern_cc = Regex::new(r#"(\t\s*\$\(COMPILE_CXX_CP_E\)(\s+-E)?\s*?\n?)"#).unwrap();
-    let rules_orig = fs::read_to_string(rules_file)?;
+    let rules_orig = fs::read_to_string(RULES_MKFILE)?;
     let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP)$2 >>:file:>> $$<\n${1}").to_string();
-    fs::write(rules_file, rules_hack)?;
+    fs::write(RULES_MKFILE, rules_hack)?;
     println!("{}", color_grn.apply_to("OK"));
 
     // Build the target (pseudo)
-    curr_step = 3;
-    print!("[{}/{}] BUILDING TARGET...", curr_step, num_steps);
+    step += 1;
+    print!("[{}/{}] BUILDING TARGET...", step, NSTEPS);
     io::stdout().flush()?;
     let output = Command::new("hsdocker7")
         .args([
@@ -110,22 +109,22 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     println!("{}", color_grn.apply_to("OK"));
 
     // Restore original makefiles
-    curr_step = 4;
-    print!("[{}/{}] RESTORING MAKERULES...", curr_step, num_steps);
+    step += 1;
+    print!("[{}/{}] RESTORING MAKERULES...", step, NSTEPS);
     io::stdout().flush()?;
-    fs::write(lastrules_file, lastrules_orig).map_err(|e| {
+    fs::write(LASTRULE_MKFILE, lastrules_orig).map_err(|e| {
         println!("{}", color_red.apply_to("FAILED"));
         e
     })?;
-    fs::write(rules_file, rules_orig).map_err(|e| {
+    fs::write(RULES_MKFILE, rules_orig).map_err(|e| {
         println!("{}", color_grn.apply_to("FAILED"));
         e
     })?;
     println!("{}", color_grn.apply_to("OK"));
 
     // Parse the build log
-    curr_step = 5;
-    print!("[{}/{}] PARSING BUILD LOG...", curr_step, num_steps);
+    step += 1;
+    print!("[{}/{}] PARSING BUILD LOG...", step, NSTEPS);
     io::stdout().flush()?;
     let output_str = String::from_utf8(output.stdout).map_err(|e| {
         println!("{}", color_red.apply_to("FAILED"));
@@ -145,13 +144,17 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             .join(file)
             .to_string_lossy()
             .to_string();
-        records.push(CompDBRecord { directory: dirc, command: comm, file });
+        records.push(CompDBRecord {
+            directory: dirc,
+            command: comm,
+            file,
+        });
     }
     println!("{}", color_grn.apply_to("OK"));
 
     // Generate JCDB
-    curr_step = 6;
-    print!("[{}/{}] GENERATING JCDB...", curr_step, num_steps);
+    step += 1;
+    print!("[{}/{}] GENERATING JCDB...", step, NSTEPS);
     io::stdout().flush()?;
     let mut jcdb = json!([]);
     for item in records.iter() {

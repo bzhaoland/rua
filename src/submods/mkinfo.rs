@@ -273,10 +273,9 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
     image_name_suffix.push_str(&Local::now().format("%m%d").to_string());
 
     // Username
-    if let Some(username) = utils::get_current_username() {
-        image_name_suffix.push('-');
-        image_name_suffix.push_str(&username);
-    }
+    let username = utils::get_login_name();
+    image_name_suffix.push('-');
+    image_name_suffix.push_str(&username);
 
     let mut printinfos: Vec<PrintInfo> = Vec::new();
 
