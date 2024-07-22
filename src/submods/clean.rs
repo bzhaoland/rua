@@ -14,17 +14,17 @@ pub fn clean_build() -> Result<()> {
     let mut step: usize = 1;
 
     // Term control
-    let term_stdout = Term::stdout();
+    let termout = Term::stdout();
 
     // Remove the whole target directory
-    print!("[{}/{}] REMOVING TARGET DIRECTORY ...", step, NSTEPS);
+    print!("[{}/{}] REMOVING TARGET DIRECTORY...", step, NSTEPS);
     io::stdout().flush()?;
     fs::remove_dir_all("target").map_err(|e| {
         println!("{}", "FAILED".red());
         e
     })?;
     println!(
-        "\r[{}/{}] REMOVING TARGET DIRECTORY ...{}\x1B[0K",
+        "\r[{}/{}] REMOVING TARGET DIRECTORY...{}\x1B[0K",
         step,
         NSTEPS,
         "OK".green()
@@ -32,7 +32,7 @@ pub fn clean_build() -> Result<()> {
 
     // Clean unversioned entries
     step = 2;
-    print!("[{}/{}] FINDING UNVERSIONED ENTRIES ...", step, NSTEPS);
+    print!("[{}/{}] FINDING UNVERSIONEDS...", step, NSTEPS);
     io::stdout().flush()?;
     let output = process::Command::new("svn")
         .args(["status", "src", "bin", "lib"])
@@ -61,28 +61,22 @@ pub fn clean_build() -> Result<()> {
     );
     io::stdout().flush()?;
 
-    term_stdout.clear_line()?;
-    let pb = ProgressBar::new(filelist.len() as u64);
-    pb.set_prefix(format!("{}/{} CLEANING UNVERSIONEDS", step, NSTEPS));
-    pb.set_style(
-        ProgressStyle::with_template(
-            "{spinner:.green} {prefix} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
-        )
-        .unwrap()
-        .progress_chars("#>-"),
-    );
+    termout.clear_line()?;
+    let pb = ProgressBar::new(filelist.len() as u64)
+        .with_prefix(format!("{}/{} CLEANING UNVERSIONEDS", step, NSTEPS))
+        .with_style(
+            ProgressStyle::with_template(
+                "{prefix} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+            )
+            .expect("Error: Template error")
+            .progress_chars("=>-")
+        );
     for item in filelist.iter() {
         let entry = PathBuf::from(item);
         if entry.is_file() || entry.is_symlink() {
-            fs::remove_file(item).map_err(|e| {
-                println!();
-                e
-            })?;
+            fs::remove_file(item)?;
         } else if entry.is_dir() {
-            fs::remove_dir_all(entry).map_err(|e| {
-                println!();
-                e
-            })?;
+            fs::remove_dir_all(entry)?;
         }
         pb.inc(1);
     }

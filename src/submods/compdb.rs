@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Error, Result};
-use console::Style;
+use crossterm::style::Stylize;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
@@ -36,10 +36,6 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     const NSTEPS: usize = 6;
     let mut step: usize = 1;
 
-    // Style control
-    let color_grn = Style::new().green();
-    let color_red = Style::new().red();
-
     // Checking working directory, should run under project root
     print!("[{}/{}] CHECKING LOCATION...", step, NSTEPS);
     io::stdout().flush()?;
@@ -53,14 +49,14 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         location_ok = false;
     }
     if !location_ok {
-        println!("{}", color_red.apply_to("FAILED"));
+        println!("{}", "FAILED".red());
         return Result::Err(Error::msg("Error: Run this command under project root."));
     }
-    println!("{}", color_grn.apply_to("OK"));
+    println!("{}", "OK".green());
 
     // Inject hacked make rules
     step += 1;
-    print!("[{}/{}] INJECTING MAKEFILES...", step, NSTEPS);
+    print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
     io::stdout().flush()?;
     let recipe_pattern_c = Regex::new(r#"(\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c(\s+-E)?\s+-o\s+\$@\s+\$<\s*?\n?)"#).unwrap();
     let lastrules_orig = fs::read_to_string(LASTRULE_MKFILE)?;
@@ -70,7 +66,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     let rules_orig = fs::read_to_string(RULES_MKFILE)?;
     let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP)$2 >>:file:>> $$<\n${1}").to_string();
     fs::write(RULES_MKFILE, rules_hack)?;
-    println!("{}", color_grn.apply_to("OK"));
+    println!("\r[{}/{}] INJECTING MAKERULES...{}\x1B[0K", step, NSTEPS, "OK".green());
 
     // Build the target (pseudo)
     step += 1;
@@ -92,7 +88,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         ])
         .output()
         .map_err(|e| {
-            println!("{}", color_red.apply_to("FAILED"));
+            println!("{}", "FAILED".red());
             Error::msg(format!(
                 "Failed to execute `hsdocker7 make ...`: {}",
                 &e.to_string()
@@ -100,34 +96,34 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         })?;
     let status = output.status;
     if !status.success() {
-        println!("{}", color_red.apply_to("FAILED"));
+        println!("{}", "FAILED".red());
         return Result::Err(Error::msg(format!(
             "Error: Failed to build target: {}",
             status
         )));
     }
-    println!("{}", color_grn.apply_to("OK"));
+    println!("\r[{}/{}] BUILDING TARGET...{}\x1B[0K", step, NSTEPS, "OK".green());
 
     // Restore original makefiles
     step += 1;
-    print!("[{}/{}] RESTORING MAKERULES...", step, NSTEPS);
+    print!("[{}/{}] RESTORING MKRULES...", step, NSTEPS);
     io::stdout().flush()?;
     fs::write(LASTRULE_MKFILE, lastrules_orig).map_err(|e| {
-        println!("{}", color_red.apply_to("FAILED"));
+        println!("\r[{}/{}] RESTORING MKRULES...{}\x1B[0K", step, NSTEPS, "FAILED".red());
         e
     })?;
     fs::write(RULES_MKFILE, rules_orig).map_err(|e| {
-        println!("{}", color_grn.apply_to("FAILED"));
+        println!("\r[{}/{}] RESTORING MKRULES...{}\x1B[0K", step, NSTEPS, "FAILED".red());
         e
     })?;
-    println!("{}", color_grn.apply_to("OK"));
+    println!("\r[{}/{}] RESTORING MKRULES...{}\x1B[0K", step, NSTEPS, "OK".green());
 
     // Parse the build log
     step += 1;
-    print!("[{}/{}] PARSING BUILD LOG...", step, NSTEPS);
+    print!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
     io::stdout().flush()?;
     let output_str = String::from_utf8(output.stdout).map_err(|e| {
-        println!("{}", color_red.apply_to("FAILED"));
+        println!("[{}/{}] PARSING BUILDLOG...{}", step, NSTEPS, "FAILED".red());
         e
     })?;
     let hackrule_pattern = Regex::new(
@@ -150,7 +146,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             file,
         });
     }
-    println!("{}", color_grn.apply_to("OK"));
+    println!("\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K", step, NSTEPS, "OK".green());
 
     // Generate JCDB
     step += 1;
@@ -168,7 +164,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         "compile_commands.json",
         serde_json::to_string_pretty(&jcdb)?,
     )?;
-    println!("{}", color_grn.apply_to("OK"));
+    println!("\r[{}/{}] GENERATING JCDB...{}\x1B[0K", step, NSTEPS, "OK".green());
 
     Ok(())
 }

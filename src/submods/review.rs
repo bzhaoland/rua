@@ -4,6 +4,7 @@ use anyhow::{Context, Error, Result};
 use regex::Regex;
 use reqwest::Client;
 
+#[allow(dead_code)]
 pub struct ReviewOptions {
     pub bug_id: u32,
     pub review_id: Option<u32>,
