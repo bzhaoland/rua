@@ -4,17 +4,12 @@ use std::path::PathBuf;
 use std::process;
 
 use anyhow::{Context, Error, Result};
-use console::Term;
 use crossterm::style::Stylize;
-use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
 pub fn clean_build() -> Result<()> {
     const NSTEPS: usize = 2;
     let mut step: usize = 1;
-
-    // Term control
-    let termout = Term::stdout();
 
     // Remove the whole target directory
     print!("[{}/{}] REMOVING TARGET DIRECTORY...", step, NSTEPS);
@@ -61,31 +56,34 @@ pub fn clean_build() -> Result<()> {
     );
     io::stdout().flush()?;
 
-    termout.clear_line()?;
-    let pb = ProgressBar::new(filelist.len() as u64)
-        .with_prefix(format!("{}/{} CLEANING UNVERSIONEDS", step, NSTEPS))
-        .with_style(
-            ProgressStyle::with_template(
-                "{prefix} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
-            )
-            .expect("Error: Template error")
-            .progress_chars("=>-")
-        );
-    for item in filelist.iter() {
+    print!(
+        "\r[{}/{}]CLEANING UNVERSIONEDS...0/{}\x1B[0K",
+        step,
+        NSTEPS,
+        filelist.len().to_string().green()
+    );
+    io::stdout().flush()?;
+    for (idx, item) in filelist.iter().enumerate() {
         let entry = PathBuf::from(item);
         if entry.is_file() || entry.is_symlink() {
             fs::remove_file(item)?;
         } else if entry.is_dir() {
             fs::remove_dir_all(entry)?;
         }
-        pb.inc(1);
+        print!(
+            "\r[{}/{}]CLEANING UNVERSIONEDS...{}/{}\x1B[0K",
+            step,
+            NSTEPS,
+            idx + 1,
+            filelist.len().to_string().green()
+        );
+        io::stdout().flush()?;
     }
-    pb.finish_and_clear();
     println!(
-        "\r[{}/{}] CLEANED {} UNVERSIONEDS\x1B[K",
+        "\r[{}/{}] CLEANING UNVERSIONEDS...{}\x1B[0K",
         step,
         NSTEPS,
-        filelist.len().to_string().green()
+        "OK".green()
     );
 
     Ok(())
