@@ -14,10 +14,21 @@ pub fn clean_build() -> Result<()> {
 
     print!("[{}/{}] FINDING TARGET OBJECTS...", step, NSTEPS);
     io::stdout().flush()?;
-    let num_entries = WalkDir::new("target")
+    let mut num_entries = 0;
+    for (idx, _) in WalkDir::new("target")
         .contents_first(true)
         .into_iter()
-        .count();
+        .enumerate()
+    {
+        num_entries += 1;
+        print!(
+            "\r[{}/{}] FINDING TARGET OBJECTS...{}\x1B[0K",
+            step,
+            NSTEPS,
+            idx + 1
+        );
+        io::stdout().flush()?;
+    }
     print!(
         "\r[{}/{}] FINDING TARGET OBJECTS...{}\x1B[0K",
         step,
@@ -57,10 +68,10 @@ pub fn clean_build() -> Result<()> {
         io::stdout().flush()?;
     }
     println!(
-        "\r[{}/{}] REMOVING TARGET DIRECTORY...{}\x1B[0K",
+        "\r[{}/{}] REMOVING TARGET OBJECTS...{}\x1B[0K",
         step,
         NSTEPS,
-        "OK".green()
+        "DONE".green()
     );
 
     // Clean unversioned entries
@@ -122,7 +133,7 @@ pub fn clean_build() -> Result<()> {
         "\r[{}/{}] CLEANING UNVERSIONEDS...{}\x1B[0K",
         step,
         NSTEPS,
-        "OK".green()
+        "DONE".green()
     );
 
     Ok(())
