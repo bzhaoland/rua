@@ -1,6 +1,6 @@
 [package]
 name = "rua"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 authors = ["bzhao@hillstonenet.com"]
 description = "A dev box for StoneOS project."
@@ -12,6 +12,7 @@ categories = ["command-line-utilities"]
 [dependencies]
 addr2line = "0.24.0"
 anyhow = "1.0"
+bitflags = "2.6.0"
 chrono = "0.4.0"
 clap = { version = "4.5.0", features = ["derive"] }
 console = "0.15.8"

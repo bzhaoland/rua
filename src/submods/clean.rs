@@ -6,18 +6,56 @@ use std::process;
 use anyhow::{Context, Error, Result};
 use crossterm::style::Stylize;
 use regex::Regex;
+use walkdir::WalkDir;
 
 pub fn clean_build() -> Result<()> {
     const NSTEPS: usize = 2;
     let mut step: usize = 1;
 
-    // Remove the whole target directory
-    print!("[{}/{}] REMOVING TARGET DIRECTORY...", step, NSTEPS);
+    print!("[{}/{}] FINDING TARGET OBJECTS...", step, NSTEPS);
     io::stdout().flush()?;
-    fs::remove_dir_all("target").map_err(|e| {
-        println!("{}", "FAILED".red());
-        e
-    })?;
+    let num_entries = WalkDir::new("target")
+        .contents_first(true)
+        .into_iter()
+        .count();
+    print!(
+        "\r[{}/{}] FINDING TARGET OBJECTS...{}\x1B[0K",
+        step,
+        NSTEPS,
+        num_entries.to_string().yellow()
+    );
+    io::stdout().flush()?;
+
+    // Remove the whole target directory
+    print!(
+        "\r[{}/{}] REMOVING TARGET OBJECTS...{}/{}\x1B[0K",
+        step,
+        NSTEPS,
+        "0".green(),
+        num_entries.to_string().yellow()
+    );
+    io::stdout().flush()?;
+    for (idx, entry) in WalkDir::new("target")
+        .contents_first(true)
+        .into_iter()
+        .enumerate()
+    {
+        let entry = entry.unwrap();
+        let entry = entry.into_path();
+        if entry.is_file() || entry.is_symlink() {
+            fs::remove_file(entry)?;
+        } else if entry.is_dir() {
+            fs::remove_dir_all(entry)?;
+        }
+        print!(
+            "\r[{}/{}] REMOVING TARGET OBJECTS...{}/{}\x1B[0K",
+            step,
+            NSTEPS,
+            (idx + 1).to_string().green(),
+            num_entries.to_string().yellow()
+        );
+        io::stdout().flush()?;
+    }
     println!(
         "\r[{}/{}] REMOVING TARGET DIRECTORY...{}\x1B[0K",
         step,
@@ -57,10 +95,11 @@ pub fn clean_build() -> Result<()> {
     io::stdout().flush()?;
 
     print!(
-        "\r[{}/{}]CLEANING UNVERSIONEDS...0/{}\x1B[0K",
+        "\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}\x1B[0K",
         step,
         NSTEPS,
-        filelist.len().to_string().green()
+        "0".green(),
+        filelist.len().to_string().yellow()
     );
     io::stdout().flush()?;
     for (idx, item) in filelist.iter().enumerate() {
@@ -71,11 +110,11 @@ pub fn clean_build() -> Result<()> {
             fs::remove_dir_all(entry)?;
         }
         print!(
-            "\r[{}/{}]CLEANING UNVERSIONEDS...{}/{}\x1B[0K",
+            "\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}\x1B[0K",
             step,
             NSTEPS,
-            idx + 1,
-            filelist.len().to_string().green()
+            (idx + 1).to_string().green(),
+            filelist.len().to_string().yellow()
         );
         io::stdout().flush()?;
     }

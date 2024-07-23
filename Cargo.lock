@@ -982,10 +982,11 @@ dependencies = [
 
 [[package]]
 name = "rua"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "addr2line 0.24.0",
  "anyhow",
+ "bitflags",
  "chrono",
  "clap",
  "console",
