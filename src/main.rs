@@ -18,8 +18,8 @@ use crate::submods::silist;
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.9.2",
-    about = "Devbox for StoneOS project.",
+    version = "0.10.0",
+    about = "Devbox for StoneOS project",
     long_about = None
 )]
 struct Cli {
