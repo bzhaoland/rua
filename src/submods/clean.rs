@@ -13,16 +13,16 @@ pub fn clean_build() -> Result<()> {
     let out = process::Command::new("svn")
         .arg("info")
         .output()
-        .context(anyhow!("Command `svn info` failed"))?;
+        .context(anyhow!("Failed to run `svn info`"))?;
     // When failed
     if !out.status.success() {
-        bail!("Command `svn info` failed");
+        bail!(anyhow!(String::from_utf8_lossy(&out.stderr).to_string()).context("Failed to run `svn info`"));
     }
     // When succeeded, additional check
     let output = String::from_utf8_lossy(&out.stdout);
     let pattern: Regex = Regex::new(r#"Relative URL: \^/branches/[\w-]+\n"#).unwrap();
     if !pattern.is_match(&output) {
-        bail!("Error location");
+        bail!("Error location! Run command under project root.");
     }
 
     const NSTEPS: usize = 2;
@@ -30,58 +30,61 @@ pub fn clean_build() -> Result<()> {
 
     print!("[{}/{}] FINDING TARGET OBJS...", step, NSTEPS);
     io::stdout().flush()?;
-    let mut num_entries = 0;
-    for (idx, _) in WalkDir::new("target")
-        .contents_first(true)
-        .into_iter()
-        .enumerate()
-    {
-        num_entries += 1;
+    let target_directory = PathBuf::from("target");
+    if target_directory.is_dir() {
+        let mut num_entries = 0;
+        for (idx, _) in WalkDir::new("target")
+            .contents_first(true)
+            .into_iter()
+            .enumerate()
+        {
+            num_entries += 1;
+            print!(
+                "\r[{}/{}] FINDING TARGET OBJS...{}\x1B[0K",
+                step,
+                NSTEPS,
+                idx + 1
+            );
+            io::stdout().flush()?;
+        }
         print!(
             "\r[{}/{}] FINDING TARGET OBJS...{}\x1B[0K",
             step,
             NSTEPS,
-            idx + 1
+            num_entries.to_string().yellow()
         );
         io::stdout().flush()?;
-    }
-    print!(
-        "\r[{}/{}] FINDING TARGET OBJS...{}\x1B[0K",
-        step,
-        NSTEPS,
-        num_entries.to_string().yellow()
-    );
-    io::stdout().flush()?;
 
-    // Remove the whole target directory
-    print!(
-        "\r[{}/{}] CLEANING TARGET OBJS...{}/{}\x1B[0K",
-        step,
-        NSTEPS,
-        "0".green(),
-        num_entries.to_string().yellow()
-    );
-    io::stdout().flush()?;
-    for (idx, entry) in WalkDir::new("target")
-        .contents_first(true)
-        .into_iter()
-        .enumerate()
-    {
-        let entry = entry.unwrap();
-        let entry = entry.into_path();
-        if entry.is_file() || entry.is_symlink() {
-            fs::remove_file(entry)?;
-        } else if entry.is_dir() {
-            fs::remove_dir_all(entry)?;
-        }
+        // Remove the whole target directory
         print!(
             "\r[{}/{}] CLEANING TARGET OBJS...{}/{}\x1B[0K",
             step,
             NSTEPS,
-            (idx + 1).to_string().green(),
+            "0".green(),
             num_entries.to_string().yellow()
         );
         io::stdout().flush()?;
+        for (idx, entry) in WalkDir::new("target")
+            .contents_first(true)
+            .into_iter()
+            .enumerate()
+        {
+            let entry = entry.unwrap();
+            let entry = entry.into_path();
+            if entry.is_file() || entry.is_symlink() {
+                fs::remove_file(entry)?;
+            } else if entry.is_dir() {
+                fs::remove_dir_all(entry)?;
+            }
+            print!(
+                "\r[{}/{}] CLEANING TARGET OBJS...{}/{}\x1B[0K",
+                step,
+                NSTEPS,
+                (idx + 1).to_string().green(),
+                num_entries.to_string().yellow()
+            );
+            io::stdout().flush()?;
+        }
     }
     println!(
         "\r[{}/{}] CLEANING TARGET OBJS...{}\x1B[0K",
@@ -99,12 +102,12 @@ pub fn clean_build() -> Result<()> {
         .output()
         .with_context(|| {
             println!("{}", "FAILED".red());
-            "Command `svn status src` failed"
+            "Failed to run `svn status src`"
         })?;
 
     if !output.status.success() {
         println!("{}", "FAILED".red());
-        bail!("Command `svn status src` failed");
+        bail!("Failed to run `svn status src`");
     }
     let file_pattern = Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| "Error regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
