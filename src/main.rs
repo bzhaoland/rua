@@ -19,7 +19,7 @@ use crate::submods::silist;
     name = "rua",
     author = "bzhao",
     version = "0.9.2",
-    about = "Dev box for StoneOS project.",
+    about = "Devbox for StoneOS project.",
     long_about = None
 )]
 struct Cli {
