@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::process::Command;
 
-use anyhow::{Context, Error, Result};
+use anyhow::{bail, Context, Result};
 use regex::Regex;
 
 /// Get current machine's hostname
@@ -18,7 +18,7 @@ pub fn get_hostname() -> Result<OsString> {
         )
     };
     if retcode != 0 {
-        return Err(Error::msg("Failed to get hostname"));
+        bail!("Get hostname failed");
     }
 
     let end = hostname_buf

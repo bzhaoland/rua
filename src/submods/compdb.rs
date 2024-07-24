@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::Command;
 
-use anyhow::{Error, Result};
+use anyhow::{anyhow, bail, Result};
 use crossterm::style::Stylize;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     }
     if !location_ok {
         println!("{}", "FAILED".red());
-        return Result::Err(Error::msg("Error: Run this command under project root."));
+        bail!("Error location! Run command under project root.");
     }
     println!("{}", "OK".green());
 
@@ -66,7 +66,12 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     let rules_orig = fs::read_to_string(RULES_MKFILE)?;
     let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP)$2 >>:file:>> $$<\n${1}").to_string();
     fs::write(RULES_MKFILE, rules_hack)?;
-    println!("\r[{}/{}] INJECTING MAKERULES...{}\x1B[0K", step, NSTEPS, "OK".green());
+    println!(
+        "\r[{}/{}] INJECTING MAKERULES...{}\x1B[0K",
+        step,
+        NSTEPS,
+        "OK".green()
+    );
 
     // Build the target (pseudo)
     step += 1;
@@ -89,41 +94,60 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         .output()
         .map_err(|e| {
             println!("{}", "FAILED".red());
-            Error::msg(format!(
-                "Failed to execute `hsdocker7 make ...`: {}",
-                &e.to_string()
-            ))
+            anyhow!("Failed to execute `hsdocker7 make ...`: {}", &e.to_string())
         })?;
     let status = output.status;
     if !status.success() {
         println!("{}", "FAILED".red());
-        return Result::Err(Error::msg(format!(
-            "Error: Failed to build target: {}",
-            status
-        )));
+        return Result::Err(anyhow!("Error: Failed to build target: {}", status));
     }
-    println!("\r[{}/{}] BUILDING TARGET...{}\x1B[0K", step, NSTEPS, "OK".green());
+    println!(
+        "\r[{}/{}] BUILDING TARGET...{}\x1B[0K",
+        step,
+        NSTEPS,
+        "OK".green()
+    );
 
     // Restore original makefiles
     step += 1;
     print!("[{}/{}] RESTORING MKRULES...", step, NSTEPS);
     io::stdout().flush()?;
     fs::write(LASTRULE_MKFILE, lastrules_orig).map_err(|e| {
-        println!("\r[{}/{}] RESTORING MKRULES...{}\x1B[0K", step, NSTEPS, "FAILED".red());
+        println!(
+            "\r[{}/{}] RESTORING MKRULES...{}\x1B[0K",
+            step,
+            NSTEPS,
+            "FAILED".red()
+        );
         e
     })?;
     fs::write(RULES_MKFILE, rules_orig).map_err(|e| {
-        println!("\r[{}/{}] RESTORING MKRULES...{}\x1B[0K", step, NSTEPS, "FAILED".red());
+        println!(
+            "\r[{}/{}] RESTORING MKRULES...{}\x1B[0K",
+            step,
+            NSTEPS,
+            "FAILED".red()
+        );
         e
     })?;
-    println!("\r[{}/{}] RESTORING MKRULES...{}\x1B[0K", step, NSTEPS, "OK".green());
+    println!(
+        "\r[{}/{}] RESTORING MKRULES...{}\x1B[0K",
+        step,
+        NSTEPS,
+        "OK".green()
+    );
 
     // Parse the build log
     step += 1;
     print!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
     io::stdout().flush()?;
     let output_str = String::from_utf8(output.stdout).map_err(|e| {
-        println!("[{}/{}] PARSING BUILDLOG...{}", step, NSTEPS, "FAILED".red());
+        println!(
+            "[{}/{}] PARSING BUILDLOG...{}",
+            step,
+            NSTEPS,
+            "FAILED".red()
+        );
         e
     })?;
     let hackrule_pattern = Regex::new(
@@ -146,7 +170,12 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
             file,
         });
     }
-    println!("\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K", step, NSTEPS, "OK".green());
+    println!(
+        "\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K",
+        step,
+        NSTEPS,
+        "OK".green()
+    );
 
     // Generate JCDB
     step += 1;
@@ -164,7 +193,12 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         "compile_commands.json",
         serde_json::to_string_pretty(&jcdb)?,
     )?;
-    println!("\r[{}/{}] GENERATING JCDB...{}\x1B[0K", step, NSTEPS, "OK".green());
+    println!(
+        "\r[{}/{}] GENERATING JCDB...{}\x1B[0K",
+        step,
+        NSTEPS,
+        "OK".green()
+    );
 
     Ok(())
 }

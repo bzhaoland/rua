@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process;
 
-use anyhow::{anyhow, bail, Context, Error, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use crossterm::style::Stylize;
 use regex::Regex;
 use walkdir::WalkDir;
@@ -13,7 +13,7 @@ pub fn clean_build() -> Result<()> {
     let out = process::Command::new("svn")
         .arg("info")
         .output()
-        .context(Error::msg("Command `svn info` failed"))?;
+        .context(anyhow!("Command `svn info` failed"))?;
     // When failed
     if !out.status.success() {
         bail!("Command `svn info` failed");

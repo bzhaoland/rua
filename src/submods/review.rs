@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::{Context, Error, Result};
+use anyhow::{bail, Context, Result};
 use regex::Regex;
 use reqwest::Client;
 
@@ -30,7 +30,7 @@ pub async fn review(options: &ReviewOptions) -> Result<()> {
         .text()
         .await?;
     if bug_class == "CustomerIssues" {
-        return Err(Error::msg("CustomerIssues cannot be reviewed"));
+        bail!("CustomerIssues cannot be reviewed");
     }
 
     // Get branch name from the output of svn info
@@ -39,7 +39,7 @@ pub async fn review(options: &ReviewOptions) -> Result<()> {
         None => {
             let cmdres = Command::new("svn").arg("info").output()?;
             if !cmdres.status.success() {
-                return Err(Error::msg("Failed to get svn info"));
+                bail!("Command `svn info` failed");
             }
 
             let output = String::from_utf8_lossy(&cmdres.stdout).to_string();
@@ -55,7 +55,7 @@ pub async fn review(options: &ReviewOptions) -> Result<()> {
     // Get files to be commited from the output of svn status.
     let cmdres = Command::new("svn").args(["status", "-q"]).output()?;
     if !cmdres.status.success() {
-        return Err(Error::msg("Failed to execute `svn status -q`"));
+        bail!("Command `svn status -q` failed");
     }
 
     let mut comm = Command::new("python2");
@@ -78,7 +78,7 @@ pub async fn review(options: &ReviewOptions) -> Result<()> {
 
     let status = comm.status()?;
     if !status.success() {
-        return Err(Error::msg("Failed to execute postreview-cops.py"));
+        bail!("Script postreview-cops.py failed");
     }
 
     Ok(())

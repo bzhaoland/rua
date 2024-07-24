@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::{fs, path::PathBuf};
 
 use addr2line::{self, fallible_iterator::FallibleIterator};
-use anyhow::{Context, Error, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use regex::Regex;
 use serde_json::{self, json, Value};
@@ -31,10 +31,9 @@ pub fn proc_perfanno<P: AsRef<Path>>(
     binary_file: P,
     daemon_name: &str,
 ) -> Result<Value> {
-    let text = fs::read_to_string(&data_file).context(Error::msg(format!(
-        "Error reading file {}",
-        data_file.as_ref().to_string_lossy()
-    )))?;
+    let text = fs::read_to_string(&data_file).context(
+        anyhow!("Error reading file {}",
+        data_file.as_ref().to_string_lossy()))?;
     let headline_pattern = Regex::new(r#"Samples\s*\|\s*.*?of (.*?) for.*?\((\d+)\s*samples"#)?;
     let dataline_pattern = Regex::new(r#"(\d+)\s*:\s*([0-9a-zA-Z]+)\s*:\s*(.*?)\s*$"#)?;
     let mut json_data = json!({

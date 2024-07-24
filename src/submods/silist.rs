@@ -4,7 +4,8 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 
-use anyhow::{Error, Result};
+use anyhow::anyhow;
+use anyhow::Result;
 use crossterm::style::Stylize;
 use walkdir::WalkDir;
 
@@ -70,7 +71,7 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_relative = entry.strip_prefix(&curr_dir).map_err(|e| {
             println!();
-            Error::msg(format!("{}: {}", curr_dir.to_string_lossy(), e))
+            anyhow!("{}: {}", curr_dir.to_string_lossy(), e)
         })?;
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
@@ -111,7 +112,7 @@ pub fn gen_silist(prefix: &str) -> Result<()> {
 
         let entry_relative = entry.strip_prefix(&curr_dir).map_err(|e| {
             println!();
-            Error::msg(format!("{}: {}", curr_dir.to_string_lossy(), e))
+            anyhow!("{}: {}", curr_dir.to_string_lossy(), e)
         })?;
 
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);

@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::{fs::File, str::FromStr};
 
-use anyhow::{Context, Error, Ok, Result};
+use anyhow::{anyhow, bail, Context, Ok, Result};
 use chrono::Local;
 use clap::ValueEnum;
 use console::{Style, Term};
@@ -116,15 +116,13 @@ impl Display for PrintInfo {
 /// Generate the make information for the given platform.
 pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
     let plat_registry_file = PathBuf::from_str("./src/libplatform/hs_platform.c")
-        .context(Error::msg("Error to convert str to PathBuf"))?;
+        .context(anyhow!("Error to convert str to PathBuf"))?;
     let plat_mkinfo_file = PathBuf::from_str("./scripts/platform_table")
-        .context(Error::msg("Error to convert str to PathBuf"))?;
+        .context(anyhow!("Error to convert str to PathBuf"))?;
 
     // Check current working directory
     if !(plat_registry_file.is_file() && plat_mkinfo_file.is_file()) {
-        return Err(Error::msg(
-            "Wrong location! Run this command under project root.",
-        ));
+        bail!("Error location! Run command under project root.");
     }
 
     // Get all matched records from src/libplatform/hs_platform for the given platform name
