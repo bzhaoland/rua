@@ -160,11 +160,12 @@ pub fn clean_build() -> Result<()> {
     let ui_dir = PathBuf::from(branch); // UI directory name is the same as the branch name
     if ui_dir.is_dir() {
         step += 1;
+
         print!("[{}/{}] FINDING UI OBJS...", step, nsteps);
         io::stdout().flush()?;
         
         let mut num_entries = 0;
-        for (idx, _) in WalkDir::new(ui_dir)
+        for (idx, _) in WalkDir::new( &ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
@@ -195,7 +196,7 @@ pub fn clean_build() -> Result<()> {
             num_entries.to_string().yellow()
         );
         io::stdout().flush()?;
-        for (idx, entry) in WalkDir::new("target")
+        for (idx, entry) in WalkDir::new(&ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
@@ -216,13 +217,14 @@ pub fn clean_build() -> Result<()> {
             );
             io::stdout().flush()?;
         }
+
+        println!(
+            "\r[{}/{}] CLEANING UI OBJS...{}\x1B[0K",
+            step,
+            nsteps,
+            "DONE".green()
+        );
     }
-    println!(
-        "\r[{}/{}] CLEANING UI OBJS...{}\x1B[0K",
-        step,
-        nsteps,
-        "DONE".green()
-    );
 
     Ok(())
 }
