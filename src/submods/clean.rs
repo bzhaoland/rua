@@ -3,16 +3,32 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process;
 
-use anyhow::{Context, Error, Result};
+use anyhow::{anyhow, bail, Context, Error, Result};
 use crossterm::style::Stylize;
 use regex::Regex;
 use walkdir::WalkDir;
 
 pub fn clean_build() -> Result<()> {
+    // Check whether is a svn repo
+    let out = process::Command::new("svn")
+        .arg("info")
+        .output()
+        .context(Error::msg("Command `svn info` failed"))?;
+    // When failed
+    if !out.status.success() {
+        bail!("Command `svn info` failed");
+    }
+    // When succeeded, additional check
+    let output = String::from_utf8_lossy(&out.stdout);
+    let pattern: Regex = Regex::new(r#"Relative URL: \^/branches/[\w-]+\n"#).unwrap();
+    if !pattern.is_match(&output) {
+        bail!("Error location");
+    }
+
     const NSTEPS: usize = 2;
     let mut step: usize = 1;
 
-    print!("[{}/{}] FINDING TARGET OBJECTS...", step, NSTEPS);
+    print!("[{}/{}] FINDING TARGET OBJS...", step, NSTEPS);
     io::stdout().flush()?;
     let mut num_entries = 0;
     for (idx, _) in WalkDir::new("target")
@@ -22,7 +38,7 @@ pub fn clean_build() -> Result<()> {
     {
         num_entries += 1;
         print!(
-            "\r[{}/{}] FINDING TARGET OBJECTS...{}\x1B[0K",
+            "\r[{}/{}] FINDING TARGET OBJS...{}\x1B[0K",
             step,
             NSTEPS,
             idx + 1
@@ -30,7 +46,7 @@ pub fn clean_build() -> Result<()> {
         io::stdout().flush()?;
     }
     print!(
-        "\r[{}/{}] FINDING TARGET OBJECTS...{}\x1B[0K",
+        "\r[{}/{}] FINDING TARGET OBJS...{}\x1B[0K",
         step,
         NSTEPS,
         num_entries.to_string().yellow()
@@ -39,7 +55,7 @@ pub fn clean_build() -> Result<()> {
 
     // Remove the whole target directory
     print!(
-        "\r[{}/{}] REMOVING TARGET OBJECTS...{}/{}\x1B[0K",
+        "\r[{}/{}] CLEANING TARGET OBJS...{}/{}\x1B[0K",
         step,
         NSTEPS,
         "0".green(),
@@ -59,7 +75,7 @@ pub fn clean_build() -> Result<()> {
             fs::remove_dir_all(entry)?;
         }
         print!(
-            "\r[{}/{}] REMOVING TARGET OBJECTS...{}/{}\x1B[0K",
+            "\r[{}/{}] CLEANING TARGET OBJS...{}/{}\x1B[0K",
             step,
             NSTEPS,
             (idx + 1).to_string().green(),
@@ -68,7 +84,7 @@ pub fn clean_build() -> Result<()> {
         io::stdout().flush()?;
     }
     println!(
-        "\r[{}/{}] REMOVING TARGET OBJECTS...{}\x1B[0K",
+        "\r[{}/{}] CLEANING TARGET OBJS...{}\x1B[0K",
         step,
         NSTEPS,
         "DONE".green()
@@ -83,16 +99,16 @@ pub fn clean_build() -> Result<()> {
         .output()
         .with_context(|| {
             println!("{}", "FAILED".red());
-            "Failed to exec `svn status src`"
+            "Command `svn status src` failed"
         })?;
 
     if !output.status.success() {
         println!("{}", "FAILED".red());
-        return Err(Error::msg("Error: Failed to execute `svn status src`"));
+        bail!("Command `svn status src` failed");
     }
     let file_pattern = Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| "Error regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
-        .with_context(|| "Failed to convert output to `String` type")?;
+        .context(anyhow!("Error converting output to `String` type"))?;
     let mut filelist = Vec::new();
     for (_, [file]) in file_pattern.captures_iter(&output_str).map(|c| c.extract()) {
         filelist.push(file.to_string());
