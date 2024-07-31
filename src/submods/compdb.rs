@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path;
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Result};
@@ -33,29 +33,16 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     // Resources later used
     const LASTRULE_MKFILE: &str = "./scripts/last-rules.mk";
     const RULES_MKFILE: &str = "./scripts/rules.mk";
+
+    // Checking working directory, should run under project root
+    if !(path::Path::new(LASTRULE_MKFILE).is_file() && path::Path::new(LASTRULE_MKFILE).is_file()) {
+        bail!("Error location! Run command under project root.");
+    }
+
     const NSTEPS: usize = 6;
     let mut step: usize = 1;
 
-    // Checking working directory, should run under project root
-    print!("[{}/{}] CHECKING LOCATION...", step, NSTEPS);
-    io::stdout().flush()?;
-    let mut location_ok = true;
-    let attr = fs::metadata(LASTRULE_MKFILE);
-    if attr.is_err() || !attr.unwrap().is_file() {
-        location_ok = false;
-    }
-    let attr = fs::metadata(RULES_MKFILE);
-    if attr.is_err() || !attr.unwrap().is_file() {
-        location_ok = false;
-    }
-    if !location_ok {
-        println!("{}", "FAILED".red());
-        bail!("Error location! Run command under project root.");
-    }
-    println!("{}", "OK".green());
-
-    // Inject hacked make rules
-    step += 1;
+    // Inject hackrule
     print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
     io::stdout().flush()?;
     let recipe_pattern_c = Regex::new(r#"(\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c(\s+-E)?\s+-o\s+\$@\s+\$<\s*?\n?)"#).unwrap();
@@ -75,7 +62,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
 
     // Build the target (pseudo)
     step += 1;
-    print!("[{}/{}] BUILDING TARGET...", step, NSTEPS);
+    print!("[{}/{}] PSEUDO BUILDING...", step, NSTEPS);
     io::stdout().flush()?;
     let output = Command::new("hsdocker7")
         .args([
@@ -102,7 +89,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         return Result::Err(anyhow!("Error: Failed to build target: {}", status));
     }
     println!(
-        "\r[{}/{}] BUILDING TARGET...{}\x1B[0K",
+        "\r[{}/{}] PSEUDO BUILDING...{}\x1B[0K",
         step,
         NSTEPS,
         "OK".green()
@@ -160,7 +147,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     {
         let dirc = dirc.to_string();
         let comm = comm.to_string();
-        let file = PathBuf::from(&dirc)
+        let file = path::PathBuf::from(&dirc)
             .join(file)
             .to_string_lossy()
             .to_string();

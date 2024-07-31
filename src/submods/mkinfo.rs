@@ -106,13 +106,13 @@ impl Display for PrintInfo {
 /// Generate the make information for the given platform.
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> {
     let plat_registry_file = PathBuf::from_str("./src/libplatform/hs_platform.c")
-        .context(anyhow!("Error to convert str to PathBuf"))?;
+        .context(anyhow!("Error converting str to PathBuf"))?;
     let plat_mkinfo_file = PathBuf::from_str("./scripts/platform_table")
-        .context(anyhow!("Error to convert str to PathBuf"))?;
+        .context(anyhow!("Error converting str to PathBuf"))?;
 
     // Check current working directory
     if !(plat_registry_file.is_file() && plat_mkinfo_file.is_file()) {
-        bail!("Error location! Run command under project root.");
+        bail!("Error location! Command should be run under project root.");
     }
 
     // Get all matched records from src/libplatform/hs_platform for the given platform name
