@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::{fs::File, str::FromStr};
 
 use anyhow::{anyhow, bail, Context, Ok, Result};
+use bitflags::bitflags;
 use chrono::Local;
 use clap::ValueEnum;
 use console::{Style, Term};
@@ -12,25 +13,14 @@ use serde_json::{json, Value};
 
 use crate::utils;
 
-#[derive(Debug, PartialEq)]
-pub enum InetVer {
-    IPv4,
-    IPv6,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum BuildMode {
-    Debug,
-    Release,
-}
-
-#[derive(Debug)]
-pub struct MakeOpt {
-    pub coverity: bool,
-    pub inet_ver: InetVer,
-    pub passwd: bool,
-    pub buildmode: BuildMode,
-    pub webui: bool,
+bitflags! {
+    pub struct MakeFlag: u8 {
+        const BUILD_R  = 0b00000001;
+        const INET_V6  = 0b00000010;
+        const WITH_UI  = 0b00000100;
+        const WITH_PW  = 0b00001000;
+        const COVERITY = 0b00010000;
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -114,7 +104,7 @@ impl Display for PrintInfo {
 }
 
 /// Generate the make information for the given platform.
-pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
+pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> {
     let plat_registry_file = PathBuf::from_str("./src/libplatform/hs_platform.c")
         .context(anyhow!("Error to convert str to PathBuf"))?;
     let plat_mkinfo_file = PathBuf::from_str("./scripts/platform_table")
@@ -129,7 +119,7 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
     let platinfo_reader = BufReader::new(File::open(plat_registry_file).unwrap());
     let platinfo_pat_1 = Regex::new(
         &format!(r#"(?i)\{{\s*\w+\s*,\s*\w+\s*,\s*\d+\s*,\s*\w+\s*,\s*\w+\s*,\s*"[\w\-]+"\s*,\s*"[\w\-]+?-{}"\s*,\s*".+?"\s*,\s*"[\d.]+?"\s*,\s*(?:"(.*?)"|NULL)\s*\}}"#,
-        nick_name)).context("Error building regex pattern for product search with product name")?;
+        nickname)).context("Error building regex pattern for product search with product name")?;
     let platinfo_pat_2 = Regex::new(
         r#"(?i)\{\s*(\w+)\s*,\s*(\w+)\s*,\s*(\d+)\s*,\s*(\w+)\s*,\s*(\w+)\s*,\s*"([\w\-]+)"\s*,\s*"([\w\-]+)"\s*,\s*"(.+?)"\s*,\s*"([\d.]+?)"\s*,\s*(?:"(.*?)"|NULL)\s*\}"#).context("Error building regex pattern for makeinfo search with matched platform id")?;
     let mut prods: Vec<ProdInfo> = Vec::new();
@@ -259,14 +249,15 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
     image_name_suffix.push('-');
 
     // When IPv6 is enabled
-    if mkopt.inet_ver == InetVer::IPv6 {
+    if makeflag.contains(MakeFlag::INET_V6) {
         image_name_suffix.push_str("V6-");
     }
 
     // Date
-    image_name_suffix.push(match &mkopt.buildmode {
-        BuildMode::Debug => 'd',
-        BuildMode::Release => 'r',
+    image_name_suffix.push(if makeflag.contains(MakeFlag::BUILD_R) {
+        'r'
+    } else {
+        'd'
     });
     image_name_suffix.push_str(&Local::now().format("%m%d").to_string());
 
@@ -284,7 +275,7 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
             }
 
             let mut make_goal = mkinfo.make_goal.clone();
-            if mkopt.inet_ver == InetVer::IPv6 {
+            if makeflag.contains(MakeFlag::INET_V6) {
                 make_goal.push_str("-ipv6");
             }
 
@@ -298,22 +289,10 @@ pub fn gen_mkinfo(nick_name: &str, mkopt: &MakeOpt) -> Result<Vec<PrintInfo>> {
             let make_comm = format!(
                 "hsdocker7 make -C {} -j8 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
                 mkinfo.make_dirc, make_goal,
-                match mkopt.coverity {
-                    true  => 1,
-                    false => 0,
-                },
-                match mkopt.buildmode {
-                    BuildMode::Debug   => 0,
-                    BuildMode::Release => 1,
-                },
-                match mkopt.webui {
-                    false => 0,
-                    true  => 1,
-                },
-                match mkopt.passwd {
-                    false => 0,
-                    true  => 1,
-                },
+                if makeflag.contains(MakeFlag::COVERITY) { 1 } else { 0 },
+                if makeflag.contains(MakeFlag::BUILD_R) { 1 } else { 0 },
+                if makeflag.contains(MakeFlag::WITH_UI) { 1 } else { 0 },
+                if makeflag.contains(MakeFlag::WITH_PW) { 1 } else { 0 },
                 image_name,
             );
 

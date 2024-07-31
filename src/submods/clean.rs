@@ -29,7 +29,7 @@ pub fn clean_build() -> Result<()> {
     let mut step: usize = 1;
 
     // Cleaning the objects generated in building process
-    print!("[{}/{}] FINDING TARGET OBJS...", step, nsteps);
+    print!("[{}/{}] FINDING TARGET OBJS...{}", step, nsteps, "0".yellow());
     io::stdout().flush()?;
     let target_dir = PathBuf::from("target");
     if target_dir.is_dir() {
@@ -44,17 +44,10 @@ pub fn clean_build() -> Result<()> {
                 "\r[{}/{}] FINDING TARGET OBJS...{}\x1B[0K",
                 step,
                 nsteps,
-                idx + 1
+                (idx + 1).to_string().yellow()
             );
             io::stdout().flush()?;
         }
-        print!(
-            "\r[{}/{}] FINDING TARGET OBJS...{}\x1B[0K",
-            step,
-            nsteps,
-            num_entries.to_string().yellow()
-        );
-        io::stdout().flush()?;
 
         // Remove the whole target directory
         print!(
@@ -121,7 +114,7 @@ pub fn clean_build() -> Result<()> {
         "\r[{}/{}] FINDING UNVERSIONEDS...{}\x1B[0K",
         step,
         nsteps,
-        filelist.len().to_string().green()
+        filelist.len().to_string().yellow()
     );
     io::stdout().flush()?;
 
@@ -161,7 +154,7 @@ pub fn clean_build() -> Result<()> {
     if ui_dir.is_dir() {
         step += 1;
 
-        print!("[{}/{}] FINDING UI OBJS...", step, nsteps);
+        print!("[{}/{}] FINDING UI OBJS...{}", step, nsteps, "0".yellow());
         io::stdout().flush()?;
         
         let mut num_entries = 0;
@@ -175,19 +168,12 @@ pub fn clean_build() -> Result<()> {
                 "\r[{}/{}] FINDING UI OBJS...{}\x1B[0K",
                 step,
                 nsteps,
-                idx + 1
+                (idx + 1).to_string().yellow()
             );
             io::stdout().flush()?;
         }
-        print!(
-            "\r[{}/{}] FINDING UI OBJS...{}\x1B[0K",
-            step,
-            nsteps,
-            num_entries.to_string().yellow()
-        );
-        io::stdout().flush()?;
 
-        // Remove the whole target directory
+        // Cleaning UI files
         print!(
             "\r[{}/{}] CLEANING UI OBJS...{}/{}\x1B[0K",
             step,

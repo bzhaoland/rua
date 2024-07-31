@@ -9,6 +9,7 @@ use clap::{Parser, Subcommand};
 use crate::submods::clean;
 use crate::submods::compdb;
 use crate::submods::mkinfo;
+use crate::submods::mkinfo::MakeFlag;
 use crate::submods::perfan;
 use crate::submods::review;
 use crate::submods::showcc;
@@ -231,27 +232,24 @@ async fn main() -> Result<()> {
             webui,
             outfmt,
         } => {
-            let inet_ver = if ipv6 {
-                mkinfo::InetVer::IPv6
-            } else {
-                mkinfo::InetVer::IPv4
+            let mut makeflag = mkinfo::MakeFlag::empty();
+            if !debug {
+                makeflag |= MakeFlag::BUILD_R;
             };
-            let build_mode = if debug {
-                mkinfo::BuildMode::Debug
-            } else {
-                mkinfo::BuildMode::Release
-            };
+            if ipv6 {
+                makeflag |= MakeFlag::INET_V6;
+            }
+            if webui {
+                makeflag |= MakeFlag::WITH_UI;
+            }
+            if password {
+                makeflag |= MakeFlag::WITH_PW;
+            }
+            if coverity {
+                makeflag |= MakeFlag::COVERITY;
+            }
 
-            let printinfos = mkinfo::gen_mkinfo(
-                &prodname,
-                &mkinfo::MakeOpt {
-                    coverity: coverity.to_owned(),
-                    inet_ver,
-                    passwd: password.to_owned(),
-                    buildmode: build_mode,
-                    webui: webui.to_owned(),
-                },
-            )?;
+            let printinfos = mkinfo::gen_mkinfo(&prodname, makeflag)?;
 
             mkinfo::dump_mkinfo(&printinfos, outfmt)
         }
