@@ -29,7 +29,12 @@ pub fn clean_build() -> Result<()> {
     let mut step: usize = 1;
 
     // Cleaning the objects generated in building process
-    print!("[{}/{}] FINDING TARGET OBJS...{}", step, nsteps, "0".yellow());
+    print!(
+        "[{}/{}] LISTING TARGET OBJS...{}",
+        step,
+        nsteps,
+        "0".yellow()
+    );
     io::stdout().flush()?;
     let target_dir = PathBuf::from("target");
     if target_dir.is_dir() {
@@ -41,7 +46,7 @@ pub fn clean_build() -> Result<()> {
         {
             num_entries += 1;
             print!(
-                "\r[{}/{}] FINDING TARGET OBJS...{}\x1B[0K",
+                "\r[{}/{}] LISTING TARGET OBJS...{}\x1B[0K",
                 step,
                 nsteps,
                 (idx + 1).to_string().yellow()
@@ -89,7 +94,7 @@ pub fn clean_build() -> Result<()> {
 
     // Clean unversioned entries
     step += 1;
-    print!("[{}/{}] FINDING UNVERSIONEDS...", step, nsteps);
+    print!("[{}/{}] LISTING UNVERSIONEDS...", step, nsteps);
     io::stdout().flush()?;
     let output = process::Command::new("svn")
         .args(["status", "src", "bin", "lib"])
@@ -111,7 +116,7 @@ pub fn clean_build() -> Result<()> {
         filelist.push(file.to_string());
     }
     print!(
-        "\r[{}/{}] FINDING UNVERSIONEDS...{}\x1B[0K",
+        "\r[{}/{}] LISTING UNVERSIONEDS...{}\x1B[0K",
         step,
         nsteps,
         filelist.len().to_string().yellow()
@@ -154,18 +159,18 @@ pub fn clean_build() -> Result<()> {
     if ui_dir.is_dir() {
         step += 1;
 
-        print!("[{}/{}] FINDING UI OBJS...{}", step, nsteps, "0".yellow());
+        print!("[{}/{}] LISTING UI OBJS...{}", step, nsteps, "0".yellow());
         io::stdout().flush()?;
-        
+
         let mut num_entries = 0;
-        for (idx, _) in WalkDir::new( &ui_dir)
+        for (idx, _) in WalkDir::new(&ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
         {
             num_entries += 1;
             print!(
-                "\r[{}/{}] FINDING UI OBJS...{}\x1B[0K",
+                "\r[{}/{}] LISTING UI OBJS...{}\x1B[0K",
                 step,
                 nsteps,
                 (idx + 1).to_string().yellow()
