@@ -229,7 +229,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
         }
     }
 
-    let image_name_prefix = String::from("SG6000-");
+    let mut image_name_prefix = String::from("SG6000-");
 
     // Extracting patterns like R10 or R10_F from branch name
     let branch_name = utils::get_svn_branch();
@@ -246,16 +246,16 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
         }
         None => "UB".to_string(),
     };
+    image_name_prefix.push_str(&branch_nickname);
 
-    let mut image_name_suffix = branch_nickname;
-    image_name_suffix.push('-');
+    let mut image_name_suffix = String::new();
 
     // When IPv6 is enabled
     if makeflag.contains(MakeFlag::INET_V6) {
         image_name_suffix.push_str("V6-");
     }
 
-    // Date
+    // Build mode and date
     image_name_suffix.push(if makeflag.contains(MakeFlag::BUILD_R) {
         'r'
     } else {
@@ -281,11 +281,9 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
                 make_goal.push_str("-ipv6");
             }
 
-            let mut image_name_goal = mkinfo.make_goal.replace('-', "").to_uppercase();
-            image_name_goal.push('-');
-
+            let image_name_goal = mkinfo.make_goal.replace('-', "").to_uppercase();
             let image_name = format!(
-                "{}{}{}",
+                "{}-{}-{}",
                 image_name_prefix, image_name_goal, image_name_suffix
             );
             let make_comm = format!(
