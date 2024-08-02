@@ -1,4 +1,3 @@
-use std::ffi;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::process::Command;
@@ -52,9 +51,30 @@ pub fn get_svn_branch() -> Option<String> {
     Some(branch_name.to_string())
 }
 
-/// Get login name
+/// Get current username through external command `id -un`.
+/// Unfortunately, crates `whoami` and `users` both function uncorrectly,
+/// they got nothing when call corresponding function to get current username.
+/// Besides, method using `libc::getuid` + `libc::getpwid` wrapped in an unsafe
+/// block functioned uncorrectly too in company's CentOS7 server. Maybe it is
+/// because there is no `passwd` table available on the server.
 #[allow(dead_code)]
-pub fn get_login_name() -> String {
-    let loginname = unsafe { ffi::CStr::from_ptr(libc::getlogin()) };
-    loginname.to_string_lossy().to_string()
+pub fn get_current_username() -> Option<String> {
+    let output = Command::new("id").arg("-un").output();
+
+    if output.is_err() {
+        return None;
+    }
+
+    let output = output.unwrap();
+    if !output.status.success() {
+        return None;
+    }
+
+    Some(
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .strip_suffix('\n')
+            .unwrap()
+            .to_string(),
+    )
 }

@@ -14,6 +14,8 @@ use serde_json::{json, Value};
 use crate::utils;
 
 bitflags! {
+    #[repr(transparent)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct MakeFlag: u8 {
         const BUILD_R  = 0b00000001;
         const INET_V6  = 0b00000010;
@@ -262,7 +264,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
     image_name_suffix.push_str(&Local::now().format("%m%d").to_string());
 
     // Username
-    let username = utils::get_login_name();
+    let username = utils::get_current_username().context("Failed to get username")?;
     image_name_suffix.push('-');
     image_name_suffix.push_str(&username);
 
