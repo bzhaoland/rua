@@ -2,11 +2,11 @@ use std::fmt;
 use std::fs;
 use std::io::{self, Write};
 use std::path;
-use std::process::Command;
+use std::process;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow;
 use crossterm::style::Stylize;
-use regex::Regex;
+use regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 
@@ -31,17 +31,21 @@ impl fmt::Display for CompDBRecord {
 
 pub type CompDB = Vec<CompDBRecord>;
 
-pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
+pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     // Must run under the project root
     if !utils::is_at_proj_root()? {
-        bail!("Location error! Please run command under the project root.");
+        anyhow::bail!("Location error! Please run command under the project root.");
     }
 
     // Files to be used
     const LASTRULE_MKFILE: &str = "./scripts/last-rules.mk";
     const RULES_MKFILE: &str = "./scripts/rules.mk";
     if !(path::Path::new(LASTRULE_MKFILE).is_file() && path::Path::new(LASTRULE_MKFILE).is_file()) {
-        bail!(r#"File "{}" and "{}" not found"#, LASTRULE_MKFILE, RULES_MKFILE);
+        anyhow::bail!(
+            r#"File "{}" and "{}" not found"#,
+            LASTRULE_MKFILE,
+            RULES_MKFILE
+        );
     }
 
     const NSTEPS: usize = 6;
@@ -50,11 +54,12 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     // Inject hackrule
     print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
     io::stdout().flush()?;
-    let recipe_pattern_c = Regex::new(r#"(\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c(\s+-E)?\s+-o\s+\$@\s+\$<\s*?\n?)"#).unwrap();
+    let recipe_pattern_c = regex::Regex::new(r#"(\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c(\s+-E)?\s+-o\s+\$@\s+\$<\s*?\n?)"#).unwrap();
     let lastrules_orig = fs::read_to_string(LASTRULE_MKFILE)?;
     let lastrules_hack = recipe_pattern_c.replace_all(&lastrules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c$2 -o $$@ $$< >>:file:>> $$<\n${1}").to_string();
     fs::write(LASTRULE_MKFILE, lastrules_hack)?;
-    let recipe_pattern_cc = Regex::new(r#"(\t\s*\$\(COMPILE_CXX_CP_E\)(\s+-E)?\s*?\n?)"#).unwrap();
+    let recipe_pattern_cc =
+        regex::Regex::new(r#"(\t\s*\$\(COMPILE_CXX_CP_E\)(\s+-E)?\s*?\n?)"#).unwrap();
     let rules_orig = fs::read_to_string(RULES_MKFILE)?;
     let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP)$2 >>:file:>> $$<\n${1}").to_string();
     fs::write(RULES_MKFILE, rules_hack)?;
@@ -69,7 +74,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
     step += 1;
     print!("[{}/{}] PSEUDO BUILDING...", step, NSTEPS);
     io::stdout().flush()?;
-    let output = Command::new("hsdocker7")
+    let output = process::Command::new("hsdocker7")
         .args([
             "make",
             "-C",
@@ -86,12 +91,12 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         .output()
         .map_err(|e| {
             println!("{}", "FAILED".red());
-            anyhow!("Failed to execute `hsdocker7 make ...`: {}", &e.to_string())
+            anyhow::anyhow!("Failed to execute `hsdocker7 make ...`: {}", &e.to_string())
         })?;
     let status = output.status;
     if !status.success() {
         println!("{}", "FAILED".red());
-        return Result::Err(anyhow!("Error: Failed to build target: {}", status));
+        return Result::Err(anyhow::anyhow!("Error: Failed to build target: {}", status));
     }
     println!(
         "\r[{}/{}] PSEUDO BUILDING...{}\x1B[0K",
@@ -142,7 +147,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
         );
         e
     })?;
-    let hackrule_pattern = Regex::new(
+    let hackrule_pattern = regex::Regex::new(
         r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#,
     )?;
     let mut records: Vec<CompDBRecord> = Vec::new();

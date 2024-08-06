@@ -1,10 +1,10 @@
 use std::fmt::Display;
+use std::fs;
+use std::path;
 use std::path::Path;
-use std::str::FromStr;
-use std::{fs, path::PathBuf};
 
 use addr2line::{self, fallible_iterator::FallibleIterator};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{self, Context};
 use clap::ValueEnum;
 use regex::Regex;
 use serde_json::{self, json, Value};
@@ -30,10 +30,11 @@ pub fn proc_perfanno<P: AsRef<Path>>(
     data_file: P,
     binary_file: P,
     daemon_name: &str,
-) -> Result<Value> {
-    let text = fs::read_to_string(&data_file).context(
-        anyhow!("Error reading file {}",
-        data_file.as_ref().to_string_lossy()))?;
+) -> anyhow::Result<Value> {
+    let text = fs::read_to_string(&data_file).context(anyhow::anyhow!(
+        "Error reading file {}",
+        data_file.as_ref().to_string_lossy()
+    ))?;
     let headline_pattern = Regex::new(r#"Samples\s*\|\s*.*?of (.*?) for.*?\((\d+)\s*samples"#)?;
     let dataline_pattern = Regex::new(r#"(\d+)\s*:\s*([0-9a-zA-Z]+)\s*:\s*(.*?)\s*$"#)?;
     let mut json_data = json!({
@@ -219,8 +220,7 @@ pub fn proc_perfanno<P: AsRef<Path>>(
                 let location = frame.location.map_or("?:?".to_string(), |x| {
                     format!(
                         "{}:{}",
-                        PathBuf::from_str(x.file.expect("Error extracting the source file part"))
-                            .expect("Error creating a PathBuf from a string slice")
+                        path::Path::new(x.file.expect("Error extracting the source file part"))
                             .file_name()
                             .expect("File path terminates in ..")
                             .to_str()
@@ -239,7 +239,7 @@ pub fn proc_perfanno<P: AsRef<Path>>(
     Ok(json_data)
 }
 
-pub fn dump_perfdata(data: &Value, format: DumpFormat) -> Result<()> {
+pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
     match format {
         DumpFormat::Json => {
             // json

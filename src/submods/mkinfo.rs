@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path;
 
-use anyhow::{bail, Context, Ok, Result};
+use anyhow::{self, Context};
 use bitflags::bitflags;
 use chrono::Local;
 use clap::ValueEnum;
@@ -17,10 +17,10 @@ bitflags! {
     #[repr(transparent)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct MakeFlag: u8 {
-        const BUILD_R  = 0b00000001;
-        const INET_V6  = 0b00000010;
-        const WITH_UI  = 0b00000100;
-        const WITH_PW  = 0b00001000;
+        const R_BUILD  = 0b00000001;  // Release build
+        const INET_V6  = 0b00000010;  // Internet v6
+        const WITH_UI  = 0b00000100;  // With WebUI
+        const WITH_PW  = 0b00001000;  // With password
         const COVERITY = 0b00010000;
     }
 }
@@ -106,10 +106,10 @@ impl Display for PrintInfo {
 }
 
 /// Generate the make information for the given platform.
-pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> {
+pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<PrintInfo>> {
     // Must run under project root
     if !utils::is_at_proj_root()? {
-        anyhow::bail!("Location error! Please run command under the project root.");
+        anyhow::bail!("Location error! Please run under the project root.");
     }
 
     let plat_registry_file = path::Path::new("./src/libplatform/hs_platform.c");
@@ -117,7 +117,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
 
     // Check file existing
     if !(plat_registry_file.is_file() && plat_mkinfo_file.is_file()) {
-        bail!(
+        anyhow::bail!(
             r#"File "{}" and "{}" not found"#,
             plat_registry_file.to_string_lossy(),
             plat_mkinfo_file.to_string_lossy()
@@ -263,7 +263,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
     }
 
     // Build mode and date
-    image_name_suffix.push(if makeflag.contains(MakeFlag::BUILD_R) {
+    image_name_suffix.push(if makeflag.contains(MakeFlag::R_BUILD) {
         'r'
     } else {
         'd'
@@ -297,7 +297,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
                 "hsdocker7 make -C {} -j8 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
                 mkinfo.make_dirc, make_goal,
                 if makeflag.contains(MakeFlag::COVERITY) { 1 } else { 0 },
-                if makeflag.contains(MakeFlag::BUILD_R) { 1 } else { 0 },
+                if makeflag.contains(MakeFlag::R_BUILD) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_UI) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_PW) { 1 } else { 0 },
                 image_name,
@@ -313,11 +313,11 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
         }
     }
 
-    Ok(printinfos)
+    anyhow::Ok(printinfos)
 }
 
 /// Dump mkinfo records as csv
-fn dump_csv(infos: &[PrintInfo]) -> Result<()> {
+fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut writer = csv::Writer::from_writer(std::io::stdout());
 
     writer.write_record(["Product", "Platform", "Target", "Path", "Command"])?;
@@ -332,10 +332,10 @@ fn dump_csv(infos: &[PrintInfo]) -> Result<()> {
     }
     writer.flush()?;
 
-    Ok(())
+    anyhow::Ok(())
 }
 
-fn dump_json(infos: &[PrintInfo]) -> Result<()> {
+fn dump_json(infos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut out: Value = json!([]);
     for info in infos.iter() {
         out.as_array_mut().unwrap().push(json!({
@@ -348,10 +348,10 @@ fn dump_json(infos: &[PrintInfo]) -> Result<()> {
     }
     println!("{}", serde_json::to_string_pretty(&out)?);
 
-    Ok(())
+    anyhow::Ok(())
 }
 
-fn dump_list(infos: &[PrintInfo]) -> Result<()> {
+fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
     // Style control
     let color_grn = Style::new().green();
     let color_ylw = Style::new().yellow();
@@ -359,7 +359,7 @@ fn dump_list(infos: &[PrintInfo]) -> Result<()> {
 
     if infos.is_empty() {
         println!("No matched makeinfo.");
-        return Ok(());
+        return anyhow::Ok(());
     }
     let head_decor = "=".repeat(width as usize);
     let data_decor = "-".repeat(width as usize);
@@ -393,10 +393,10 @@ fn dump_list(infos: &[PrintInfo]) -> Result<()> {
 
     print!("{}", out);
 
-    Ok(())
+    anyhow::Ok(())
 }
 
-fn dump_tsv(infos: &[PrintInfo]) -> Result<()> {
+fn dump_tsv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut writer = csv::WriterBuilder::new()
         .delimiter(b'\t')
         .quote_style(csv::QuoteStyle::NonNumeric)
@@ -414,11 +414,11 @@ fn dump_tsv(infos: &[PrintInfo]) -> Result<()> {
     }
     writer.flush()?;
 
-    Ok(())
+    anyhow::Ok(())
 }
 
 /// Dump the make information to the screen.
-pub fn dump_mkinfo(infos: &[PrintInfo], format: DumpFormat) -> Result<()> {
+pub fn dump_mkinfo(infos: &[PrintInfo], format: DumpFormat) -> anyhow::Result<()> {
     match format {
         DumpFormat::Csv => dump_csv(infos),
         DumpFormat::Json => dump_json(infos),

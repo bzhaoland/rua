@@ -234,7 +234,7 @@ async fn main() -> Result<()> {
         } => {
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
-                makeflag |= MakeFlag::BUILD_R;
+                makeflag |= MakeFlag::R_BUILD;
             };
             if ipv6 {
                 makeflag |= MakeFlag::INET_V6;

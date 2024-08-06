@@ -3,22 +3,26 @@ use std::io::{self, Write};
 use std::path;
 use std::process;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{self, Context};
 use crossterm::style::Stylize;
-use regex::Regex;
-use walkdir::WalkDir;
+use regex;
+use walkdir;
 
 use crate::utils;
 
-pub fn clean_build() -> Result<()> {
+pub fn clean_build() -> anyhow::Result<()> {
     // Must run under the project root
     if !utils::is_at_proj_root()? {
         anyhow::bail!("Location error! Please run command under the project root.");
     }
-    
+
     let branch = utils::get_svn_branch()?.unwrap();
 
-    let nsteps: usize = if path::Path::new(&branch).is_dir() { 3 } else { 2 };
+    let nsteps: usize = if path::Path::new(&branch).is_dir() {
+        3
+    } else {
+        2
+    };
     let mut step: usize = 1;
 
     // Cleaning the objects generated in building process
@@ -32,7 +36,7 @@ pub fn clean_build() -> Result<()> {
     let target_dir = path::Path::new("target");
     if target_dir.is_dir() {
         let mut num_entries = 0;
-        for (idx, _) in WalkDir::new(target_dir)
+        for (idx, _) in walkdir::WalkDir::new(target_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
@@ -56,7 +60,7 @@ pub fn clean_build() -> Result<()> {
             num_entries.to_string().yellow()
         );
         io::stdout().flush()?;
-        for (idx, entry) in WalkDir::new("target")
+        for (idx, entry) in walkdir::WalkDir::new("target")
             .contents_first(true)
             .into_iter()
             .enumerate()
@@ -99,11 +103,12 @@ pub fn clean_build() -> Result<()> {
 
     if !output.status.success() {
         println!("{}", "FAILED".red());
-        bail!("Failed to run `svn status src`");
+        anyhow::bail!("Failed to run `svn status src`");
     }
-    let file_pattern = Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| "Error regex pattern")?;
+    let file_pattern =
+        regex::Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| "Error regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
-        .context(anyhow!("Error converting output to `String` type"))?;
+        .context(anyhow::anyhow!("Error converting output to `String` type"))?;
     let mut filelist = Vec::new();
     for (_, [file]) in file_pattern.captures_iter(&output_str).map(|c| c.extract()) {
         filelist.push(file.to_string());
@@ -156,7 +161,7 @@ pub fn clean_build() -> Result<()> {
         io::stdout().flush()?;
 
         let mut num_entries = 0;
-        for (idx, _) in WalkDir::new(&ui_dir)
+        for (idx, _) in walkdir::WalkDir::new(&ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
@@ -180,7 +185,7 @@ pub fn clean_build() -> Result<()> {
             num_entries.to_string().yellow()
         );
         io::stdout().flush()?;
-        for (idx, entry) in WalkDir::new(&ui_dir)
+        for (idx, entry) in walkdir::WalkDir::new(&ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
