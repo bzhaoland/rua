@@ -9,7 +9,7 @@ There are two steps for the `clean` run:
 2. Remove unversioned entries within "bin" and "src" directory as these files
 are generated automatically.
 
-`rua clean` runs faster than `make dist_clean`, becase make invokes commands 
+`rua clean` runs faster than `make dist_clean`, as make invokes `rm` commands 
 too frequently.
 
 ## `mkinfo`
