@@ -1,9 +1,9 @@
 use std::fmt::Display;
+use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
-use std::{fs::File, str::FromStr};
+use std::path;
 
-use anyhow::{anyhow, bail, Context, Ok, Result};
+use anyhow::{bail, Context, Ok, Result};
 use bitflags::bitflags;
 use chrono::Local;
 use clap::ValueEnum;
@@ -57,7 +57,7 @@ struct ProdInfo {
     prod_longname: String,
     prod_descr: String,
     snmp_oid: String,
-    icon_path: Option<PathBuf>,
+    icon_path: Option<path::PathBuf>,
 }
 
 #[derive(Debug)]
@@ -107,14 +107,21 @@ impl Display for PrintInfo {
 
 /// Generate the make information for the given platform.
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> {
-    let plat_registry_file = PathBuf::from_str("./src/libplatform/hs_platform.c")
-        .context(anyhow!("Error converting str to PathBuf"))?;
-    let plat_mkinfo_file = PathBuf::from_str("./scripts/platform_table")
-        .context(anyhow!("Error converting str to PathBuf"))?;
+    // Must run under project root
+    if !utils::is_at_proj_root()? {
+        anyhow::bail!("Location error! Please run command under the project root.");
+    }
 
-    // Check current working directory
+    let plat_registry_file = path::Path::new("./src/libplatform/hs_platform.c");
+    let plat_mkinfo_file = path::Path::new("./scripts/platform_table");
+
+    // Check file existing
     if !(plat_registry_file.is_file() && plat_mkinfo_file.is_file()) {
-        bail!("Error location! Command should be run under project root.");
+        bail!(
+            r#"File "{}" and "{}" not found"#,
+            plat_registry_file.to_string_lossy(),
+            plat_mkinfo_file.to_string_lossy()
+        );
     }
 
     // Get all matched records from src/libplatform/hs_platform for the given platform name
@@ -183,7 +190,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
                             if v.as_str() == "NULL" {
                                 None
                             } else {
-                                Some(PathBuf::from(v.as_str()))
+                                Some(path::PathBuf::from(v.as_str()))
                             }
                         }
                         None => None,
@@ -232,7 +239,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> Result<Vec<PrintInfo>> 
     let mut image_name_prefix = String::from("SG6000-");
 
     // Extracting patterns like R10 or R10_F from branch name
-    let branch_name = utils::get_svn_branch();
+    let branch_name = utils::get_svn_branch()?;
     let branch_nickname = match &branch_name {
         Some(name) => {
             let nickname_pattern = Regex::new(r"HAWAII_([\w-]+)")

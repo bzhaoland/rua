@@ -1,8 +1,11 @@
+use std::env;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
-use std::process::Command;
+use std::path;
+use std::process;
 
-use anyhow::{bail, Context, Result};
+use anyhow;
+use anyhow::{Context, Result};
 use regex::Regex;
 
 /// Get current machine's hostname
@@ -17,7 +20,7 @@ pub fn get_hostname() -> Result<OsString> {
         )
     };
     if retcode != 0 {
-        bail!("Get hostname failed");
+        anyhow::bail!("Get hostname failed");
     }
 
     let end = hostname_buf
@@ -29,37 +32,43 @@ pub fn get_hostname() -> Result<OsString> {
 }
 
 /// When `svn` utility is available and `svn info` ran successfully
-pub fn get_svn_branch() -> Option<String> {
-    let output = Command::new("svn").arg("info").output();
-
-    if output.is_err() {
-        return None;
-    }
-
-    let output = output.unwrap();
+pub fn get_svn_branch() -> anyhow::Result<Option<String>> {
+    let output = process::Command::new("svn")
+        .arg("info")
+        .output()
+        .context(r#"Command `svn info` failed"#)?;
     if !output.status.success() {
-        return None;
+        anyhow::bail!(
+            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
+                .context(r#"Command `svn info` failed."#)
+        );
     }
-    let output = String::from_utf8(output.stdout).unwrap();
+    let output = String::from_utf8_lossy(&output.stdout);
 
     // Get the full branch name from the svn info
-    let branch_pattern = Regex::new(r#"Relative URL: \^/branches/([\w-]+)\n"#)
+    let branch_pattern = Regex::new(r#"Relative URL: \^/branches/([-\w]+)"#)
         .context("Error building regex pattern for capturing branch name")
         .unwrap();
-    let branch_name = branch_pattern.captures(&output)?.get(1)?.as_str();
+    let branch_name = branch_pattern
+        .captures(&output)
+        .unwrap()
+        .get(1)
+        .unwrap()
+        .as_str();
 
-    Some(branch_name.to_string())
+    anyhow::Ok(Some(branch_name.to_string()))
 }
 
 /// Get current username through external command `id -un`.
 /// Unfortunately, crates `whoami` and `users` both function uncorrectly,
-/// they got nothing when call corresponding function to get current username.
-/// Besides, method using `libc::getuid` + `libc::getpwid` wrapped in an unsafe
+/// they got nothing when calling corresponding functions to get current username.
+/// Besides, method using `libc::getuid` or `libc::getpwid` wrapped in an unsafe
 /// block functioned uncorrectly too in company's CentOS7 server. Maybe it is
 /// because there is no `passwd` table available on the server.
+/// Method `libc::getlogin` does not work inside container.
 #[allow(dead_code)]
 pub fn get_current_username() -> Option<String> {
-    let output = Command::new("id").arg("-un").output();
+    let output = process::Command::new("id").arg("-un").output();
 
     if output.is_err() {
         return None;
@@ -77,4 +86,32 @@ pub fn get_current_username() -> Option<String> {
             .unwrap()
             .to_string(),
     )
+}
+
+/// Check whether is located at project root.
+#[allow(dead_code)]
+pub fn is_at_proj_root() -> anyhow::Result<bool> {
+    // Check location with svn command
+    let output = process::Command::new("svn")
+        .arg("info")
+        .output()
+        .context(r#"Command `svn info` failed"#)?;
+    if !output.status.success() {
+        anyhow::bail!(
+            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
+                .context(r#"Command `svn info` failed."#)
+        );
+    }
+    let output = String::from_utf8_lossy(&output.stdout);
+    let pattern = regex::Regex::new(r#"Working Copy Root Path: (.*)\n"#)?;
+    let captures = pattern.captures(&output);
+    if captures.is_none() {
+        return anyhow::Ok(false);
+    }
+    let proj_root_dir = path::Path::new(captures.unwrap().get(1).unwrap().as_str());
+    if env::current_dir()?.as_path() != proj_root_dir {
+        return anyhow::Ok(false);
+    }
+
+    anyhow::Ok(true)
 }
