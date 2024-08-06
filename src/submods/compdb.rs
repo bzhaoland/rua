@@ -10,6 +10,8 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 
+use crate::utils;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CompDBRecord {
     pub command: String,
@@ -30,13 +32,16 @@ impl fmt::Display for CompDBRecord {
 pub type CompDB = Vec<CompDBRecord>;
 
 pub fn gen_compdb(product_dir: &str, make_target: &str) -> Result<()> {
-    // Resources later used
+    // Must run under the project root
+    if !utils::is_at_proj_root()? {
+        bail!("Location error! Please run command under the project root.");
+    }
+
+    // Files to be used
     const LASTRULE_MKFILE: &str = "./scripts/last-rules.mk";
     const RULES_MKFILE: &str = "./scripts/rules.mk";
-
-    // Checking working directory, should run under project root
     if !(path::Path::new(LASTRULE_MKFILE).is_file() && path::Path::new(LASTRULE_MKFILE).is_file()) {
-        bail!("Error location! Run command under project root.");
+        bail!(r#"File "{}" and "{}" not found"#, LASTRULE_MKFILE, RULES_MKFILE);
     }
 
     const NSTEPS: usize = 6;
