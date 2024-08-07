@@ -1,12 +1,12 @@
 use std::fs;
 use std::io::{self, Write};
-use std::path;
-use std::process;
+use std::path::Path;
+use std::process::Command;
 
 use anyhow::{self, Context};
 use crossterm::style::Stylize;
-use regex;
-use walkdir;
+use regex::Regex;
+use walkdir::WalkDir;
 
 use crate::utils;
 
@@ -18,7 +18,7 @@ pub fn clean_build() -> anyhow::Result<()> {
 
     let branch = utils::get_svn_branch()?.unwrap();
 
-    let nsteps: usize = if path::Path::new(&branch).is_dir() {
+    let nsteps: usize = if Path::new(&branch).is_dir() {
         3
     } else {
         2
@@ -33,10 +33,10 @@ pub fn clean_build() -> anyhow::Result<()> {
         "0".yellow()
     );
     io::stdout().flush()?;
-    let target_dir = path::Path::new("target");
+    let target_dir = Path::new("target");
     if target_dir.is_dir() {
         let mut num_entries = 0;
-        for (idx, _) in walkdir::WalkDir::new(target_dir)
+        for (idx, _) in WalkDir::new(target_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
@@ -60,7 +60,7 @@ pub fn clean_build() -> anyhow::Result<()> {
             num_entries.to_string().yellow()
         );
         io::stdout().flush()?;
-        for (idx, entry) in walkdir::WalkDir::new("target")
+        for (idx, entry) in WalkDir::new("target")
             .contents_first(true)
             .into_iter()
             .enumerate()
@@ -93,7 +93,7 @@ pub fn clean_build() -> anyhow::Result<()> {
     step += 1;
     print!("[{}/{}] LISTING UNVERSIONEDS...", step, nsteps);
     io::stdout().flush()?;
-    let output = process::Command::new("svn")
+    let output = Command::new("svn")
         .args(["status", "src", "bin", "lib"])
         .output()
         .with_context(|| {
@@ -106,7 +106,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         anyhow::bail!("Failed to run `svn status src`");
     }
     let file_pattern =
-        regex::Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| "Error regex pattern")?;
+        Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| "Error regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
         .context(anyhow::anyhow!("Error converting output to `String` type"))?;
     let mut filelist = Vec::new();
@@ -130,7 +130,7 @@ pub fn clean_build() -> anyhow::Result<()> {
     );
     io::stdout().flush()?;
     for (idx, item) in filelist.iter().enumerate() {
-        let entry = path::Path::new(item);
+        let entry = Path::new(item);
         if entry.is_file() || entry.is_symlink() {
             fs::remove_file(item)?;
         } else if entry.is_dir() {
@@ -153,7 +153,7 @@ pub fn clean_build() -> anyhow::Result<()> {
     );
 
     // Clean UI files
-    let ui_dir = path::Path::new(&branch); // UI directory name is the same as the branch name
+    let ui_dir = Path::new(&branch); // UI directory name is the same as the branch name
     if ui_dir.is_dir() {
         step += 1;
 
@@ -161,7 +161,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         io::stdout().flush()?;
 
         let mut num_entries = 0;
-        for (idx, _) in walkdir::WalkDir::new(&ui_dir)
+        for (idx, _) in WalkDir::new(ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
@@ -185,7 +185,7 @@ pub fn clean_build() -> anyhow::Result<()> {
             num_entries.to_string().yellow()
         );
         io::stdout().flush()?;
-        for (idx, entry) in walkdir::WalkDir::new(&ui_dir)
+        for (idx, entry) in WalkDir::new(ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()

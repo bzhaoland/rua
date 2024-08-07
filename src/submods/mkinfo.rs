@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{self, Context};
 use bitflags::bitflags;
@@ -57,7 +57,7 @@ struct ProdInfo {
     prod_longname: String,
     prod_descr: String,
     snmp_oid: String,
-    icon_path: Option<path::PathBuf>,
+    icon_path: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -112,8 +112,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         anyhow::bail!("Location error! Please run under the project root.");
     }
 
-    let plat_registry_file = path::Path::new("./src/libplatform/hs_platform.c");
-    let plat_mkinfo_file = path::Path::new("./scripts/platform_table");
+    let plat_registry_file = Path::new("./src/libplatform/hs_platform.c");
+    let plat_mkinfo_file = Path::new("./scripts/platform_table");
 
     // Check file existing
     if !(plat_registry_file.is_file() && plat_mkinfo_file.is_file()) {
@@ -190,7 +190,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                             if v.as_str() == "NULL" {
                                 None
                             } else {
-                                Some(path::PathBuf::from(v.as_str()))
+                                Some(PathBuf::from(v.as_str()))
                             }
                         }
                         None => None,

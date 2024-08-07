@@ -1,16 +1,15 @@
 use std::env;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
-use std::path;
-use std::process;
+use std::path::Path;
+use std::process::Command;
 
-use anyhow;
-use anyhow::{Context, Result};
+use anyhow::Context;
 use regex::Regex;
 
 /// Get current machine's hostname
 #[allow(dead_code)]
-pub fn get_hostname() -> Result<OsString> {
+pub fn get_hostname() -> anyhow::Result<OsString> {
     let hostname_bufsize = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) } as usize;
     let mut hostname_buf = vec![0; hostname_bufsize + 1];
     let retcode = unsafe {
@@ -33,7 +32,7 @@ pub fn get_hostname() -> Result<OsString> {
 
 /// When `svn` utility is available and `svn info` ran successfully
 pub fn get_svn_branch() -> anyhow::Result<Option<String>> {
-    let output = process::Command::new("svn")
+    let output = Command::new("svn")
         .arg("info")
         .output()
         .context(r#"Command `svn info` failed"#)?;
@@ -68,7 +67,7 @@ pub fn get_svn_branch() -> anyhow::Result<Option<String>> {
 /// Method `libc::getlogin` does not work inside container.
 #[allow(dead_code)]
 pub fn get_current_username() -> Option<String> {
-    let output = process::Command::new("id").arg("-un").output();
+    let output = Command::new("id").arg("-un").output();
 
     if output.is_err() {
         return None;
@@ -92,7 +91,7 @@ pub fn get_current_username() -> Option<String> {
 #[allow(dead_code)]
 pub fn is_at_proj_root() -> anyhow::Result<bool> {
     // Check location with svn command
-    let output = process::Command::new("svn")
+    let output = Command::new("svn")
         .arg("info")
         .output()
         .context(r#"Command `svn info` failed"#)?;
@@ -108,7 +107,7 @@ pub fn is_at_proj_root() -> anyhow::Result<bool> {
     if captures.is_none() {
         return anyhow::Ok(false);
     }
-    let proj_root_dir = path::Path::new(captures.unwrap().get(1).unwrap().as_str());
+    let proj_root_dir = Path::new(captures.unwrap().get(1).unwrap().as_str());
     if env::current_dir()?.as_path() != proj_root_dir {
         return anyhow::Ok(false);
     }

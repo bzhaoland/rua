@@ -3,13 +3,11 @@ mod utils;
 
 use std::path::PathBuf;
 
-use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use crate::submods::clean;
 use crate::submods::compdb;
-use crate::submods::mkinfo;
-use crate::submods::mkinfo::MakeFlag;
+use crate::submods::mkinfo::{self, MakeFlag};
 use crate::submods::perfan;
 use crate::submods::review;
 use crate::submods::showcc;
@@ -201,7 +199,7 @@ enum Comm {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     // Suppress the following error info:
     // failed printing to stdout: Broken pipe
     unsafe {
