@@ -47,9 +47,9 @@ impl Display for DumpFormat {
 /// Structure to hold product information.
 #[derive(Debug)]
 #[allow(dead_code)]
-struct ProdInfo {
-    plat_model: String,
-    prod_model: String,
+struct ProductInfo {
+    platform_model: String,
+    product_model: String,
     name_id: usize,
     oem_id: String,
     family: String,
@@ -123,28 +123,30 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             plat_mkinfo_file.to_string_lossy()
         );
     }
-
-    // Get all matched records from src/libplatform/hs_platform for the given platform name
+    
+    // Find out the matched record(s) from src/libplatform/hs_platform.c.
     let platinfo_reader = BufReader::new(File::open(plat_registry_file).unwrap());
-    let platinfo_pat_1 = Regex::new(
-        &format!(r#"(?i)\{{\s*\w+\s*,\s*\w+\s*,\s*\d+\s*,\s*\w+\s*,\s*\w+\s*,\s*"[\w\-]+"\s*,\s*"[\w\-]+?-{}"\s*,\s*".+?"\s*,\s*"[\d.]+?"\s*,\s*(?:"(.*?)"|NULL)\s*\}}"#,
+    let platinfo_pattern_rough = Regex::new(
+        &format!(r#"(?i)\{{(?:\s*\w+\s*,){{2}}\s*\d+\s*,(?:\s*\w+\s*,){{2}}\s*"[^"]*"\s*,\s*"[-\w]+-{}"\s*(?:,\s*(?:"[^"]+"|NULL)\s*){{3}}\}}"#,
         nickname)).context("Error building regex pattern for product search with product name")?;
-    let platinfo_pat_2 = Regex::new(
-        r#"(?i)\{\s*(\w+)\s*,\s*(\w+)\s*,\s*(\d+)\s*,\s*(\w+)\s*,\s*(\w+)\s*,\s*"([\w\-]+)"\s*,\s*"([\w\-]+)"\s*,\s*"(.+?)"\s*,\s*"([\d.]+?)"\s*,\s*(?:"(.*?)"|NULL)\s*\}"#).context("Error building regex pattern for makeinfo search with matched platform id")?;
-    let mut prods: Vec<ProdInfo> = Vec::new();
+    let platinfo_pattern_precise = Regex::new(
+        r#"(?i)\{\s*(\w+)\s*,\s*(\w+)\s*,\s*(\d+)\s*,\s*(\w+)\s*,\s*(\w+)\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*(?:"([^"]*)"|NULL)\s*\}"#).context("Error building regex pattern for makeinfo search with matched platform id")?;
+    let mut products: Vec<ProductInfo> = Vec::new();
     for line in platinfo_reader.lines().map(|l| l.unwrap()) {
-        if platinfo_pat_1.find(&line).is_none() {
+        // Filtering using rough pattern
+        if !platinfo_pattern_rough.is_match(&line) {
             continue;
         }
-        match platinfo_pat_2.captures(&line) {
+
+        match platinfo_pattern_precise.captures(&line) {
             Some(v) => {
-                prods.push(ProdInfo {
-                    plat_model: v
+                products.push(ProductInfo {
+                    platform_model: v
                         .get(1)
                         .context("Error extracting the platform model part")?
                         .as_str()
                         .to_string(),
-                    prod_model: v
+                    product_model: v
                         .get(2)
                         .context("Error extracting the product model part")?
                         .as_str()
@@ -206,7 +208,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     // Fetch makeinfo for each product
     let makeinfo_reader = BufReader::new(File::open(plat_mkinfo_file).context("File not found")?);
     let makeinfo_pat =
-        Regex::new(r#"(?i)^\s*(\w+),([\w-]+),[^,]*,\s*"\s*(?:cd)?\s*([0-9A-Za-z_\-/]+)\s*","#)
+        Regex::new(r#"(?i)^\s*(\w+),([-\w]+),[^,]*,\s*"\s*(?:cd\s+)?([-\w/]+)\s*","#)
             .context("Error composing a regex pattern")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
     for line in makeinfo_reader.lines().map(|l| l.unwrap()) {
@@ -277,9 +279,9 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
 
     let mut printinfos: Vec<PrintInfo> = Vec::new();
 
-    for prod in prods.iter() {
+    for prod in products.iter() {
         for mkinfo in mkinfos.iter() {
-            if mkinfo.plat_model != prod.plat_model {
+            if mkinfo.plat_model != prod.platform_model {
                 continue;
             }
 
