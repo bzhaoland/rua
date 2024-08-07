@@ -6,7 +6,7 @@ use std::process;
 
 use anyhow;
 use crossterm::style::Stylize;
-use regex;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 
@@ -54,12 +54,12 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     // Inject hackrule
     print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
     io::stdout().flush()?;
-    let recipe_pattern_c = regex::Regex::new(r#"(\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c(\s+-E)?\s+-o\s+\$@\s+\$<\s*?\n?)"#).unwrap();
+    let recipe_pattern_c = Regex::new(r#"(\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c(\s+-E)?\s+-o\s+\$@\s+\$<\s*?\n?)"#).unwrap();
     let lastrules_orig = fs::read_to_string(LASTRULE_MKFILE)?;
     let lastrules_hack = recipe_pattern_c.replace_all(&lastrules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c$2 -o $$@ $$< >>:file:>> $$<\n${1}").to_string();
     fs::write(LASTRULE_MKFILE, lastrules_hack)?;
     let recipe_pattern_cc =
-        regex::Regex::new(r#"(\t\s*\$\(COMPILE_CXX_CP_E\)(\s+-E)?\s*?\n?)"#).unwrap();
+        Regex::new(r#"(\t\s*\$\(COMPILE_CXX_CP_E\)(\s+-E)?\s*?\n?)"#).unwrap();
     let rules_orig = fs::read_to_string(RULES_MKFILE)?;
     let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP)$2 >>:file:>> $$<\n${1}").to_string();
     fs::write(RULES_MKFILE, rules_hack)?;
@@ -147,7 +147,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         );
         e
     })?;
-    let hackrule_pattern = regex::Regex::new(
+    let hackrule_pattern = Regex::new(
         r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#,
     )?;
     let mut records: Vec<CompDBRecord> = Vec::new();

@@ -106,9 +106,9 @@ pub fn clean_build() -> anyhow::Result<()> {
         anyhow::bail!("Failed to run `svn status src`");
     }
     let file_pattern =
-        Regex::new(r#"\?\s+(\S+)\n"#).with_context(|| "Error regex pattern")?;
+        Regex::new(r#"\?\s+(\S+)\n"#).context("Error regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
-        .context(anyhow::anyhow!("Error converting output to `String` type"))?;
+        .context(anyhow::anyhow!("Error converting to `String` type"))?;
     let mut filelist = Vec::new();
     for (_, [file]) in file_pattern.captures_iter(&output_str).map(|c| c.extract()) {
         filelist.push(file.to_string());
