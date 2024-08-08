@@ -4,7 +4,6 @@ use std::io::{self, Write};
 use std::path;
 use std::process;
 
-use anyhow;
 use crossterm::style::Stylize;
 use regex::Regex;
 use serde::{Deserialize, Serialize};

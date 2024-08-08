@@ -5,7 +5,6 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use anyhow::Result;
 use crossterm::style::Stylize;
 use walkdir::WalkDir;
 
@@ -19,7 +18,7 @@ use walkdir::WalkDir;
 /// time-consuming and does not collect header files. In order to collect header files, we have to
 /// parse all the '#include' directives in all compilation units. This is also a very time-consuming
 /// job.
-pub fn gen_silist(prefix: &str) -> Result<()> {
+pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
     // Term control
     let mut stdout = io::stdout();
 

@@ -2,8 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use console::Term;
-use crossterm::style::Stylize;
+use crossterm::{style::Stylize, terminal};
 use regex::Regex;
 
 use crate::submods::compdb::{CompDB, CompDBRecord};
@@ -36,13 +35,12 @@ pub fn fetch_compile_command(filename: &str) -> Result<Vec<CompDBRecord>> {
 }
 
 pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
-    // Style control
-    let (_, width) = Term::stdout().size();
-
     if records.is_empty() {
         println!("No matched record.");
         return Ok(());
     }
+
+    let width = terminal::window_size()?.columns;
     let head_decor = "=".repeat(width as usize);
     let data_decor = "-".repeat(width as usize);
 

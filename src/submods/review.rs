@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context};
 use regex::Regex;
 use reqwest::Client;
 
@@ -16,7 +16,7 @@ pub struct ReviewOptions {
     pub revisions: Option<String>,
 }
 
-pub async fn review(options: &ReviewOptions) -> Result<()> {
+pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
     // Make a http request and get the response. The response text indicates
     // the category of the bug.
     let client = Client::new();

@@ -7,7 +7,7 @@ use anyhow::{self, Context};
 use bitflags::bitflags;
 use chrono::Local;
 use clap::ValueEnum;
-use console::{Style, Term};
+use crossterm::{style::Stylize, terminal};
 use regex::Regex;
 use serde_json::{json, Value};
 
@@ -355,9 +355,7 @@ fn dump_json(infos: &[PrintInfo]) -> anyhow::Result<()> {
 
 fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
     // Style control
-    let color_grn = Style::new().green();
-    let color_ylw = Style::new().yellow();
-    let (_, width) = Term::stdout().size();
+    let width = terminal::window_size()?.columns;
 
     if infos.is_empty() {
         println!("No matched makeinfo.");
@@ -373,7 +371,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         if infos.len() > 1 { "s" } else { "" }
     ));
 
-    out.push_str(&format!("{}\n", color_grn.apply_to(&head_decor)));
+    out.push_str(&format!("{}\n", head_decor.as_str().green()));
 
     for (idx, item) in infos.iter().enumerate() {
         out.push_str(&format!(
@@ -382,15 +380,15 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         ));
 
         if idx < infos.len() - 1 {
-            out.push_str(&format!("{}\n", color_grn.apply_to(&data_decor)));
+            out.push_str(&format!("{}\n", data_decor.as_str().green()));
         }
     }
 
-    out.push_str(&format!("{}\n", color_grn.apply_to(&head_decor)));
+    out.push_str(&format!("{}\n", head_decor.as_str().green()));
 
     out.push_str(&format!(
         "{}\n",
-        color_ylw.apply_to("Run compile command under project root, such as 'MX_MAIN'.")
+        "Run compile command under project root, such as 'MX_MAIN'.".green()
     ));
 
     print!("{}", out);
