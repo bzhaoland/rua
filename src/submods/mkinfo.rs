@@ -123,7 +123,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             plat_mkinfo_file.to_string_lossy()
         );
     }
-    
+
     // Find out the matched record(s) from src/libplatform/hs_platform.c.
     let platinfo_reader = BufReader::new(File::open(plat_registry_file).unwrap());
     let platinfo_pattern_rough = Regex::new(
@@ -387,7 +387,8 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
     out.push_str(&format!("{}\n", head_decor.as_str().green()));
 
     out.push_str(&format!(
-        r#"Run command under the project root, e.g. "{}".\n"#,
+        r#"Run command under the project root, e.g. "{}".
+"#,
         utils::get_proj_root()?.to_str().unwrap().yellow()
     ));
 
