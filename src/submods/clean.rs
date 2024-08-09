@@ -30,7 +30,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         "[{}/{}] LISTING TARGET OBJS...{}",
         step,
         nsteps,
-        "0".yellow()
+        "0".dark_yellow()
     );
     io::stdout().flush()?;
     let target_dir = Path::new("target");
@@ -46,7 +46,7 @@ pub fn clean_build() -> anyhow::Result<()> {
                 "\r[{}/{}] LISTING TARGET OBJS...{}\x1B[0K",
                 step,
                 nsteps,
-                (idx + 1).to_string().yellow()
+                (idx + 1).to_string().dark_yellow()
             );
             io::stdout().flush()?;
         }
@@ -56,8 +56,8 @@ pub fn clean_build() -> anyhow::Result<()> {
             "\r[{}/{}] CLEANING TARGET OBJS...{}/{}\x1B[0K",
             step,
             nsteps,
-            "0".green(),
-            num_entries.to_string().yellow()
+            "0".dark_green(),
+            num_entries.to_string().dark_yellow()
         );
         io::stdout().flush()?;
         for (idx, entry) in WalkDir::new("target")
@@ -76,8 +76,8 @@ pub fn clean_build() -> anyhow::Result<()> {
                 "\r[{}/{}] CLEANING TARGET OBJS...{}/{}\x1B[0K",
                 step,
                 nsteps,
-                (idx + 1).to_string().green(),
-                num_entries.to_string().yellow()
+                (idx + 1).to_string().dark_green(),
+                num_entries.to_string().dark_yellow()
             );
             io::stdout().flush()?;
         }
@@ -86,7 +86,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         "\r[{}/{}] CLEANING TARGET OBJS...{}\x1B[0K",
         step,
         nsteps,
-        "DONE".green()
+        "DONE".dark_green()
     );
 
     // Clean unversioned entries
@@ -117,7 +117,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         "\r[{}/{}] LISTING UNVERSIONEDS...{}\x1B[0K",
         step,
         nsteps,
-        filelist.len().to_string().yellow()
+        filelist.len().to_string().dark_yellow()
     );
     io::stdout().flush()?;
 
@@ -125,8 +125,8 @@ pub fn clean_build() -> anyhow::Result<()> {
         "\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}\x1B[0K",
         step,
         nsteps,
-        "0".green(),
-        filelist.len().to_string().yellow()
+        "0".dark_green(),
+        filelist.len().to_string().dark_yellow()
     );
     io::stdout().flush()?;
     for (idx, item) in filelist.iter().enumerate() {
@@ -140,8 +140,8 @@ pub fn clean_build() -> anyhow::Result<()> {
             "\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}\x1B[0K",
             step,
             nsteps,
-            (idx + 1).to_string().green(),
-            filelist.len().to_string().yellow()
+            (idx + 1).to_string().dark_green(),
+            filelist.len().to_string().dark_yellow()
         );
         io::stdout().flush()?;
     }
@@ -149,7 +149,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         "\r[{}/{}] CLEANING UNVERSIONEDS...{}\x1B[0K",
         step,
         nsteps,
-        "DONE".green()
+        "DONE".dark_green()
     );
 
     // Clean UI files
@@ -157,7 +157,7 @@ pub fn clean_build() -> anyhow::Result<()> {
     if ui_dir.is_dir() {
         step += 1;
 
-        print!("[{}/{}] LISTING UI OBJS...{}", step, nsteps, "0".yellow());
+        print!("[{}/{}] LISTING UI OBJS...{}", step, nsteps, "0".dark_yellow());
         io::stdout().flush()?;
 
         let mut num_entries = 0;
@@ -171,7 +171,7 @@ pub fn clean_build() -> anyhow::Result<()> {
                 "\r[{}/{}] LISTING UI OBJS...{}\x1B[0K",
                 step,
                 nsteps,
-                (idx + 1).to_string().yellow()
+                (idx + 1).to_string().dark_yellow()
             );
             io::stdout().flush()?;
         }
@@ -181,8 +181,8 @@ pub fn clean_build() -> anyhow::Result<()> {
             "\r[{}/{}] CLEANING UI OBJS...{}/{}\x1B[0K",
             step,
             nsteps,
-            "0".green(),
-            num_entries.to_string().yellow()
+            "0".dark_green(),
+            num_entries.to_string().dark_yellow()
         );
         io::stdout().flush()?;
         for (idx, entry) in WalkDir::new(ui_dir)
@@ -201,8 +201,8 @@ pub fn clean_build() -> anyhow::Result<()> {
                 "\r[{}/{}] CLEANING UI OBJS...{}/{}\x1B[0K",
                 step,
                 nsteps,
-                (idx + 1).to_string().green(),
-                num_entries.to_string().yellow()
+                (idx + 1).to_string().dark_green(),
+                num_entries.to_string().dark_yellow()
             );
             io::stdout().flush()?;
         }
@@ -211,7 +211,7 @@ pub fn clean_build() -> anyhow::Result<()> {
             "\r[{}/{}] CLEANING UI OBJS...{}\x1B[0K",
             step,
             nsteps,
-            "DONE".green()
+            "DONE".dark_green()
         );
     }
 

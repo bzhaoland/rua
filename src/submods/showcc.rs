@@ -51,7 +51,7 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
         if records.len() > 1 { "s" } else { "" }
     ));
 
-    out.push_str(&format!("{}\n", head_decor.as_str().green()));
+    out.push_str(&format!("{}\n", head_decor.as_str().dark_green()));
 
     for (idx, item) in records.iter().enumerate() {
         out.push_str(&format!(
@@ -60,15 +60,15 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
         ));
 
         if idx < records.len() - 1 {
-            out.push_str(&format!("{}\n", data_decor.as_str().green()));
+            out.push_str(&format!("{}\n", data_decor.as_str().dark_green()));
         }
     }
 
-    out.push_str(&format!("{}\n", head_decor.as_str().green()));
+    out.push_str(&format!("{}\n", head_decor.as_str().dark_green()));
 
     out.push_str(&format!(
         "{}\n",
-        "Run compile command under corresponding directory.".yellow()
+        "Run compile command under corresponding directory.".dark_yellow()
     ));
 
     print!("{}", out);

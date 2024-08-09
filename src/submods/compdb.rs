@@ -66,7 +66,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "\r[{}/{}] INJECTING MKRULES...{}\x1B[0K",
         step,
         NSTEPS,
-        "DONE".green()
+        "DONE".dark_green()
     );
 
     // Build the target (pseudo)
@@ -101,7 +101,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "\r[{}/{}] PSEUDO BUILDING...{}\x1B[0K",
         step,
         NSTEPS,
-        "DONE".green()
+        "DONE".dark_green()
     );
 
     // Restore original makefiles
@@ -130,7 +130,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "\r[{}/{}] RESTORING MKRULES...{}\x1B[0K",
         step,
         NSTEPS,
-        "DONE".green()
+        "DONE".dark_green()
     );
 
     // Parse the build log
@@ -170,7 +170,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K",
         step,
         NSTEPS,
-        "DONE".green()
+        "DONE".dark_green()
     );
 
     // Generate JCDB
@@ -193,7 +193,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "\r[{}/{}] GENERATING JCDB...{}\x1B[0K",
         step,
         NSTEPS,
-        "DONE".green()
+        "DONE".dark_green()
     );
 
     Ok(())
