@@ -1,10 +1,11 @@
 use std::env;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::str::FromStr;
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use regex::Regex;
 
 /// Get current machine's hostname
@@ -28,34 +29,6 @@ pub fn get_hostname() -> anyhow::Result<OsString> {
         .unwrap_or(hostname_buf.len());
     hostname_buf.resize(end, 0);
     Ok(OsString::from_vec(hostname_buf))
-}
-
-/// When `svn` utility is available and `svn info` ran successfully
-pub fn get_svn_branch() -> anyhow::Result<Option<String>> {
-    let output = Command::new("svn")
-        .arg("info")
-        .output()
-        .context(r#"Command `svn info` failed"#)?;
-    if !output.status.success() {
-        anyhow::bail!(
-            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
-                .context(r#"Command `svn info` failed."#)
-        );
-    }
-    let output = String::from_utf8_lossy(&output.stdout);
-
-    // Get the full branch name from the svn info
-    let branch_pattern = Regex::new(r#"Relative URL: \^/branches/([-\w]+)"#)
-        .context("Error building regex pattern for capturing branch name")
-        .unwrap();
-    let branch_name = branch_pattern
-        .captures(&output)
-        .unwrap()
-        .get(1)
-        .unwrap()
-        .as_str();
-
-    anyhow::Ok(Some(branch_name.to_string()))
 }
 
 /// Get current username through external command `id -un`.
@@ -114,3 +87,58 @@ pub fn is_at_proj_root() -> anyhow::Result<bool> {
 
     anyhow::Ok(true)
 }
+
+/// Get project root path
+#[allow(dead_code)]
+pub fn get_proj_root() -> anyhow::Result<PathBuf> {
+    // Check location with svn command
+    let output = Command::new("svn")
+        .arg("info")
+        .output()
+        .context(r#"Command `svn info` failed"#)?;
+    if !output.status.success() {
+        anyhow::bail!(
+            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
+                .context(r#"Command `svn info` failed."#)
+        );
+    }
+    let output = String::from_utf8_lossy(&output.stdout);
+    let pattern = regex::Regex::new(r#"Working Copy Root Path: (.*)\n"#)?;
+    let captures = pattern.captures(&output);
+    if captures.is_none() {
+        bail!("Can not find the project root path")
+    }
+
+    let proj_root = PathBuf::from_str(captures.unwrap().get(1).unwrap().as_str())?;
+
+    anyhow::Ok(proj_root)
+}
+
+/// When `svn` utility is available and `svn info` ran successfully
+pub fn get_svn_branch() -> anyhow::Result<Option<String>> {
+    let output = Command::new("svn")
+        .arg("info")
+        .output()
+        .context(r#"Command `svn info` failed"#)?;
+    if !output.status.success() {
+        anyhow::bail!(
+            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
+                .context(r#"Command `svn info` failed."#)
+        );
+    }
+    let output = String::from_utf8_lossy(&output.stdout);
+
+    // Get the full branch name from the svn info
+    let branch_pattern = Regex::new(r#"Relative URL: \^/branches/([-\w]+)"#)
+        .context("Error building regex pattern for capturing branch name")
+        .unwrap();
+    let branch_name = branch_pattern
+        .captures(&output)
+        .unwrap()
+        .get(1)
+        .unwrap()
+        .as_str();
+
+    anyhow::Ok(Some(branch_name.to_string()))
+}
+
