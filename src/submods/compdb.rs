@@ -47,26 +47,26 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         );
     }
 
-    const NSTEPS: usize = 6;
+    const NSTEPS: usize = 5;
     let mut step: usize = 1;
 
     // Inject hackrule
     print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
     io::stdout().flush()?;
-    let recipe_pattern_c = Regex::new(r#"(\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c(\s+-E)?\s+-o\s+\$@\s+\$<\s*?\n?)"#).unwrap();
+    let recipe_pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c\s+-o\s+\$@\s+\$<\s*$"#).unwrap();
     let lastrules_orig = fs::read_to_string(LASTRULE_MKFILE)?;
-    let lastrules_hack = recipe_pattern_c.replace_all(&lastrules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c$2 -o $$@ $$< >>:file:>> $$<\n${1}").to_string();
+    let lastrules_hack = recipe_pattern_c.replace_all(&lastrules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c -o $$@ $$< >>:file:>> $$<").to_string();
     fs::write(LASTRULE_MKFILE, lastrules_hack)?;
     let recipe_pattern_cc =
-        Regex::new(r#"(\t\s*\$\(COMPILE_CXX_CP_E\)(\s+-E)?\s*?\n?)"#).unwrap();
+        Regex::new(r#"(?m)^\t\s*\$\(COMPILE_CXX_CP_E\)\s*$"#).unwrap();
     let rules_orig = fs::read_to_string(RULES_MKFILE)?;
-    let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP)$2 >>:file:>> $$<\n${1}").to_string();
+    let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP) >>:file:>> $$<").to_string();
     fs::write(RULES_MKFILE, rules_hack)?;
     println!(
         "\r[{}/{}] INJECTING MAKERULES...{}\x1B[0K",
         step,
         NSTEPS,
-        "OK".green()
+        "DONE".green()
     );
 
     // Build the target (pseudo)
@@ -101,7 +101,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "\r[{}/{}] PSEUDO BUILDING...{}\x1B[0K",
         step,
         NSTEPS,
-        "OK".green()
+        "DONE".green()
     );
 
     // Restore original makefiles
@@ -130,7 +130,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "\r[{}/{}] RESTORING MKRULES...{}\x1B[0K",
         step,
         NSTEPS,
-        "OK".green()
+        "DONE".green()
     );
 
     // Parse the build log
@@ -147,7 +147,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         e
     })?;
     let hackrule_pattern = Regex::new(
-        r#"##JCDB##\s+>>:directory:>>\s+([^\n]+?)\s+>>:command:>>\s+([^\n]+?)\s+>>:file:>>\s+([^\n]+)\s*\n?"#,
+        r#"(?m)^##JCDB##\s+>>:directory:>>\s+([^>]+?)\s+>>:command:>>\s+([^>]+?)\s+>>:file:>>\s+(.+)\s*$"#,
     )?;
     let mut records: Vec<CompDBRecord> = Vec::new();
     for (_, [dirc, comm, file]) in hackrule_pattern
@@ -170,7 +170,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K",
         step,
         NSTEPS,
-        "OK".green()
+        "DONE".green()
     );
 
     // Generate JCDB
@@ -193,7 +193,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "\r[{}/{}] GENERATING JCDB...{}\x1B[0K",
         step,
         NSTEPS,
-        "OK".green()
+        "DONE".green()
     );
 
     Ok(())

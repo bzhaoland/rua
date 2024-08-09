@@ -388,7 +388,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
 
     out.push_str(&format!(
         "{}\n",
-        "Run compile command under project root, such as 'MX_MAIN'.".green()
+        "Run compile command under project root, such as 'MX_MAIN'.".yellow()
     ));
 
     print!("{}", out);
