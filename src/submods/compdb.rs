@@ -53,12 +53,12 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     // Inject hackrule
     print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
     io::stdout().flush()?;
-    let recipe_pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c\s+-o\s+\$@\s+\$<\s*$"#).unwrap();
+    let recipe_pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c\s+-o\s+\$@\s+\$<\s*?$"#).unwrap();
     let lastrules_orig = fs::read_to_string(LASTRULE_MKFILE)?;
     let lastrules_hack = recipe_pattern_c.replace_all(&lastrules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c -o $$@ $$< >>:file:>> $$<").to_string();
     fs::write(LASTRULE_MKFILE, lastrules_hack)?;
     let recipe_pattern_cc =
-        Regex::new(r#"(?m)^\t\s*\$\(COMPILE_CXX_CP_E\)\s*$"#).unwrap();
+        Regex::new(r#"(?m)^\t\s*\$\(COMPILE_CXX_CP_E\)\s*?$"#).unwrap();
     let rules_orig = fs::read_to_string(RULES_MKFILE)?;
     let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP) >>:file:>> $$<").to_string();
     fs::write(RULES_MKFILE, rules_hack)?;
@@ -147,7 +147,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         e
     })?;
     let hackrule_pattern = Regex::new(
-        r#"(?m)^##JCDB##\s+>>:directory:>>\s+([^>]+?)\s+>>:command:>>\s+([^>]+?)\s+>>:file:>>\s+(.+)\s*$"#,
+        r#"(?m)^##JCDB##\s+>>:directory:>>\s+([^>]+?)\s+>>:command:>>\s+([^>]+?)\s+>>:file:>>\s+(.+)\s*?$"#,
     )?;
     let mut records: Vec<CompDBRecord> = Vec::new();
     for (_, [dirc, comm, file]) in hackrule_pattern
