@@ -63,7 +63,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     let rules_hack = recipe_pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP) >>:file:>> $$<").to_string();
     fs::write(RULES_MKFILE, rules_hack)?;
     println!(
-        "\r[{}/{}] INJECTING MAKERULES...{}\x1B[0K",
+        "\r[{}/{}] INJECTING MKRULES...{}\x1B[0K",
         step,
         NSTEPS,
         "DONE".green()
