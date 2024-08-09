@@ -387,7 +387,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
     out.push_str(&format!("{}\n", head_decor.as_str().green()));
 
     out.push_str(&format!(
-        "Run command under the project root, e.g. '{}'.\n",
+        r#"Run command under the project root, e.g. "{}".\n"#,
         utils::get_proj_root()?.to_str().unwrap().yellow()
     ));
 
