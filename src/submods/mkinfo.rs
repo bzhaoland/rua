@@ -361,8 +361,8 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         println!("No matched makeinfo.");
         return anyhow::Ok(());
     }
-    let head_decor = "=".repeat(width as usize);
-    let data_decor = "-".repeat(width as usize);
+    let head_decor = "=".repeat(width as usize).dark_green().to_string();
+    let data_decor = "-".repeat(width as usize).dark_green().to_string();
 
     let mut out = String::new();
     out.push_str(&format!(
@@ -372,7 +372,6 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
     ));
 
     out.push_str(&format!("{}\n", head_decor.as_str().green()));
-
     for (idx, item) in infos.iter().enumerate() {
         out.push_str(&format!(
             "Product  : {}\nPlatform : {}\nTarget   : {}\nPath     : {}\nCommand  : {}\n",
@@ -380,19 +379,20 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         ));
 
         if idx < infos.len() - 1 {
-            out.push_str(&format!("{}\n", data_decor.as_str().green()));
+            out.push_str(&format!("{}\n", data_decor.as_str()));
         }
     }
-
-    out.push_str(&format!("{}\n", head_decor.as_str().green()));
-
-    out.push_str(&format!(
-        r#"{}"{}"{}
+    out.push_str(&format!("{}\n", head_decor.as_str()));
+    
+    out.push_str(
+        &format!(
+            r#"Run command under the project root, e.g. "{}"
 "#,
-        "Run command under the project root, e.g. ".yellow(),
-        utils::get_proj_root()?.to_str().unwrap().yellow().underline_yellow(),
-        ".".yellow()
-    ));
+            utils::get_proj_root()?.to_string_lossy()
+        )
+        .dark_yellow()
+        .to_string(),
+    );
 
     print!("{}", out);
 
