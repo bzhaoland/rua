@@ -17,7 +17,7 @@ use crate::submods::silist;
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.10.1",
+    version = "0.10.2",
     about = "Devbox for StoneOS project",
     long_about = None
 )]
