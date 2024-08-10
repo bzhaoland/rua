@@ -383,7 +383,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         }
     }
     out.push_str(&format!("{}\n", head_decor.as_str()));
-    
+
     out.push_str(
         &format!(
             r#"Run command under the project root, e.g. "{}"
