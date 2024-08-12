@@ -1,10 +1,11 @@
 use std::fmt;
 use std::fs;
+use std::io;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::bail;
-use anyhow::Context;
+use anyhow::{bail, Context};
 use crossterm::style::Stylize;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -50,9 +51,11 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
 
     const NSTEPS: usize = 5;
     let mut step: usize = 1;
+    let mut stdout = io::stdout();
 
     // Inject hackrule
-    println!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
+    print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
+    stdout.flush()?;
     let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c\s+-o\s+\$@\s+\$<\s*?$"#).unwrap();
     let lastrules_orig = fs::read_to_string(LASTRULE_MKFILE)?;
     let lastrules_hacked = pattern_c.replace_all(&lastrules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c -o $$@ $$< >>:file:>> $$<").to_string();
@@ -62,7 +65,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     let rules_hacked = pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP) >>:file:>> $$<").to_string();
     fs::write(RULES_MKFILE, rules_hacked)?;
     println!(
-        r#"\x1B[1A\x1B[2K\r[{}/{}] INJECTING MKRULES...{}"#,
+        "\x1B[2K\r[{}/{}] INJECTING MKRULES...{} ",
         step,
         NSTEPS,
         "DONE".dark_green()
@@ -70,7 +73,8 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
 
     // Build the target (pseudo)
     step += 1;
-    println!("[{}/{}] BUILDING PSEUDOLY...", step, NSTEPS);
+    print!("[{}/{}] BUILDING PSEUDOLY...", step, NSTEPS);
+    stdout.flush()?;
     let output = Command::new("hsdocker7")
         .args([
             "make",
@@ -92,7 +96,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         bail!("Pseudoly building failed: {}", status);
     }
     println!(
-        r#"\x1B[1A\x1B[2K\r[{}/{}] BUILDING PSEUDOLY...{}"#,
+        "\x1B[2K\r[{}/{}] BUILDING PSEUDOLY...{}",
         step,
         NSTEPS,
         "DONE".dark_green()
@@ -100,12 +104,13 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
 
     // Restore original makefiles
     step += 1;
-    println!("[{}/{}] RESTORING MKRULES...", step, NSTEPS);
+    print!("[{}/{}] RESTORING MKRULES...", step, NSTEPS);
+    stdout.flush()?;
     fs::write(LASTRULE_MKFILE, lastrules_orig)
         .context(format!("Error writing to {}", LASTRULE_MKFILE))?;
     fs::write(RULES_MKFILE, rules_orig).context(format!("Error writing to {}", RULES_MKFILE))?;
     println!(
-        r#"\x1B[1A\x1B[2K\r[{}/{}] RESTORING MKRULES...{}"#,
+        "\x1B[2K\r[{}/{}] RESTORING MKRULES...{}",
         step,
         NSTEPS,
         "DONE".dark_green()
@@ -113,13 +118,14 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
 
     // Parse the build log
     step += 1;
-    println!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
+    print!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
+    stdout.flush()?;
     let output_str = String::from_utf8(output.stdout).context("Error creating string")?;
-    let hackrule_pattern = Regex::new(
+    let pattern_hackrule = Regex::new(
         r#"(?m)^##JCDB##\s+>>:directory:>>\s+([^>]+?)\s+>>:command:>>\s+([^>]+?)\s+>>:file:>>\s+(.+)\s*?$"#,
     ).context("Error creating hackrule pattern")?;
     let mut records: Vec<CompDBRecord> = Vec::new();
-    for (_, [dirc, comm, file]) in hackrule_pattern
+    for (_, [dirc, comm, file]) in pattern_hackrule
         .captures_iter(&output_str)
         .map(|c| c.extract())
     {
@@ -136,7 +142,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         });
     }
     println!(
-        r#"\x1B[1A\x1B[2K\r[{}/{}] PARSING BUILDLOG...{}"#,
+        "\x1B[2K\r[{}/{}] PARSING BUILDLOG...{}",
         step,
         NSTEPS,
         "DONE".dark_green()
@@ -144,7 +150,8 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
 
     // Generate JCDB
     step += 1;
-    println!("[{}/{}] GENERATING JCDB...", step, NSTEPS);
+    print!("[{}/{}] GENERATING JCDB...", step, NSTEPS);
+    stdout.flush()?;
     let mut jcdb = json!([]);
     for item in records.iter() {
         jcdb.as_array_mut().unwrap().push(json!({
@@ -158,7 +165,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         serde_json::to_string_pretty(&jcdb)?,
     )?;
     println!(
-        r#"\x1B[1A\x1B[2K\r[{}/{}] GENERATING JCDB...{}"#,
+        "\x1B[2K\r[{}/{}] GENERATING JCDB...{}",
         step,
         NSTEPS,
         "DONE".dark_green()

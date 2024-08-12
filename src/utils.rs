@@ -141,4 +141,3 @@ pub fn get_svn_branch() -> anyhow::Result<Option<String>> {
 
     anyhow::Ok(Some(branch_name.to_string()))
 }
-
