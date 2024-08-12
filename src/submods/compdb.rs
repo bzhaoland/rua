@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fs;
-use std::io;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -65,7 +64,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     let rules_hacked = pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP) >>:file:>> $$<").to_string();
     fs::write(RULES_MKFILE, rules_hacked)?;
     println!(
-        "\x1B[2K\r[{}/{}] INJECTING MKRULES...{} ",
+        "\x1B[2K\r[{}/{}] INJECTING MKRULES...{}",
         step,
         NSTEPS,
         "DONE".dark_green()
