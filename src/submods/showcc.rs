@@ -1,9 +1,8 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use crossterm::{style::Stylize, terminal};
-use regex::Regex;
 
 use crate::submods::compdb::{CompDB, CompDBRecord};
 
@@ -13,21 +12,15 @@ pub fn fetch_compile_command(filename: &str) -> Result<Vec<CompDBRecord>> {
     let compdb: CompDB = serde_json::from_str(&compdb_str).context("CompDB parsed error!")?;
     let mut commands = vec![];
 
-    for item in compdb.iter() {
-        let file = PathBuf::from(item.file.as_str());
-        let tmp = file
+    for item in compdb.into_iter() {
+        let file = Path::new(item.file.as_str());
+        let basename = file
             .file_name()
-            .context("Record format error!")?
+            .context("Error path format")?
             .to_str()
-            .context("Not valid Unicode")?;
-        if tmp == filename {
-            let pattern = Regex::new(r"-M(?:[DGMP]|MD|no-modules|[FTQ]\s*\S+)?\s+")?;
-            let new_command = pattern.replace(&item.command, "").to_string();
-            commands.push(CompDBRecord {
-                command: new_command,
-                directory: item.directory.clone(),
-                file: item.file.clone(),
-            });
+            .context("Invalid Unicode")?;
+        if basename == filename {
+            commands.push(item);
         }
     }
 
@@ -67,11 +60,11 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
     out.push_str(&format!("{}\n", head_decor.as_str().dark_green()));
 
     out.push_str(&format!(
-        "{}\n",
-        "Run compile command under corresponding directory.".dark_yellow()
+        "{}",
+        "Run the compile command under the corresponding directory.".dark_yellow()
     ));
 
-    print!("{}", out);
+    println!("{}", out);
 
     Ok(())
 }

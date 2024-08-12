@@ -24,7 +24,7 @@ impl fmt::Display for CompDBRecord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            r"{{ command: {}, directory: {}, file: {} }}",
+            r#"{{ command: {}, directory: {}, file: {} }}"#,
             self.command, self.directory, self.file
         )
     }
@@ -35,14 +35,14 @@ pub type CompDB = Vec<CompDBRecord>;
 pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     // Must run under the project root
     if !utils::is_at_proj_root()? {
-        anyhow::bail!("Location error! Please run command under the project root.");
+        bail!("Location error! Please run command under the project root.");
     }
 
     // Files to be used
     const LASTRULE_MKFILE: &str = "./scripts/last-rules.mk";
     const RULES_MKFILE: &str = "./scripts/rules.mk";
     if !(Path::new(LASTRULE_MKFILE).is_file() && Path::new(LASTRULE_MKFILE).is_file()) {
-        anyhow::bail!(
+        bail!(
             r#"File "{}" or "{}" not found"#,
             LASTRULE_MKFILE,
             RULES_MKFILE
@@ -102,7 +102,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         "DONE".dark_green()
     );
 
-    // Restore original makefiles
+    // Restore the original makefiles
     step += 1;
     print!("[{}/{}] RESTORING MKRULES...", step, NSTEPS);
     stdout.flush()?;
