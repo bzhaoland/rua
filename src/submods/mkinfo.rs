@@ -1,6 +1,5 @@
 use std::fmt::Display;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{self, Context};
@@ -106,136 +105,71 @@ impl Display for PrintInfo {
 }
 
 /// Generate the make information for the given platform.
+/// This function must run under project root.
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<PrintInfo>> {
-    // Must run under project root
     if !utils::is_at_proj_root()? {
         anyhow::bail!("Location error! Please run under the project root.");
     }
 
-    let plat_registry_file = Path::new("./src/libplatform/hs_platform.c");
-    let plat_mkinfo_file = Path::new("./scripts/platform_table");
-
-    // Check file existing
-    if !(plat_registry_file.is_file() && plat_mkinfo_file.is_file()) {
-        anyhow::bail!(
-            r#"File "{}" and "{}" not found"#,
-            plat_registry_file.to_string_lossy(),
-            plat_mkinfo_file.to_string_lossy()
-        );
+    let plat_registry = Path::new("./src/libplatform/hs_platform.c");
+    if !plat_registry.is_file() {
+        anyhow::bail!(r#"File "{}"not found"#, plat_registry.to_string_lossy());
     }
 
-    // Find out the matched record(s) from src/libplatform/hs_platform.c.
-    let platinfo_reader = BufReader::new(File::open(plat_registry_file).unwrap());
-    let platinfo_pattern_rough = Regex::new(
-        &format!(r#"(?i)\{{(?:\s*\w+\s*,){{2}}\s*\d+\s*,(?:\s*\w+\s*,){{2}}\s*"[^"]*"\s*,\s*"[-\w]+-{}"\s*(?:,\s*(?:"[^"]+"|NULL)\s*){{3}}\}}"#,
-        nickname)).context("Error building regex pattern for product search with product name")?;
-    let platinfo_pattern_precise = Regex::new(
-        r#"(?i)\{\s*(\w+)\s*,\s*(\w+)\s*,\s*(\d+)\s*,\s*(\w+)\s*,\s*(\w+)\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*(?:"([^"]*)"|NULL)\s*\}"#).context("Error building regex pattern for makeinfo search with matched platform id")?;
-    let mut products: Vec<ProductInfo> = Vec::new();
-    for line in platinfo_reader.lines().map(|l| l.unwrap()) {
-        // Filtering using rough pattern
-        if !platinfo_pattern_rough.is_match(&line) {
-            continue;
-        }
+    let plat_table = Path::new("./scripts/platform_table");
+    if !plat_table.is_file() {
+        anyhow::bail!(r#"File "{}" not found"#, plat_table.to_string_lossy());
+    }
 
-        match platinfo_pattern_precise.captures(&line) {
-            Some(v) => {
-                products.push(ProductInfo {
-                    platform_model: v
-                        .get(1)
-                        .context("Error extracting the platform model part")?
-                        .as_str()
-                        .to_string(),
-                    product_model: v
-                        .get(2)
-                        .context("Error extracting the product model part")?
-                        .as_str()
-                        .to_string(),
-                    name_id: v
-                        .get(3)
-                        .context("Error extracting the name part")?
-                        .as_str()
-                        .parse::<usize>()
-                        .unwrap(),
-                    oem_id: v
-                        .get(4)
-                        .context("Error extracting the oem-id part")?
-                        .as_str()
-                        .to_string(),
-                    family: v
-                        .get(5)
-                        .context("Error extracting the product family part")?
-                        .as_str()
-                        .to_string(),
-                    prod_shortname: v
-                        .get(6)
-                        .context("Error extracting the short name part")?
-                        .as_str()
-                        .to_string(),
-                    prod_longname: v
-                        .get(7)
-                        .context("Error extracting the long name part")?
-                        .as_str()
-                        .to_string(),
-                    prod_descr: v
-                        .get(8)
-                        .context("Error extracting the description part")?
-                        .as_str()
-                        .to_string(),
-                    snmp_oid: v
-                        .get(9)
-                        .context("Error extracting the snmp-oid part")?
-                        .as_str()
-                        .to_string(),
-                    icon_path: match v.get(10) {
-                        Some(v) => {
-                            if v.as_str() == "NULL" {
-                                None
-                            } else {
-                                Some(PathBuf::from(v.as_str()))
-                            }
-                        }
-                        None => None,
-                    },
-                });
+    // Find all matched record(s) from src/libplatform/hs_platform.c
+    let platinfo_text = fs::read_to_string(plat_registry).context(format!(
+        r#"Error reading file "{}""#,
+        plat_registry.to_string_lossy()
+    ))?;
+    let platinfo_pattern = Regex::new(
+        &format!(r#"(?im)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern for platinfo")?;
+    let mut products: Vec<ProductInfo> = Vec::new();
+    for (_, [platmodel, prodmodel, nameid, oemid, family, shortname, longname, descr, snmpoid, iconpath]) in
+        platinfo_pattern
+            .captures_iter(&platinfo_text)
+            .map(|c| c.extract())
+    {
+        products.push(ProductInfo {
+            platform_model: platmodel.to_string(),
+            product_model: prodmodel.to_string(),
+            name_id: nameid.parse::<usize>()?,
+            oem_id: oemid.to_string(),
+            family: family.to_string(),
+            prod_shortname: shortname.to_string(),
+            prod_longname: longname.to_string(),
+            prod_descr: descr.to_string(),
+            snmp_oid: snmpoid.to_string(),
+            icon_path: if iconpath.trim().is_empty() || iconpath.trim() == "NULL" {
+                None
+            } else {
+                Some(PathBuf::from(iconpath))
             }
-            None => {
-                continue;
-            }
-        };
+        })
     }
 
     // Fetch makeinfo for each product
-    let makeinfo_reader = BufReader::new(File::open(plat_mkinfo_file).context("File not found")?);
+    let makeinfo_text = fs::read_to_string(plat_table).context(format!(
+        r#"Error reading "{}""#,
+        plat_table.to_string_lossy()
+    ))?;
     let makeinfo_pat =
-        Regex::new(r#"(?i)^\s*(\w+),([-\w]+),[^,]*,\s*"\s*(?:cd\s+)?([-\w/]+)\s*","#)
-            .context("Error composing a regex pattern")?;
+        Regex::new(r#"(?im)^[[:blank:]]*([[:word:]]+),([-\w]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-\w/]+)",.*$"#)
+            .context("Error creating regex pattern for makeinfo")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
-    for line in makeinfo_reader.lines().map(|l| l.unwrap()) {
-        match makeinfo_pat.captures(&line) {
-            Some(v) => {
-                mkinfos.push(MakeInfo {
-                    plat_model: v
-                        .get(1)
-                        .context("Error extracting the platform part")?
-                        .as_str()
-                        .to_string(),
-                    make_goal: v
-                        .get(2)
-                        .context("Error extracting the make target part")?
-                        .as_str()
-                        .to_string(),
-                    make_dirc: v
-                        .get(3)
-                        .context("Error extracting the directory part")?
-                        .as_str()
-                        .to_string(),
-                });
-            }
-            None => {
-                continue;
-            }
-        }
+    for (_, [plat_model, make_goal, make_dirc]) in makeinfo_pat
+        .captures_iter(&makeinfo_text)
+        .map(|c| c.extract())
+    {
+        mkinfos.push(MakeInfo {
+            plat_model: plat_model.to_string(),
+            make_goal: make_goal.to_string(),
+            make_dirc: make_dirc.to_string(),
+        })
     }
 
     let mut image_name_prefix = String::from("SG6000-");
