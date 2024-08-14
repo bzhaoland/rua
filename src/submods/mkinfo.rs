@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{self, Context};
 use bitflags::bitflags;
@@ -56,7 +56,7 @@ struct ProductInfo {
     prod_longname: String,
     prod_descr: String,
     snmp_oid: String,
-    icon_path: Option<PathBuf>,
+    icon_path: Option<String>,
 }
 
 #[derive(Debug)]
@@ -129,11 +129,14 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     let platinfo_pattern = Regex::new(
         &format!(r#"(?im)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern for platinfo")?;
     let mut products: Vec<ProductInfo> = Vec::new();
-    for (_, [platmodel, prodmodel, nameid, oemid, family, shortname, longname, descr, snmpoid, iconpath]) in
-        platinfo_pattern
-            .captures_iter(&platinfo_text)
-            .map(|c| c.extract())
+    for (
+        _,
+        [platmodel, prodmodel, nameid, oemid, family, shortname, longname, descr, snmpoid, mut iconpath],
+    ) in platinfo_pattern
+        .captures_iter(&platinfo_text)
+        .map(|c| c.extract())
     {
+        iconpath = iconpath.trim();
         products.push(ProductInfo {
             platform_model: platmodel.to_string(),
             product_model: prodmodel.to_string(),
@@ -144,11 +147,11 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             prod_longname: longname.to_string(),
             prod_descr: descr.to_string(),
             snmp_oid: snmpoid.to_string(),
-            icon_path: if iconpath.trim().is_empty() || iconpath.trim() == "NULL" {
+            icon_path: if iconpath.is_empty() || iconpath == "NULL" {
                 None
             } else {
-                Some(PathBuf::from(iconpath))
-            }
+                Some(iconpath.to_string())
+            },
         })
     }
 
@@ -157,11 +160,11 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         r#"Error reading "{}""#,
         plat_table.to_string_lossy()
     ))?;
-    let makeinfo_pat =
+    let makeinfo_pattern =
         Regex::new(r#"(?im)^[[:blank:]]*([[:word:]]+),([-\w]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-\w/]+)",.*$"#)
-            .context("Error creating regex pattern for makeinfo")?;
+            .context("Error building regex pattern for makeinfo")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
-    for (_, [plat_model, make_goal, make_dirc]) in makeinfo_pat
+    for (_, [plat_model, make_goal, make_dirc]) in makeinfo_pattern
         .captures_iter(&makeinfo_text)
         .map(|c| c.extract())
     {
