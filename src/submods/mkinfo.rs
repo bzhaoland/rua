@@ -175,7 +175,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         })
     }
 
-    let pattern_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Error building non-alnum regex pattern")?;
+    let pattern_nonalnum =
+        Regex::new(r#"[^[:alnum:]]+"#).context("Error building non-alnum regex pattern")?;
     let mut image_name_infix = String::new();
 
     // Extracting patterns like R10 or R10_F from branch name
@@ -230,10 +231,14 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                 make_goal.push_str("-ipv6");
             }
 
-            let image_name_goal = mkinfo.make_goal.replace('-', "").to_uppercase();
             let image_name = format!(
                 "{}-{}-{}-{}",
-                prodname, image_name_infix, image_name_goal, image_name_suffix
+                prodname,
+                image_name_infix,
+                pattern_nonalnum
+                    .replace_all(&mkinfo.make_goal, "")
+                    .to_uppercase(),
+                image_name_suffix
             );
             let make_comm = format!(
                 "hsdocker7 make -C {} -j8 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
