@@ -181,21 +181,21 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
 
     // Extracting patterns like R10 or R10_F from branch name
     let branch_name = utils::get_svn_branch()?;
-    let branch_nickname = match &branch_name {
-        Some(name) => {
-            let nickname_pattern = Regex::new(r"HAWAII_([\w-]+)")
-                .context("Error building regex pattern for nickname")
-                .unwrap();
-            let captures = nickname_pattern.captures(name);
-            match captures {
-                Some(v) => v.get(1).map_or(name.to_owned(), |x| {
-                    pattern_nonalnum.replace_all(x.as_str(), "").to_string()
-                }),
-                None => name.to_owned(),
-            }
-        }
-        None => "UB".to_string(),
+    let branch_nickname = if let Some(branch_name) = &branch_name {
+        let nickname_pattern = Regex::new(r"HAWAII_([\w-]+)")
+            .context("Error building regex pattern for nickname")
+            .unwrap();
+        let captures = nickname_pattern.captures(branch_name);
+        pattern_nonalnum.replace_all(&match captures {
+            Some(v) => v
+                .get(1)
+                .map_or(branch_name.to_owned(), |x| x.as_str().to_string()),
+            None => branch_name.to_string(),
+        }, "").to_string()
+    } else {
+        "UB".to_string() // Unknown branch
     };
+
     image_name_infix.push_str(&branch_nickname);
 
     let mut image_name_suffix = String::new();
