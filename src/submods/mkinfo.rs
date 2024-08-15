@@ -331,7 +331,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
 
     out.push_str(
         &format!(
-            r#"Run command under the project root, e.g. "{}"
+            r#"Run command under the project root, i.e. "{}"
 "#,
             utils::get_proj_root()?.to_string_lossy()
         )
