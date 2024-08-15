@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt;
 use std::fs;
 use std::path::Path;
 
@@ -32,7 +32,7 @@ pub enum DumpFormat {
     Tsv,
 }
 
-impl Display for DumpFormat {
+impl fmt::Display for DumpFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DumpFormat::Csv => write!(f, "Csv"),
@@ -52,9 +52,9 @@ struct ProductInfo {
     name_id: usize,
     oem_id: String,
     family: String,
-    prod_shortname: String,
-    prod_longname: String,
-    prod_descr: String,
+    shortname: String,
+    longname: String,
+    snmp_descr: String,
     snmp_oid: String,
     icon_path: Option<String>,
 }
@@ -75,8 +75,8 @@ pub struct PrintInfo {
     make_comm: String,
 }
 
-impl Display for MakeInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for MakeInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             r#"MakeInfo {{
@@ -89,8 +89,8 @@ impl Display for MakeInfo {
     }
 }
 
-impl Display for PrintInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for PrintInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             r#"CompileInfo {{
@@ -143,9 +143,9 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             name_id: nameid.parse::<usize>()?,
             oem_id: oemid.to_string(),
             family: family.to_string(),
-            prod_shortname: shortname.to_string(),
-            prod_longname: longname.to_string(),
-            prod_descr: descr.to_string(),
+            shortname: shortname.to_string(),
+            longname: longname.to_string(),
+            snmp_descr: descr.to_string(),
             snmp_oid: snmpoid.to_string(),
             icon_path: if iconpath.is_empty() || iconpath == "NULL" {
                 None
@@ -175,7 +175,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         })
     }
 
-    let mut image_name_prefix = String::from("SG6000-");
+    let pattern_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Error building non-alnum regex pattern")?;
+    let mut image_name_infix = String::new();
 
     // Extracting patterns like R10 or R10_F from branch name
     let branch_name = utils::get_svn_branch()?;
@@ -186,13 +187,15 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                 .unwrap();
             let captures = nickname_pattern.captures(name);
             match captures {
-                Some(v) => v.get(1).map_or(name.to_owned(), |x| x.as_str().to_string()),
+                Some(v) => v.get(1).map_or(name.to_owned(), |x| {
+                    pattern_nonalnum.replace_all(x.as_str(), "").to_string()
+                }),
                 None => name.to_owned(),
             }
         }
         None => "UB".to_string(),
     };
-    image_name_prefix.push_str(&branch_nickname);
+    image_name_infix.push_str(&branch_nickname);
 
     let mut image_name_suffix = String::new();
 
@@ -215,8 +218,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     image_name_suffix.push_str(&username);
 
     let mut printinfos: Vec<PrintInfo> = Vec::new();
-
     for prod in products.iter() {
+        let prodname = pattern_nonalnum.replace_all(&prod.shortname, "");
         for mkinfo in mkinfos.iter() {
             if mkinfo.plat_model != prod.platform_model {
                 continue;
@@ -229,8 +232,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
 
             let image_name_goal = mkinfo.make_goal.replace('-', "").to_uppercase();
             let image_name = format!(
-                "{}-{}-{}",
-                image_name_prefix, image_name_goal, image_name_suffix
+                "{}-{}-{}-{}",
+                prodname, image_name_infix, image_name_goal, image_name_suffix
             );
             let make_comm = format!(
                 "hsdocker7 make -C {} -j8 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
@@ -243,7 +246,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             );
 
             printinfos.push(PrintInfo {
-                prod_name: prod.prod_longname.clone(),
+                prod_name: prod.longname.clone(),
                 plat_model: mkinfo.plat_model.clone(),
                 make_goal,
                 make_dirc: mkinfo.make_dirc.clone(),
