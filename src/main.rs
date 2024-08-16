@@ -3,6 +3,8 @@ mod utils;
 
 use std::path::PathBuf;
 
+use anstyle::AnsiColor;
+use clap::builder::styling;
 use clap::{Parser, Subcommand};
 
 use crate::submods::clean;
@@ -13,11 +15,18 @@ use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
 
+const STYLES: styling::Styles = styling::Styles::styled()
+    .header(AnsiColor::Yellow.on_default().bold())
+    .usage(AnsiColor::Yellow.on_default().bold())
+    .literal(AnsiColor::Green.on_default().bold())
+    .placeholder(AnsiColor::Cyan.on_default());
+
 #[derive(Parser)]
 #[command(
     name = "rua",
     author = "bzhao",
     version = "0.11.0",
+    styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
     after_help = r#"Examples:
