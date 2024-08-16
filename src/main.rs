@@ -19,8 +19,8 @@ use crate::submods::silist;
     author = "bzhao",
     version = "0.11.0",
     about = "Devbox for StoneOS project",
-    long_about = r#"Devbox for StoneOS project.
-Examples:
+    long_about = "Devbox for StoneOS project",
+    after_help = r#"Examples:
     rua clean
     rua compdb products/ngfw_as a-dnv-ipv6
     rua mkinfo -6 A1000
