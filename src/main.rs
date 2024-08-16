@@ -18,7 +18,7 @@ use crate::submods::silist;
 const STYLES: styling::Styles = styling::Styles::styled()
     .header(AnsiColor::Yellow.on_default().bold())
     .usage(AnsiColor::Yellow.on_default().bold())
-    .literal(AnsiColor::Green.on_default().bold())
+    .literal(AnsiColor::Green.on_default())
     .placeholder(AnsiColor::Cyan.on_default());
 
 #[derive(Parser)]
