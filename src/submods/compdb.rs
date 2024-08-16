@@ -80,7 +80,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
             "-C",
             product_dir,
             make_target,
-            "-j16",
+            "-j8",
             "-iknwB", // For pseudo building forcefully
             "HS_BUILD_COVERITY=0",
             "ISBUILDRELEASE=1",

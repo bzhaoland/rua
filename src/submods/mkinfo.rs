@@ -241,7 +241,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                 image_name_suffix
             );
             let make_comm = format!(
-                "hsdocker7 make -C {} -j8 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
+                "make -C {} {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
                 mkinfo.make_dirc, make_goal,
                 if makeflag.contains(MakeFlag::COVERITY) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::R_BUILD) { 1 } else { 0 },
