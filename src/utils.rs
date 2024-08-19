@@ -150,9 +150,7 @@ Last Changed Date: ([^\n]+)"#,
 
     #[allow(dead_code)]
     pub fn working_copy_root_path(&self) -> Option<PathBuf> {
-        self.working_copy_root_path
-            .as_ref()
-            .map(PathBuf::from)
+        self.working_copy_root_path.as_ref().map(PathBuf::from)
     }
 
     #[allow(dead_code)]
