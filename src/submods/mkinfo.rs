@@ -182,10 +182,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         let plat_model = item.get(1).unwrap().as_str().to_string();
         let make_goal = item.get(2).unwrap().as_str().to_string();
         let make_dirc = item.get(3).unwrap().as_str().to_string();
-        let prod_family = match item.get(4) {
-            Some(v) => Some(v.as_str().to_string()),
-            None => None,
-        };
+        let prod_family = item.get(4).map(|v| v.as_str().to_string());
         mkinfos.push(MakeInfo {
             plat_model,
             prod_family,
@@ -248,12 +245,11 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                 continue;
             }
 
-            if newer_mkfile {
-                if mkinfo.prod_family.is_some()
-                    && mkinfo.prod_family.as_ref().unwrap() != &prod.family
-                {
-                    continue;
-                }
+            if newer_mkfile
+                && mkinfo.prod_family.is_some()
+                && mkinfo.prod_family.as_ref().unwrap() != &prod.family
+            {
+                continue;
             }
 
             let mut make_goal = mkinfo.make_goal.clone();
@@ -363,7 +359,11 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         &format!(
             r#"Run command under the project root, i.e. "{}"
 "#,
-            SvnInfo::new()?.working_copy_root_path().unwrap().as_path().to_string_lossy()
+            SvnInfo::new()?
+                .working_copy_root_path()
+                .unwrap()
+                .as_path()
+                .to_string_lossy()
         )
         .dark_yellow()
         .to_string(),

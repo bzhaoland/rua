@@ -152,7 +152,7 @@ Last Changed Date: ([^\n]+)"#,
     pub fn working_copy_root_path(&self) -> Option<PathBuf> {
         self.working_copy_root_path
             .as_ref()
-            .map(|x| PathBuf::from(x))
+            .map(PathBuf::from)
     }
 
     #[allow(dead_code)]
@@ -167,10 +167,7 @@ Last Changed Date: ([^\n]+)"#,
 
     #[allow(dead_code)]
     pub fn branch_name(&self) -> Option<String> {
-        if self.relative_url.is_none() {
-            return None;
-        }
-        let rel_url = self.relative_url.as_ref().unwrap();
+        let rel_url = self.relative_url.as_ref()?;
         let branch_pattern = Regex::new(r#"\^/branches/([-\w]+)"#)
             .context("Error building regex pattern for capturing branch name")
             .unwrap();
