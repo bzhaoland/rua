@@ -1,7 +1,7 @@
 use std::env;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
 
@@ -64,24 +64,8 @@ pub fn get_current_username() -> Option<String> {
 #[allow(dead_code)]
 pub fn is_at_proj_root() -> anyhow::Result<bool> {
     // Check location with svn command
-    let output = Command::new("svn")
-        .arg("info")
-        .output()
-        .context(r#"Command `svn info` failed"#)?;
-    if !output.status.success() {
-        anyhow::bail!(
-            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
-                .context(r#"Command `svn info` failed."#)
-        );
-    }
-    let output = String::from_utf8_lossy(&output.stdout);
-    let pattern = regex::Regex::new(r#"Working Copy Root Path: (.*)\n"#)?;
-    let captures = pattern.captures(&output);
-    if captures.is_none() {
-        return anyhow::Ok(false);
-    }
-    let proj_root_dir = Path::new(captures.unwrap().get(1).unwrap().as_str());
-    if env::current_dir()?.as_path() != proj_root_dir {
+    let proj_root = get_proj_root()?;
+    if env::current_dir()? != proj_root {
         return anyhow::Ok(false);
     }
 

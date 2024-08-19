@@ -1,7 +1,8 @@
+use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{bail, Context};
@@ -32,20 +33,24 @@ impl fmt::Display for CompDBRecord {
 pub type CompDB = Vec<CompDBRecord>;
 
 pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
+    let proj_root = utils::get_proj_root()?;
+
     // Must run under the project root
-    if !utils::is_at_proj_root()? {
-        bail!("Location error! Please run command under the project root.");
+    if env::current_dir()? != proj_root {
+        bail!(
+            r#"Location error! Please run command under the project root, i.e. "{}"."#,
+            proj_root.to_string_lossy()
+        );
     }
 
-    // Files to be used
-    const LASTRULE_MKFILE: &str = "./scripts/last-rules.mk";
-    const RULES_MKFILE: &str = "./scripts/rules.mk";
-    if !(Path::new(LASTRULE_MKFILE).is_file() && Path::new(LASTRULE_MKFILE).is_file()) {
-        bail!(
-            r#"File "{}" or "{}" not found"#,
-            LASTRULE_MKFILE,
-            RULES_MKFILE
-        );
+    let lastrule_mkfile = proj_root.join("scripts/last-rules.mk");
+    if !lastrule_mkfile.is_file() {
+        bail!(r#"File "{}" not found"#, lastrule_mkfile.to_string_lossy());
+    }
+
+    let rules_mkfile = proj_root.join("scripts/rules.mk");
+    if !rules_mkfile.is_file() {
+        bail!(r#"File "{}" not found"#, rules_mkfile.to_string_lossy());
     }
 
     const NSTEPS: usize = 5;
@@ -56,13 +61,13 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
     stdout.flush()?;
     let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c\s+-o\s+\$@\s+\$<\s*?$"#).unwrap();
-    let lastrules_orig = fs::read_to_string(LASTRULE_MKFILE)?;
-    let lastrules_hacked = pattern_c.replace_all(&lastrules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c -o $$@ $$< >>:file:>> $$<").to_string();
-    fs::write(LASTRULE_MKFILE, lastrules_hacked)?;
+    let lastrule_text_orig = fs::read_to_string(&lastrule_mkfile)?;
+    let lastrule_text_hacked = pattern_c.replace_all(&lastrule_text_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c -o $$@ $$< >>:file:>> $$<").to_string();
+    fs::write(&lastrule_mkfile, lastrule_text_hacked)?;
     let pattern_cc = Regex::new(r#"(?m)^\t\s*\$\(COMPILE_CXX_CP_E\)\s*?$"#).unwrap();
-    let rules_orig = fs::read_to_string(RULES_MKFILE)?;
-    let rules_hacked = pattern_cc.replace_all(&rules_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP) >>:file:>> $$<").to_string();
-    fs::write(RULES_MKFILE, rules_hacked)?;
+    let rules_text_orig = fs::read_to_string(&rules_mkfile)?;
+    let rules_text_hacked = pattern_cc.replace_all(&rules_text_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP) >>:file:>> $$<").to_string();
+    fs::write(&rules_mkfile, rules_text_hacked)?;
     println!(
         "\x1B[2K\r[{}/{}] INJECTING MKRULES...{}",
         step,
@@ -105,9 +110,14 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     step += 1;
     print!("[{}/{}] RESTORING MKRULES...", step, NSTEPS);
     stdout.flush()?;
-    fs::write(LASTRULE_MKFILE, lastrules_orig)
-        .context(format!("Error writing to {}", LASTRULE_MKFILE))?;
-    fs::write(RULES_MKFILE, rules_orig).context(format!("Error writing to {}", RULES_MKFILE))?;
+    fs::write(&lastrule_mkfile, lastrule_text_orig).context(format!(
+        "Error writing to {}",
+        lastrule_mkfile.to_string_lossy()
+    ))?;
+    fs::write(&rules_mkfile, rules_text_orig).context(format!(
+        "Error writing to {}",
+        rules_mkfile.to_string_lossy()
+    ))?;
     println!(
         "\x1B[2K\r[{}/{}] RESTORING MKRULES...{}",
         step,

@@ -1,7 +1,7 @@
 use std::io::{self, Write};
-use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::{env, fs};
 
 use anyhow::{self, bail, Context};
 use crossterm::style::Stylize;
@@ -11,9 +11,14 @@ use walkdir::WalkDir;
 use crate::utils;
 
 pub fn clean_build() -> anyhow::Result<()> {
+    let proj_root = utils::get_proj_root()?;
+
     // Must run under the project root
-    if !utils::is_at_proj_root()? {
-        anyhow::bail!("Location error! Please run command under the project root.");
+    if env::current_dir()? != proj_root {
+        anyhow::bail!(
+            r#"Location error! Please run command under the project root, i.e. "{}"."#,
+            proj_root.to_string_lossy()
+        );
     }
 
     let branch = utils::get_svn_branch()?.unwrap();

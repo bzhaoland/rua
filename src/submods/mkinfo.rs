@@ -1,6 +1,6 @@
+use std::env;
 use std::fmt;
 use std::fs;
-use std::path::Path;
 
 use anyhow::{self, Context};
 use bitflags::bitflags;
@@ -107,24 +107,29 @@ impl fmt::Display for PrintInfo {
 /// Generate the make information for the given platform.
 /// This function must run under project root.
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<PrintInfo>> {
-    if !utils::is_at_proj_root()? {
-        anyhow::bail!("Location error! Please run under the project root.");
+    let proj_root = utils::get_proj_root()?;
+
+    if env::current_dir()? != proj_root {
+        anyhow::bail!(
+            r#"Location error! Please run command under the project root, i.e. "{}"."#,
+            proj_root.to_string_lossy()
+        );
     }
 
-    let plat_registry = Path::new("./src/libplatform/hs_platform.c");
+    let plat_registry = proj_root.join("src/libplatform/hs_platform.c");
     if !plat_registry.is_file() {
         anyhow::bail!(r#"File "{}"not found"#, plat_registry.to_string_lossy());
     }
 
-    let plat_table = Path::new("./scripts/platform_table");
+    let plat_table = proj_root.join("scripts/platform_table");
     if !plat_table.is_file() {
         anyhow::bail!(r#"File "{}" not found"#, plat_table.to_string_lossy());
     }
 
     // Find all matched record(s) from src/libplatform/hs_platform.c
-    let platinfo_text = fs::read_to_string(plat_registry).context(format!(
+    let platinfo_text = fs::read_to_string(&plat_registry).context(format!(
         r#"Error reading file "{}""#,
-        plat_registry.to_string_lossy()
+        plat_registry.as_path().to_string_lossy()
     ))?;
     let platinfo_pattern = Regex::new(
         &format!(r#"(?im)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern for platinfo")?;
@@ -156,7 +161,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     }
 
     // Fetch makeinfo for each product
-    let makeinfo_text = fs::read_to_string(plat_table).context(format!(
+    let makeinfo_text = fs::read_to_string(&plat_table).context(format!(
         r#"Error reading "{}""#,
         plat_table.to_string_lossy()
     ))?;
@@ -186,12 +191,17 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             .context("Error building regex pattern for nickname")
             .unwrap();
         let captures = nickname_pattern.captures(branch_name);
-        pattern_nonalnum.replace_all(&match captures {
-            Some(v) => v
-                .get(1)
-                .map_or(branch_name.to_owned(), |x| x.as_str().to_string()),
-            None => branch_name.to_string(),
-        }, "").to_string()
+        pattern_nonalnum
+            .replace_all(
+                &match captures {
+                    Some(v) => v
+                        .get(1)
+                        .map_or(branch_name.to_owned(), |x| x.as_str().to_string()),
+                    None => branch_name.to_string(),
+                },
+                "",
+            )
+            .to_string()
     } else {
         "UB".to_string() // Unknown branch
     };
