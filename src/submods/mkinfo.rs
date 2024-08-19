@@ -111,7 +111,7 @@ impl fmt::Display for PrintInfo {
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<PrintInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
-    let proj_root = svninfo.proj_root().unwrap();
+    let proj_root = svninfo.working_copy_root_path().unwrap();
 
     if env::current_dir()? != proj_root {
         anyhow::bail!(
@@ -363,7 +363,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         &format!(
             r#"Run command under the project root, i.e. "{}"
 "#,
-            SvnInfo::new()?.proj_root().unwrap().as_path().to_string_lossy()
+            SvnInfo::new()?.working_copy_root_path().unwrap().as_path().to_string_lossy()
         )
         .dark_yellow()
         .to_string(),

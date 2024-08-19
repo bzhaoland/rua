@@ -4,7 +4,7 @@ use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 use std::process::Command;
 
-use anyhow::Context;
+use anyhow::{anyhow, bail, Context};
 use regex::Regex;
 
 /// Get current machine's hostname
@@ -70,7 +70,7 @@ pub struct SvnInfo {
     schedule: Option<String>,
     last_changed_author: Option<String>,
     last_changed_revision: Option<usize>,
-    last_changed_date: Option<String>
+    last_changed_date: Option<String>,
 }
 
 impl SvnInfo {
@@ -86,7 +86,7 @@ impl SvnInfo {
             schedule: None,
             last_changed_author: None,
             last_changed_revision: None,
-            last_changed_date: None
+            last_changed_date: None,
         };
 
         instance.info()?;
@@ -102,14 +102,13 @@ impl SvnInfo {
             .output()
             .context(r#"Command `svn info` failed"#)?;
         if !output.status.success() {
-            anyhow::bail!(
-                anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
-                    .context(r#"Command `svn info` failed."#)
-            );
+            bail!(anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
+                .context(r#"Command `svn info` failed."#));
         }
-        
+
         let info = String::from_utf8_lossy(&output.stdout).to_string();
-        let pattern = regex::Regex::new(r#"(?is)Working Copy Root Path: ([^\n]+)
+        let pattern = regex::Regex::new(
+            r#"Working Copy Root Path: ([^\n]+)
 URL: ([^\n]+)
 Relative URL: ([^\n]+)
 Repository Root: ([^\n]+)
@@ -119,27 +118,51 @@ Node Kind: ([^\n]+)
 Schedule: ([^\n]+)
 Last Changed Author: ([^\n]+)
 Last Changed Rev: ([[:digit:]]+)
-Last Changed Date: ([^\n]+)"#).expect("Error building regex pattern for project root");
+Last Changed Date: ([^\n]+)"#,
+        )
+        .expect("Error building regex pattern for project root");
 
-        let captures = pattern.captures(&info).context("Error capturing svn info")?;
+        let captures = pattern
+            .captures(&info)
+            .context("Error capturing svn info")?;
         self.working_copy_root_path = captures.get(1).map(|x| x.as_str().to_string());
         self.url = captures.get(2).map(|x| x.as_str().to_string());
         self.relative_url = captures.get(3).map(|x| x.as_str().to_string());
         self.repository_root = captures.get(4).map(|x| x.as_str().to_string());
         self.repository_uuid = captures.get(5).map(|x| x.as_str().to_string());
-        self.revision = captures.get(6).map(|x| x.as_str().parse().expect("Error parsing as an integer for revision"));
+        self.revision = captures.get(6).map(|x| {
+            x.as_str()
+                .parse()
+                .expect("Error parsing as an integer for revision")
+        });
         self.node_kind = captures.get(7).map(|x| x.as_str().to_string());
         self.schedule = captures.get(8).map(|x| x.as_str().to_string());
         self.last_changed_author = captures.get(9).map(|x| x.as_str().to_string());
-        self.last_changed_revision = captures.get(10).map(|x| x.as_str().parse().expect("Error parsing as an integer for revision"));
+        self.last_changed_revision = captures.get(10).map(|x| {
+            x.as_str()
+                .parse()
+                .expect("Error parsing as an integer for revision")
+        });
         self.last_changed_date = captures.get(11).map(|x| x.as_str().to_string());
 
         Ok(())
     }
 
     #[allow(dead_code)]
-    pub fn proj_root(&self) -> Option<PathBuf> {
-        self.working_copy_root_path.as_ref().map(|x| PathBuf::from(x))
+    pub fn working_copy_root_path(&self) -> Option<PathBuf> {
+        self.working_copy_root_path
+            .as_ref()
+            .map(|x| PathBuf::from(x))
+    }
+
+    #[allow(dead_code)]
+    pub fn url(&self) -> Option<&String> {
+        self.url.as_ref()
+    }
+
+    #[allow(dead_code)]
+    pub fn relative_url(&self) -> Option<&String> {
+        self.relative_url.as_ref()
     }
 
     #[allow(dead_code)]
@@ -153,7 +176,7 @@ Last Changed Date: ([^\n]+)"#).expect("Error building regex pattern for project 
             .unwrap();
         let branch_name = branch_pattern
             .captures(rel_url)
-            .unwrap()
+            .expect("Error capturing branch name")
             .get(1)
             .unwrap()
             .as_str();
@@ -162,8 +185,43 @@ Last Changed Date: ([^\n]+)"#).expect("Error building regex pattern for project 
     }
 
     #[allow(dead_code)]
+    pub fn repository_root(&self) -> Option<&String> {
+        self.repository_root.as_ref()
+    }
+
+    #[allow(dead_code)]
+    pub fn repository_uuid(&self) -> Option<&String> {
+        self.repository_uuid.as_ref()
+    }
+
+    #[allow(dead_code)]
     pub fn revision(&self) -> Option<usize> {
         self.revision
+    }
+
+    #[allow(dead_code)]
+    pub fn node_kind(&self) -> Option<&String> {
+        self.node_kind.as_ref()
+    }
+
+    #[allow(dead_code)]
+    pub fn schedule(&self) -> Option<&String> {
+        self.schedule.as_ref()
+    }
+
+    #[allow(dead_code)]
+    pub fn last_changed_author(&self) -> Option<&String> {
+        self.last_changed_author.as_ref()
+    }
+
+    #[allow(dead_code)]
+    pub fn last_changed_revision(&self) -> Option<usize> {
+        self.last_changed_revision
+    }
+
+    #[allow(dead_code)]
+    pub fn last_changed_date(&self) -> Option<&String> {
+        self.last_changed_date.as_ref()
     }
 
     #[allow(dead_code)]

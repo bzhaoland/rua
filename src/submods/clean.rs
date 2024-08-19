@@ -12,7 +12,7 @@ use crate::utils::SvnInfo;
 
 pub fn clean_build() -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
-    let proj_root = svninfo.proj_root().context("Error fetching project root")?;
+    let proj_root = svninfo.working_copy_root_path().context("Error fetching project root")?;
 
     // Must run under the project root
     if env::current_dir()? != proj_root {
