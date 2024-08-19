@@ -125,3 +125,27 @@ pub fn get_svn_branch() -> anyhow::Result<Option<String>> {
 
     anyhow::Ok(Some(branch_name.to_string()))
 }
+
+/// Fetch svn revision
+#[allow(dead_code)]
+pub fn get_svn_revision() -> anyhow::Result<usize> {
+    let output = Command::new("svn")
+        .arg("info")
+        .output()
+        .context(r#"Command `svn info` failed"#)?;
+    if !output.status.success() {
+        anyhow::bail!(
+            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
+                .context(r#"Command `svn info` failed."#)
+        );
+    }
+    let output = String::from_utf8_lossy(&output.stdout);
+
+    let pattern_revision = Regex::new(r#"(?im)^Revision:[[:space:]]*([[:digit:]]+)$"#)?;
+    let captures = pattern_revision
+        .captures(&output)
+        .context("Failed to match svn revision")?;
+    let revision = captures.get(1).unwrap();
+
+    Ok(revision.as_str().parse().unwrap())
+}

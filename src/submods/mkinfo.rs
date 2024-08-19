@@ -62,6 +62,7 @@ struct ProductInfo {
 #[derive(Debug)]
 pub struct MakeInfo {
     plat_model: String,
+    prod_family: Option<String>,
     make_goal: String,
     make_dirc: String,
 }
@@ -116,6 +117,11 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         );
     }
 
+    let repo_branch = utils::get_svn_branch()?.context("Failed to fetch branch")?;
+    let repo_revision = utils::get_svn_revision()?;
+    let newer_mkfile = (repo_branch.as_str() == "MX_MAIN" && repo_revision >= 293968)
+        || (repo_branch.as_str() == "HAWAII_REL_R11" && repo_revision >= 295630);
+
     let plat_registry = proj_root.join("src/libplatform/hs_platform.c");
     if !plat_registry.is_file() {
         anyhow::bail!(r#"File "{}"not found"#, plat_registry.to_string_lossy());
@@ -166,17 +172,22 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         plat_table.to_string_lossy()
     ))?;
     let makeinfo_pattern =
-        Regex::new(r#"(?im)^[[:blank:]]*([[:word:]]+),([-\w]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-\w/]+)",.*$"#)
+        Regex::new(r#"(?im)^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-\w/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?[[:space:]]*$"#)
             .context("Error building regex pattern for makeinfo")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
-    for (_, [plat_model, make_goal, make_dirc]) in makeinfo_pattern
-        .captures_iter(&makeinfo_text)
-        .map(|c| c.extract())
-    {
+    for item in makeinfo_pattern.captures_iter(&makeinfo_text) {
+        let plat_model = item.get(1).unwrap().as_str().to_string();
+        let make_goal = item.get(2).unwrap().as_str().to_string();
+        let make_dirc = item.get(3).unwrap().as_str().to_string();
+        let prod_family = match item.get(4) {
+            Some(v) => Some(v.as_str().to_string()),
+            None => None,
+        };
         mkinfos.push(MakeInfo {
-            plat_model: plat_model.to_string(),
-            make_goal: make_goal.to_string(),
-            make_dirc: make_dirc.to_string(),
+            plat_model,
+            prod_family,
+            make_goal,
+            make_dirc,
         })
     }
 
@@ -234,6 +245,14 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         for mkinfo in mkinfos.iter() {
             if mkinfo.plat_model != prod.platform_model {
                 continue;
+            }
+
+            if newer_mkfile {
+                if mkinfo.prod_family.is_some()
+                    && mkinfo.prod_family.as_ref().unwrap() != &prod.family
+                {
+                    continue;
+                }
             }
 
             let mut make_goal = mkinfo.make_goal.clone();
