@@ -11,6 +11,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::utils;
+use crate::utils::SvnInfo;
 
 bitflags! {
     #[repr(transparent)]
@@ -108,7 +109,9 @@ impl fmt::Display for PrintInfo {
 /// Generate the make information for the given platform.
 /// This function must run under project root.
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<PrintInfo>> {
-    let proj_root = utils::get_proj_root()?;
+    let svninfo = utils::SvnInfo::new()?;
+
+    let proj_root = svninfo.proj_root().unwrap();
 
     if env::current_dir()? != proj_root {
         anyhow::bail!(
@@ -117,8 +120,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         );
     }
 
-    let repo_branch = utils::get_svn_branch()?.context("Failed to fetch branch")?;
-    let repo_revision = utils::get_svn_revision()?;
+    let repo_branch = svninfo.branch_name().context("Failed to fetch branch")?;
+    let repo_revision = svninfo.revision().context("Failed to fetch revision")?;
     let newer_mkfile = (repo_branch.as_str() == "MX_MAIN" && repo_revision >= 293968)
         || (repo_branch.as_str() == "HAWAII_REL_R11" && repo_revision >= 295630);
 
@@ -196,8 +199,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     let mut image_name_infix = String::new();
 
     // Extracting patterns like R10 or R10_F from branch name
-    let branch_name = utils::get_svn_branch()?;
-    let branch_nickname = if let Some(branch_name) = &branch_name {
+    let branch_name = &repo_branch;
+    let branch_nickname = {
         let nickname_pattern = Regex::new(r"HAWAII_([\w-]+)")
             .context("Error building regex pattern for nickname")
             .unwrap();
@@ -213,8 +216,6 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                 "",
             )
             .to_string()
-    } else {
-        "UB".to_string() // Unknown branch
     };
 
     image_name_infix.push_str(&branch_nickname);
@@ -362,7 +363,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         &format!(
             r#"Run command under the project root, i.e. "{}"
 "#,
-            utils::get_proj_root()?.to_string_lossy()
+            SvnInfo::new()?.proj_root().unwrap().as_path().to_string_lossy()
         )
         .dark_yellow()
         .to_string(),

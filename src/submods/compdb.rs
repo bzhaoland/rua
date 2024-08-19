@@ -11,7 +11,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 
-use crate::utils;
+use crate::utils::SvnInfo;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CompDBRecord {
@@ -33,7 +33,8 @@ impl fmt::Display for CompDBRecord {
 pub type CompDB = Vec<CompDBRecord>;
 
 pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
-    let proj_root = utils::get_proj_root()?;
+    let svninfo = SvnInfo::new()?;
+    let proj_root = svninfo.proj_root().context("Error fetching project root")?;
 
     // Must run under the project root
     if env::current_dir()? != proj_root {

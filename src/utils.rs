@@ -3,9 +3,8 @@ use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 use std::process::Command;
-use std::str::FromStr;
 
-use anyhow::{bail, Context};
+use anyhow::Context;
 use regex::Regex;
 
 /// Get current machine's hostname
@@ -60,92 +59,115 @@ pub fn get_current_username() -> Option<String> {
     )
 }
 
-/// Check whether is located at project root.
-#[allow(dead_code)]
-pub fn is_at_proj_root() -> anyhow::Result<bool> {
-    // Check location with svn command
-    let proj_root = get_proj_root()?;
-    if env::current_dir()? != proj_root {
-        return anyhow::Ok(false);
-    }
-
-    anyhow::Ok(true)
+pub struct SvnInfo {
+    working_copy_root_path: Option<String>,
+    url: Option<String>,
+    relative_url: Option<String>,
+    repository_root: Option<String>,
+    repository_uuid: Option<String>,
+    revision: Option<usize>,
+    node_kind: Option<String>,
+    schedule: Option<String>,
+    last_changed_author: Option<String>,
+    last_changed_revision: Option<usize>,
+    last_changed_date: Option<String>
 }
 
-/// Get project root path
-#[allow(dead_code)]
-pub fn get_proj_root() -> anyhow::Result<PathBuf> {
-    // Check location with svn command
-    let output = Command::new("svn")
-        .arg("info")
-        .output()
-        .context(r#"Command `svn info` failed"#)?;
-    if !output.status.success() {
-        anyhow::bail!(
-            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
-                .context(r#"Command `svn info` failed."#)
-        );
+impl SvnInfo {
+    pub fn new() -> anyhow::Result<Self> {
+        let mut instance = SvnInfo {
+            working_copy_root_path: None,
+            url: None,
+            relative_url: None,
+            repository_root: None,
+            repository_uuid: None,
+            revision: None,
+            node_kind: None,
+            schedule: None,
+            last_changed_author: None,
+            last_changed_revision: None,
+            last_changed_date: None
+        };
+
+        instance.info()?;
+
+        Ok(instance)
     }
-    let output = String::from_utf8_lossy(&output.stdout);
-    let pattern = regex::Regex::new(r#"Working Copy Root Path: (.*)\n"#)?;
-    let captures = pattern.captures(&output);
-    if captures.is_none() {
-        bail!("Can not find the project root path")
+
+    /// Invoking .info method means executing `svn info` command once and storing its output
+    #[allow(dead_code)]
+    pub fn info(&mut self) -> anyhow::Result<()> {
+        let output = Command::new("svn")
+            .arg("info")
+            .output()
+            .context(r#"Command `svn info` failed"#)?;
+        if !output.status.success() {
+            anyhow::bail!(
+                anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
+                    .context(r#"Command `svn info` failed."#)
+            );
+        }
+        
+        let info = String::from_utf8_lossy(&output.stdout).to_string();
+        let pattern = regex::Regex::new(r#"(?is)Working Copy Root Path: ([^\n]+)
+URL: ([^\n]+)
+Relative URL: ([^\n]+)
+Repository Root: ([^\n]+)
+Repository UUID: ([^\n]+)
+Revision: ([^\n]+)
+Node Kind: ([^\n]+)
+Schedule: ([^\n]+)
+Last Changed Author: ([^\n]+)
+Last Changed Rev: ([[:digit:]]+)
+Last Changed Date: ([^\n]+)"#).expect("Error building regex pattern for project root");
+
+        let captures = pattern.captures(&info).context("Error capturing svn info")?;
+        self.working_copy_root_path = captures.get(1).map(|x| x.as_str().to_string());
+        self.url = captures.get(2).map(|x| x.as_str().to_string());
+        self.relative_url = captures.get(3).map(|x| x.as_str().to_string());
+        self.repository_root = captures.get(4).map(|x| x.as_str().to_string());
+        self.repository_uuid = captures.get(5).map(|x| x.as_str().to_string());
+        self.revision = captures.get(6).map(|x| x.as_str().parse().expect("Error parsing as an integer for revision"));
+        self.node_kind = captures.get(7).map(|x| x.as_str().to_string());
+        self.schedule = captures.get(8).map(|x| x.as_str().to_string());
+        self.last_changed_author = captures.get(9).map(|x| x.as_str().to_string());
+        self.last_changed_revision = captures.get(10).map(|x| x.as_str().parse().expect("Error parsing as an integer for revision"));
+        self.last_changed_date = captures.get(11).map(|x| x.as_str().to_string());
+
+        Ok(())
     }
 
-    let proj_root = PathBuf::from_str(captures.unwrap().get(1).unwrap().as_str())?;
-
-    anyhow::Ok(proj_root)
-}
-
-/// When `svn` utility is available and `svn info` ran successfully
-pub fn get_svn_branch() -> anyhow::Result<Option<String>> {
-    let output = Command::new("svn")
-        .arg("info")
-        .output()
-        .context(r#"Command `svn info` failed"#)?;
-    if !output.status.success() {
-        anyhow::bail!(
-            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
-                .context(r#"Command `svn info` failed."#)
-        );
+    #[allow(dead_code)]
+    pub fn proj_root(&self) -> Option<PathBuf> {
+        self.working_copy_root_path.as_ref().map(|x| PathBuf::from(x))
     }
-    let output = String::from_utf8_lossy(&output.stdout);
 
-    // Get the full branch name from the svn info
-    let branch_pattern = Regex::new(r#"Relative URL: \^/branches/([-\w]+)"#)
-        .context("Error building regex pattern for capturing branch name")
-        .unwrap();
-    let branch_name = branch_pattern
-        .captures(&output)
-        .unwrap()
-        .get(1)
-        .unwrap()
-        .as_str();
+    #[allow(dead_code)]
+    pub fn branch_name(&self) -> Option<String> {
+        if self.relative_url.is_none() {
+            return None;
+        }
+        let rel_url = self.relative_url.as_ref().unwrap();
+        let branch_pattern = Regex::new(r#"\^/branches/([-\w]+)"#)
+            .context("Error building regex pattern for capturing branch name")
+            .unwrap();
+        let branch_name = branch_pattern
+            .captures(rel_url)
+            .unwrap()
+            .get(1)
+            .unwrap()
+            .as_str();
 
-    anyhow::Ok(Some(branch_name.to_string()))
-}
-
-/// Fetch svn revision
-#[allow(dead_code)]
-pub fn get_svn_revision() -> anyhow::Result<usize> {
-    let output = Command::new("svn")
-        .arg("info")
-        .output()
-        .context(r#"Command `svn info` failed"#)?;
-    if !output.status.success() {
-        anyhow::bail!(
-            anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
-                .context(r#"Command `svn info` failed."#)
-        );
+        Some(branch_name.to_string())
     }
-    let output = String::from_utf8_lossy(&output.stdout);
 
-    let pattern_revision = Regex::new(r#"(?im)^Revision:[[:space:]]*([[:digit:]]+)$"#)?;
-    let captures = pattern_revision
-        .captures(&output)
-        .context("Failed to match svn revision")?;
-    let revision = captures.get(1).unwrap();
+    #[allow(dead_code)]
+    pub fn revision(&self) -> Option<usize> {
+        self.revision
+    }
 
-    Ok(revision.as_str().parse().unwrap())
+    #[allow(dead_code)]
+    pub fn is_proj_root(&self) -> bool {
+        env::current_dir().unwrap() == PathBuf::from(self.working_copy_root_path.as_ref().unwrap())
+    }
 }
