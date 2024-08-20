@@ -179,7 +179,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         plat_table.display()
     ))?;
     let makeinfo_pattern =
-        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
+        Regex::new(r#"(?m)^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
             .context("Error building regex pattern for makeinfo")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
     for item in makeinfo_pattern.captures_iter(&makeinfo_text) {
@@ -190,6 +190,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             make_dirc: item.get(3).unwrap().as_str().to_string(),
         })
     }
+    println!("Mkinfos: {}", mkinfos.len());
 
     // Normalize image name
     let pattern_nonalnum =
