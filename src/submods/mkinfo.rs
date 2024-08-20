@@ -174,7 +174,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         plat_table.to_string_lossy()
     ))?;
     let makeinfo_pattern =
-        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[[:word:]]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
+        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
             .context("Error building regex pattern for makeinfo")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
     for item in makeinfo_pattern.captures_iter(&makeinfo_text) {
