@@ -3,6 +3,7 @@ use std::fmt;
 use std::fs;
 use std::path::Path;
 
+use anyhow::bail;
 use anyhow::{self, Context};
 use bitflags::bitflags;
 use chrono::Local;
@@ -112,9 +113,13 @@ impl fmt::Display for PrintInfo {
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<PrintInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
-    let proj_root = Path::new(svninfo.working_copy_root_path().unwrap());
+    let proj_root = Path::new(
+        svninfo
+            .working_copy_root_path()
+            .context("Error fetching project root")?,
+    );
     if env::current_dir()?.as_path() != proj_root {
-        anyhow::bail!(
+        bail!(
             r#"Location error! Please run command under the project root, i.e. "{}"."#,
             proj_root.to_string_lossy()
         );
@@ -122,12 +127,12 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
 
     let plat_registry = proj_root.join("src/libplatform/hs_platform.c");
     if !plat_registry.is_file() {
-        anyhow::bail!(r#"File "{}"not found"#, plat_registry.to_string_lossy());
+        bail!(r#"File "{}"not found"#, plat_registry.to_string_lossy());
     }
 
     let plat_table = proj_root.join("scripts/platform_table");
     if !plat_table.is_file() {
-        anyhow::bail!(r#"File "{}" not found"#, plat_table.to_string_lossy());
+        bail!(r#"File "{}" not found"#, plat_table.to_string_lossy());
     }
 
     let repo_branch = svninfo.branch_name().context("Failed to fetch branch")?;
@@ -138,7 +143,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     // Find all matched record(s) from src/libplatform/hs_platform.c
     let platinfo_text = fs::read_to_string(&plat_registry).context(format!(
         r#"Error reading file "{}""#,
-        plat_registry.as_path().to_string_lossy()
+        plat_registry.display()
     ))?;
     let platinfo_pattern = Regex::new(&format!(r#"(?im)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern for platinfo")?;
     let mut products: Vec<ProductInfo> = Vec::new();
@@ -171,7 +176,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     // Fetch makeinfo for each product
     let makeinfo_text = fs::read_to_string(&plat_table).context(format!(
         r#"Error reading "{}""#,
-        plat_table.to_string_lossy()
+        plat_table.display()
     ))?;
     let makeinfo_pattern =
         Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
@@ -179,7 +184,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
     for item in makeinfo_pattern.captures_iter(&makeinfo_text) {
         mkinfos.push(MakeInfo {
-            plat_model: item.get(3).unwrap().as_str().to_string(),
+            plat_model: item.get(1).unwrap().as_str().to_string(),
             prod_family: item.get(4).map(|v| v.as_str().to_string()),
             make_goal: item.get(2).unwrap().as_str().to_string(),
             make_dirc: item.get(3).unwrap().as_str().to_string(),
