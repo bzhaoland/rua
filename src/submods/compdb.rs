@@ -2,6 +2,7 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -34,9 +35,11 @@ pub type CompDB = Vec<CompDBRecord>;
 
 pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
-    let proj_root = svninfo
-        .working_copy_root_path()
-        .context("Error fetching project root")?;
+    let proj_root = Path::new(
+        svninfo
+            .working_copy_root_path()
+            .context("Error fetching project root")?,
+    );
 
     // Must run under the project root
     if env::current_dir()? != proj_root {

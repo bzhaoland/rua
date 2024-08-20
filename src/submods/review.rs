@@ -1,8 +1,9 @@
 use std::process::Command;
 
 use anyhow::{bail, Context};
-use regex::Regex;
 use reqwest::Client;
+
+use crate::utils::SvnInfo;
 
 #[allow(dead_code)]
 pub struct ReviewOptions {
@@ -36,23 +37,12 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
     // Get branch name from the output of svn info
     let branch_name = match options.branch_name.as_ref() {
         Some(v) => v.to_owned(),
-        None => {
-            let cmdres = Command::new("svn").arg("info").output()?;
-            if !cmdres.status.success() {
-                bail!("Command `svn info` failed");
-            }
-
-            let output = String::from_utf8_lossy(&cmdres.stdout).to_string();
-            let branch_pattern =
-                Regex::new(r#"Relative URL: \^/(?:(?:tags|branches)/([\w-]+)|(trunk))"#).unwrap();
-            let caps = branch_pattern
-                .captures(&output)
-                .context("Failed to capture branch name")?;
-            caps.get(1).unwrap().as_str().to_owned()
-        }
+        None => SvnInfo::new()?
+            .branch_name()
+            .context("Error fetching branch name")?,
     };
 
-    // Get files to be commited from the output of svn status.
+    // Files to commit
     let cmdres = Command::new("svn").args(["status", "-q"]).output()?;
     if !cmdres.status.success() {
         bail!("Command `svn status -q` failed");
@@ -78,7 +68,7 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
 
     let status = comm.status()?;
     if !status.success() {
-        bail!("Script postreview-cops.py failed");
+        bail!("Error executing postreview-cops.py");
     }
 
     Ok(())

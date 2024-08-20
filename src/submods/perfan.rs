@@ -35,8 +35,8 @@ pub fn proc_perfanno<P: AsRef<Path>>(
         "Error reading file {}",
         data_file.as_ref().to_string_lossy()
     ))?;
-    let headline_pattern = Regex::new(r#"Samples\s*\|\s*.*?of (.*?) for.*?\((\d+)\s*samples"#)?;
-    let dataline_pattern = Regex::new(r#"(\d+)\s*:\s*([0-9a-zA-Z]+)\s*:\s*(.*?)\s*$"#)?;
+    let headline_pattern = Regex::new(r#"Samples[[:blank:]]*\|[[:blank:]]*.*?of (.*?) for.*?\(([[:digit:]]+)[[:blank:]]*samples"#)?;
+    let dataline_pattern = Regex::new(r#"([[:digit:]]+)[[:blank:]]*:[[:blank:]]*([[:alnum:]]+)[[:blank:]]*:[[:blank:]]*(.*?)[[:blank:]]*$"#)?;
     let mut json_data = json!({
         "counter": 0,
         "mods": {},

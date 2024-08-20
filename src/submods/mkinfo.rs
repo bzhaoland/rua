@@ -1,6 +1,7 @@
 use std::env;
 use std::fmt;
 use std::fs;
+use std::path::Path;
 
 use anyhow::{self, Context};
 use bitflags::bitflags;
@@ -111,19 +112,13 @@ impl fmt::Display for PrintInfo {
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<PrintInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
-    let proj_root = svninfo.working_copy_root_path().unwrap();
-
-    if env::current_dir()? != proj_root {
+    let proj_root = Path::new(svninfo.working_copy_root_path().unwrap());
+    if env::current_dir()?.as_path() != proj_root {
         anyhow::bail!(
             r#"Location error! Please run command under the project root, i.e. "{}"."#,
             proj_root.to_string_lossy()
         );
     }
-
-    let repo_branch = svninfo.branch_name().context("Failed to fetch branch")?;
-    let repo_revision = svninfo.revision().context("Failed to fetch revision")?;
-    let newer_mkfile = (repo_branch.as_str() == "MX_MAIN" && repo_revision >= 293968)
-        || (repo_branch.as_str() == "HAWAII_REL_R11" && repo_revision >= 295630);
 
     let plat_registry = proj_root.join("src/libplatform/hs_platform.c");
     if !plat_registry.is_file() {
@@ -135,13 +130,17 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         anyhow::bail!(r#"File "{}" not found"#, plat_table.to_string_lossy());
     }
 
+    let repo_branch = svninfo.branch_name().context("Failed to fetch branch")?;
+    let repo_revision = svninfo.revision().context("Failed to fetch revision")?;
+    let newer_mkfile = (repo_branch.as_str() == "MX_MAIN" && repo_revision >= 293968)
+        || (repo_branch.as_str() == "HAWAII_REL_R11" && repo_revision >= 295630);
+
     // Find all matched record(s) from src/libplatform/hs_platform.c
     let platinfo_text = fs::read_to_string(&plat_registry).context(format!(
         r#"Error reading file "{}""#,
         plat_registry.as_path().to_string_lossy()
     ))?;
-    let platinfo_pattern = Regex::new(
-        &format!(r#"(?im)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern for platinfo")?;
+    let platinfo_pattern = Regex::new(&format!(r#"(?im)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern for platinfo")?;
     let mut products: Vec<ProductInfo> = Vec::new();
     for (
         _,
@@ -175,71 +174,67 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         plat_table.to_string_lossy()
     ))?;
     let makeinfo_pattern =
-        Regex::new(r#"(?im)^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-\w/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
+        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[[:word:]]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
             .context("Error building regex pattern for makeinfo")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
     for item in makeinfo_pattern.captures_iter(&makeinfo_text) {
-        let plat_model = item.get(1).unwrap().as_str().to_string();
-        let make_goal = item.get(2).unwrap().as_str().to_string();
-        let make_dirc = item.get(3).unwrap().as_str().to_string();
-        let prod_family = item.get(4).map(|v| v.as_str().to_string());
         mkinfos.push(MakeInfo {
-            plat_model,
-            prod_family,
-            make_goal,
-            make_dirc,
+            plat_model: item.get(3).unwrap().as_str().to_string(),
+            prod_family: item.get(4).map(|v| v.as_str().to_string()),
+            make_goal: item.get(2).unwrap().as_str().to_string(),
+            make_dirc: item.get(3).unwrap().as_str().to_string(),
         })
     }
 
+    // Normalize image name
     let pattern_nonalnum =
         Regex::new(r#"[^[:alnum:]]+"#).context("Error building non-alnum regex pattern")?;
-    let mut image_name_infix = String::new();
+    let mut imagename_infix = String::new();
 
     // Extracting patterns like R10 or R10_F from branch name
     let branch_name = &repo_branch;
-    let branch_nickname = {
-        let nickname_pattern = Regex::new(r"HAWAII_([\w-]+)")
-            .context("Error building regex pattern for nickname")
-            .unwrap();
-        let captures = nickname_pattern.captures(branch_name);
-        pattern_nonalnum
-            .replace_all(
-                &match captures {
-                    Some(v) => v
-                        .get(1)
-                        .map_or(branch_name.to_owned(), |x| x.as_str().to_string()),
-                    None => branch_name.to_string(),
-                },
-                "",
-            )
-            .to_string()
-    };
+    let nickname_pattern = Regex::new(r"HAWAII_([-[:word:]]+)")
+        .context("Error building regex pattern for nickname")
+        .unwrap();
+    let captures = nickname_pattern.captures(branch_name);
+    let branch_nickname = pattern_nonalnum
+        .replace_all(
+            &match captures {
+                Some(v) => v
+                    .get(1)
+                    .map_or(branch_name.to_owned(), |x| x.as_str().to_string()),
+                None => branch_name.to_string(),
+            },
+            "",
+        )
+        .to_string();
+    imagename_infix.push_str(&branch_nickname);
 
-    image_name_infix.push_str(&branch_nickname);
+    let mut imagename_suffix = String::new();
 
-    let mut image_name_suffix = String::new();
-
-    // When IPv6 is enabled
+    // IPv6 check
     if makeflag.contains(MakeFlag::INET_V6) {
-        image_name_suffix.push_str("V6-");
+        imagename_suffix.push_str("V6-");
     }
 
-    // Build mode and date
-    image_name_suffix.push(if makeflag.contains(MakeFlag::R_BUILD) {
+    // Building mode
+    imagename_suffix.push(if makeflag.contains(MakeFlag::R_BUILD) {
         'r'
     } else {
         'd'
     });
-    image_name_suffix.push_str(&Local::now().format("%m%d").to_string());
+
+    // Timestamp
+    imagename_suffix.push_str(&Local::now().format("%m%d").to_string());
 
     // Username
     let username = utils::get_current_username().context("Failed to get username")?;
-    image_name_suffix.push('-');
-    image_name_suffix.push_str(&username);
+    imagename_suffix.push('-');
+    imagename_suffix.push_str(&username);
 
     let mut printinfos: Vec<PrintInfo> = Vec::new();
     for prod in products.iter() {
-        let prodname = pattern_nonalnum.replace_all(&prod.shortname, "");
+        let imagename_prodname = pattern_nonalnum.replace_all(&prod.shortname, "");
         for mkinfo in mkinfos.iter() {
             if mkinfo.plat_model != prod.platform_model {
                 continue;
@@ -257,14 +252,12 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                 make_goal.push_str("-ipv6");
             }
 
-            let image_name = format!(
+            let imagename_makegoal = pattern_nonalnum
+                .replace_all(&mkinfo.make_goal, "")
+                .to_uppercase();
+            let imagename = format!(
                 "{}-{}-{}-{}",
-                prodname,
-                image_name_infix,
-                pattern_nonalnum
-                    .replace_all(&mkinfo.make_goal, "")
-                    .to_uppercase(),
-                image_name_suffix
+                imagename_prodname, imagename_infix, imagename_makegoal, imagename_suffix
             );
             let make_comm = format!(
                 "make -C {} {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
@@ -273,7 +266,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                 if makeflag.contains(MakeFlag::R_BUILD) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_UI) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_PW) { 1 } else { 0 },
-                image_name,
+                imagename,
             );
 
             printinfos.push(PrintInfo {
@@ -342,7 +335,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         if infos.len() > 1 { "s" } else { "" }
     ));
 
-    out.push_str(&format!("{}\n", head_decor.as_str().green()));
+    out.push_str(&format!("{}\n", head_decor));
     for (idx, item) in infos.iter().enumerate() {
         out.push_str(&format!(
             "Product  : {}\nPlatform : {}\nTarget   : {}\nPath     : {}\nCommand  : {}\n",
@@ -350,20 +343,16 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
         ));
 
         if idx < infos.len() - 1 {
-            out.push_str(&format!("{}\n", data_decor.as_str()));
+            out.push_str(&format!("{}\n", data_decor));
         }
     }
-    out.push_str(&format!("{}\n", head_decor.as_str()));
+    out.push_str(&format!("{}\n", head_decor));
 
     out.push_str(
         &format!(
             r#"Run command under the project root, i.e. "{}"
 "#,
-            SvnInfo::new()?
-                .working_copy_root_path()
-                .unwrap()
-                .as_path()
-                .to_string_lossy()
+            SvnInfo::new()?.working_copy_root_path().unwrap()
         )
         .dark_yellow()
         .to_string(),

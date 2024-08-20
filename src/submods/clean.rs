@@ -12,12 +12,14 @@ use crate::utils::SvnInfo;
 
 pub fn clean_build() -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
-    let proj_root = svninfo
-        .working_copy_root_path()
-        .context("Error fetching project root")?;
+    let proj_root = Path::new(
+        svninfo
+            .working_copy_root_path()
+            .context("Error fetching project root")?,
+    );
 
     // Must run under the project root
-    if env::current_dir()? != proj_root {
+    if env::current_dir()?.as_path() != proj_root {
         anyhow::bail!(
             r#"Location error! Please run command under the project root, i.e. "{}"."#,
             proj_root.to_string_lossy()
@@ -103,7 +105,7 @@ pub fn clean_build() -> anyhow::Result<()> {
     if !output.status.success() {
         bail!("Command `svn status src` failed");
     }
-    let pattern_file = Regex::new(r#"\?\s+(\S+)\n"#).context("Error creating regex pattern")?;
+    let pattern_file = Regex::new(r#"(?m)^\?[[:blank:]]+(\S+)[[:space:]]*$"#).context("Error creating regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
         .context(anyhow::anyhow!("Error converting to `String` type"))?;
     let mut filelist = Vec::new();

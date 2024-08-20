@@ -1,7 +1,7 @@
 use std::env;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Context};
@@ -88,10 +88,23 @@ impl SvnInfo {
             last_changed_revision: None,
             last_changed_date: None,
         };
-
         instance.info()?;
-
         Ok(instance)
+    }
+
+    #[allow(dead_code)]
+    pub fn reset(&mut self) {
+        self.working_copy_root_path = None;
+        self.url = None;
+        self.relative_url = None;
+        self.repository_root = None;
+        self.repository_uuid = None;
+        self.revision = None;
+        self.node_kind = None;
+        self.schedule = None;
+        self.last_changed_author = None;
+        self.last_changed_revision = None;
+        self.last_changed_date = None;
     }
 
     /// Invoking .info method means executing `svn info` command once and storing its output
@@ -107,7 +120,7 @@ impl SvnInfo {
         }
 
         let info = String::from_utf8_lossy(&output.stdout).to_string();
-        let pattern = regex::Regex::new(
+        let pattern = Regex::new(
             r#"Working Copy Root Path: ([^\n]+)
 URL: ([^\n]+)
 Relative URL: ([^\n]+)
@@ -133,7 +146,7 @@ Last Changed Date: ([^\n]+)"#,
         self.revision = captures.get(6).map(|x| {
             x.as_str()
                 .parse()
-                .expect("Error parsing as an integer for revision")
+                .expect("Error parsing the captured revision string as an integer")
         });
         self.node_kind = captures.get(7).map(|x| x.as_str().to_string());
         self.schedule = captures.get(8).map(|x| x.as_str().to_string());
@@ -149,8 +162,8 @@ Last Changed Date: ([^\n]+)"#,
     }
 
     #[allow(dead_code)]
-    pub fn working_copy_root_path(&self) -> Option<PathBuf> {
-        self.working_copy_root_path.as_ref().map(PathBuf::from)
+    pub fn working_copy_root_path(&self) -> Option<&String> {
+        self.working_copy_root_path.as_ref()
     }
 
     #[allow(dead_code)]
@@ -166,7 +179,7 @@ Last Changed Date: ([^\n]+)"#,
     #[allow(dead_code)]
     pub fn branch_name(&self) -> Option<String> {
         let rel_url = self.relative_url.as_ref()?;
-        let branch_pattern = Regex::new(r#"\^/branches/([-\w]+)"#)
+        let branch_pattern = Regex::new(r#"\^/branches/([-[:word:]]+)"#)
             .context("Error building regex pattern for capturing branch name")
             .unwrap();
         let branch_name = branch_pattern
@@ -221,6 +234,7 @@ Last Changed Date: ([^\n]+)"#,
 
     #[allow(dead_code)]
     pub fn is_proj_root(&self) -> bool {
-        env::current_dir().unwrap() == PathBuf::from(self.working_copy_root_path.as_ref().unwrap())
+        env::current_dir().unwrap().as_path()
+            == Path::new(self.working_copy_root_path.as_ref().unwrap())
     }
 }

@@ -29,13 +29,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
     styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
-    after_help = r#"Examples:
-    rua clean
-    rua compdb products/ngfw_as a-dnv-ipv6
-    rua mkinfo -6 A1000
-    rua review -n 453343 -r 
-    rua showcc flow_first.c
-"#
+    after_help = r#"Contact bzhao when encountering bugs. "#
 )]
 struct Cli {
     #[command(subcommand)]
@@ -47,7 +41,11 @@ enum Comm {
     /// Clean build files (run under project root)
     Clean,
 
-    /// Generate JSON Compilation Database for target
+    /// Generate JSON Compilation Database for a specific target, such as a-dnv/a-dnv-ipv6
+    #[command(after_help = r#"Examples:
+  rua compdb products/ngfw_as a-dnv       # For A1000/A1100/A2000...
+  rua compdb products/ngfw_as a-dnv-ipv6  # For A1000/A1100/A2000... with IPv6 enabled
+  rua compdb products/ngfw_as kunlun-ipv6 # For X20803/X20812... with IPv6 enabled"#)]
     Compdb {
         #[arg(
             value_name = "PATH",
@@ -59,6 +57,12 @@ enum Comm {
     },
 
     /// Get all matched makeinfos for product
+    #[command(after_help = r#"Examples:
+  rua mkinfo A1000
+  rua mkinfo -6 A1000 # Dual-stack
+  rua mkinfo X10800
+  rua mkinfo X20812
+  rua mkinfo 'X\d+' # Regex pattern for X6180/X7180/X8180..."#)]
     Mkinfo {
         #[arg(
             short = '4',
