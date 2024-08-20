@@ -72,11 +72,12 @@ pub struct MakeInfo {
 
 #[derive(Debug)]
 pub struct PrintInfo {
-    prod_name: String,
-    plat_model: String,
-    make_goal: String,
-    make_dirc: String,
-    make_comm: String,
+    product_name: String,
+    product_model: String,
+    platform_model: String,
+    make_target: String,
+    make_directory: String,
+    make_command: String,
 }
 
 impl fmt::Display for MakeInfo {
@@ -103,7 +104,7 @@ impl fmt::Display for PrintInfo {
   make_dirc     : "{}",
   make_comm     : "{}"
 }}"#,
-            self.plat_model, self.make_goal, self.make_dirc, self.make_comm,
+            self.platform_model, self.make_target, self.make_directory, self.make_command,
         )
     }
 }
@@ -174,10 +175,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     }
 
     // Fetch makeinfo for each product
-    let makeinfo_text = fs::read_to_string(&plat_table).context(format!(
-        r#"Error reading "{}""#,
-        plat_table.display()
-    ))?;
+    let makeinfo_text = fs::read_to_string(&plat_table)
+        .context(format!(r#"Error reading "{}""#, plat_table.display()))?;
     let makeinfo_pattern =
         Regex::new(r#"(?m)^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
             .context("Error building regex pattern for makeinfo")?;
@@ -273,13 +272,13 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                 if makeflag.contains(MakeFlag::WITH_PW) { 1 } else { 0 },
                 imagename,
             );
-
             printinfos.push(PrintInfo {
-                prod_name: prod.longname.clone(),
-                plat_model: mkinfo.plat_model.clone(),
-                make_goal,
-                make_dirc: mkinfo.make_dirc.clone(),
-                make_comm,
+                product_name: prod.longname.clone(),
+                product_model: prod.product_model.clone(),
+                platform_model: mkinfo.plat_model.clone(),
+                make_target: make_goal,
+                make_directory: mkinfo.make_dirc.clone(),
+                make_command: make_comm,
             });
         }
     }
@@ -291,14 +290,15 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
 fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut writer = csv::Writer::from_writer(std::io::stdout());
 
-    writer.write_record(["Product", "Platform", "Target", "Path", "Command"])?;
+    writer.write_record(["ProductName", "ProductModel", "PlatformModel", "MakeTarget", "MakePath", "MakeCommand"])?;
     for info in infos.iter() {
         writer.write_record([
-            info.prod_name.as_str(),
-            info.plat_model.as_str(),
-            info.make_goal.as_str(),
-            info.make_dirc.as_str(),
-            info.make_comm.as_str(),
+            &info.product_name,
+            &info.product_model,
+            &info.platform_model,
+            &info.make_target,
+            &info.make_directory,
+            &info.make_command,
         ])?;
     }
     writer.flush()?;
@@ -310,11 +310,11 @@ fn dump_json(infos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut out: Value = json!([]);
     for info in infos.iter() {
         out.as_array_mut().unwrap().push(json!({
-            "Product": info.prod_name,
-            "Platform": info.plat_model,
-            "Target": info.make_goal,
-            "Path": info.make_dirc,
-            "Command": info.make_comm,
+            "Product": info.product_name,
+            "Platform": info.platform_model,
+            "Target": info.make_target,
+            "Path": info.make_directory,
+            "Command": info.make_command,
         }));
     }
     println!("{}", serde_json::to_string_pretty(&out)?);
@@ -343,8 +343,8 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
     out.push_str(&format!("{}\n", head_decor));
     for (idx, item) in infos.iter().enumerate() {
         out.push_str(&format!(
-            "Product  : {}\nPlatform : {}\nTarget   : {}\nPath     : {}\nCommand  : {}\n",
-            item.prod_name, item.plat_model, item.make_goal, item.make_dirc, item.make_comm
+            "ProductName: {}\nProductType: {}\nPlatform   : {}\nMakeTarget : {}\nMakePath   : {}\nMakeCommand: {}\n",
+            item.product_name, item.product_model, item.platform_model, item.make_target, item.make_directory, item.make_command
         ));
 
         if idx < infos.len() - 1 {
@@ -374,14 +374,15 @@ fn dump_tsv(infos: &[PrintInfo]) -> anyhow::Result<()> {
         .quote_style(csv::QuoteStyle::NonNumeric)
         .from_writer(std::io::stdout());
 
-    writer.write_record(["Product", "Platform", "Target", "Path", "Command"])?;
+    writer.write_record(["ProductName", "ProductModel", "PlatformModel", "MakeTarget", "MakePath", "MakeCommand"])?;
     for info in infos.iter() {
         writer.write_record([
-            info.prod_name.as_str(),
-            info.plat_model.as_str(),
-            info.make_goal.as_str(),
-            info.make_dirc.as_str(),
-            info.make_comm.as_str(),
+            &info.product_name,
+            &info.product_model,
+            &info.platform_model,
+            &info.make_target,
+            &info.make_directory,
+            &info.make_command,
         ])?;
     }
     writer.flush()?;
