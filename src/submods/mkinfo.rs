@@ -54,7 +54,7 @@ struct ProductInfo {
     product_model: String,
     name_id: usize,
     oem_id: String,
-    family: String,
+    product_family: String,
     shortname: String,
     longname: String,
     snmp_descr: String,
@@ -74,6 +74,7 @@ pub struct MakeInfo {
 pub struct PrintInfo {
     product_name: String,
     product_model: String,
+    product_family: String,
     platform_model: String,
     make_target: String,
     make_directory: String,
@@ -161,7 +162,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             product_model: prodmodel.to_string(),
             name_id: nameid.parse::<usize>()?,
             oem_id: oemid.to_string(),
-            family: family.to_string(),
+            product_family: family.to_string(),
             shortname: shortname.to_string(),
             longname: longname.to_string(),
             snmp_descr: descr.to_string(),
@@ -237,16 +238,16 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     imagename_suffix.push_str(&username);
 
     let mut printinfos: Vec<PrintInfo> = Vec::new();
-    for prod in products.iter() {
-        let imagename_prodname = pattern_nonalnum.replace_all(&prod.shortname, "");
+    for product in products.iter() {
+        let imagename_prodname = pattern_nonalnum.replace_all(&product.shortname, "");
         for mkinfo in mkinfos.iter() {
-            if mkinfo.plat_model != prod.platform_model {
+            if mkinfo.plat_model != product.platform_model {
                 continue;
             }
 
             if newer_mkfile
                 && mkinfo.prod_family.is_some()
-                && mkinfo.prod_family.as_ref().unwrap() != &prod.family
+                && mkinfo.prod_family.as_ref().unwrap() != &product.product_family
             {
                 continue;
             }
@@ -273,8 +274,9 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
                 imagename,
             );
             printinfos.push(PrintInfo {
-                product_name: prod.longname.clone(),
-                product_model: prod.product_model.clone(),
+                product_name: product.longname.clone(),
+                product_model: product.product_model.clone(),
+                product_family: product.product_family.clone(),
                 platform_model: mkinfo.plat_model.clone(),
                 make_target: make_goal,
                 make_directory: mkinfo.make_dirc.clone(),
@@ -290,11 +292,12 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
 fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut writer = csv::Writer::from_writer(std::io::stdout());
 
-    writer.write_record(["ProductName", "ProductModel", "PlatformModel", "MakeTarget", "MakeDirectory", "MakeCommand"])?;
+    writer.write_record(["ProductName", "ProductModel", "ProductFamily ", "PlatformModel", "MakeTarget", "MakeDirectory", "MakeCommand"])?;
     for info in infos.iter() {
         writer.write_record([
             &info.product_name,
             &info.product_model,
+            &info.product_family,
             &info.platform_model,
             &info.make_target,
             &info.make_directory,
@@ -306,16 +309,17 @@ fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
-fn dump_json(infos: &[PrintInfo]) -> anyhow::Result<()> {
+fn dump_json(printinfos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut out: Value = json!([]);
-    for info in infos.iter() {
+    for printinfo in printinfos.iter() {
         out.as_array_mut().unwrap().push(json!({
-            "ProductName": info.product_name,
-            "ProductModel": info.product_name,
-            "Platform": info.platform_model,
-            "MakeTarget": info.make_target,
-            "MakePath": info.make_directory,
-            "MakeCommand": info.make_command,
+            "ProductName": printinfo.product_name,
+            "ProductModel": printinfo.product_name,
+            "ProductFamily": printinfo.product_family,
+            "Platform": printinfo.platform_model,
+            "MakeTarget": printinfo.make_target,
+            "MakePath": printinfo.make_directory,
+            "MakeCommand": printinfo.make_command,
         }));
     }
     println!("{}", serde_json::to_string_pretty(&out)?);
@@ -323,32 +327,34 @@ fn dump_json(infos: &[PrintInfo]) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
-fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
+fn dump_list(printinfos: &[PrintInfo]) -> anyhow::Result<()> {
     // Style control
     let width = terminal::window_size()?.columns;
 
-    if infos.is_empty() {
+    if printinfos.is_empty() {
         println!("No matched makeinfo.");
         return anyhow::Ok(());
     }
+
+    // Decorations
     let head_decor = "=".repeat(width as usize).dark_green().to_string();
     let data_decor = "-".repeat(width as usize).dark_green().to_string();
 
     let mut out = String::new();
     out.push_str(&format!(
         "{} matched makeinfo{}:\n",
-        infos.len(),
-        if infos.len() > 1 { "s" } else { "" }
+        printinfos.len(),
+        if printinfos.len() > 1 { "s" } else { "" }
     ));
 
     out.push_str(&format!("{}\n", head_decor));
-    for (idx, item) in infos.iter().enumerate() {
+    for (idx, item) in printinfos.iter().enumerate() {
         out.push_str(&format!(
-            "ProductName   : {}\nProductModel  : {}\nPlatform      : {}\nMakeTarget    : {}\nMakeDirectory : {}\nMakeCommand   : {}\n",
-            item.product_name, item.product_model, item.platform_model, item.make_target, item.make_directory, item.make_command
+            "ProductName   : {}\nProductModel  : {}\nProductFamily : {}\nPlatform      : {}\nMakeTarget    : {}\nMakeDirectory : {}\nMakeCommand   : {}\n",
+            item.product_name, item.product_model, item.product_family, item.platform_model, item.make_target, item.make_directory, item.make_command
         ));
 
-        if idx < infos.len() - 1 {
+        if idx < printinfos.len() - 1 {
             out.push_str(&format!("{}\n", data_decor));
         }
     }
