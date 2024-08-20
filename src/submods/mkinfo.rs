@@ -344,7 +344,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
     out.push_str(&format!("{}\n", head_decor));
     for (idx, item) in infos.iter().enumerate() {
         out.push_str(&format!(
-            "ProductName   : {}\nProductModel  : {}\nPlatform      : {}\nMakeTarget    : {}\nMakeDirectory : {}\nMakeCommand: {}\n",
+            "ProductName   : {}\nProductModel  : {}\nPlatform      : {}\nMakeTarget    : {}\nMakeDirectory : {}\nMakeCommand   : {}\n",
             item.product_name, item.product_model, item.platform_model, item.make_target, item.make_directory, item.make_command
         ));
 
