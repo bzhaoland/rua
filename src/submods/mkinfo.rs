@@ -290,7 +290,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
 fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut writer = csv::Writer::from_writer(std::io::stdout());
 
-    writer.write_record(["ProductName", "ProductModel", "PlatformModel", "MakeTarget", "MakePath", "MakeCommand"])?;
+    writer.write_record(["ProductName", "ProductModel", "PlatformModel", "MakeTarget", "MakeDirectory", "MakeCommand"])?;
     for info in infos.iter() {
         writer.write_record([
             &info.product_name,
@@ -310,11 +310,12 @@ fn dump_json(infos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut out: Value = json!([]);
     for info in infos.iter() {
         out.as_array_mut().unwrap().push(json!({
-            "Product": info.product_name,
+            "ProductName": info.product_name,
+            "ProductModel": info.product_name,
             "Platform": info.platform_model,
-            "Target": info.make_target,
-            "Path": info.make_directory,
-            "Command": info.make_command,
+            "MakeTarget": info.make_target,
+            "MakePath": info.make_directory,
+            "MakeCommand": info.make_command,
         }));
     }
     println!("{}", serde_json::to_string_pretty(&out)?);
@@ -343,7 +344,7 @@ fn dump_list(infos: &[PrintInfo]) -> anyhow::Result<()> {
     out.push_str(&format!("{}\n", head_decor));
     for (idx, item) in infos.iter().enumerate() {
         out.push_str(&format!(
-            "ProductName: {}\nProductType: {}\nPlatform   : {}\nMakeTarget : {}\nMakePath   : {}\nMakeCommand: {}\n",
+            "ProductName   : {}\nProductModel  : {}\nPlatform      : {}\nMakeTarget    : {}\nMakeDirectory : {}\nMakeCommand: {}\n",
             item.product_name, item.product_model, item.platform_model, item.make_target, item.make_directory, item.make_command
         ));
 
@@ -374,7 +375,7 @@ fn dump_tsv(infos: &[PrintInfo]) -> anyhow::Result<()> {
         .quote_style(csv::QuoteStyle::NonNumeric)
         .from_writer(std::io::stdout());
 
-    writer.write_record(["ProductName", "ProductModel", "PlatformModel", "MakeTarget", "MakePath", "MakeCommand"])?;
+    writer.write_record(["ProductName", "ProductModel", "Platform", "MakeTarget", "MakeDirectory", "MakeCommand"])?;
     for info in infos.iter() {
         writer.write_record([
             &info.product_name,
