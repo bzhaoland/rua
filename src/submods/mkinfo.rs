@@ -190,7 +190,6 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             make_dirc: item.get(3).unwrap().as_str().to_string(),
         })
     }
-    println!("Mkinfos: {}", mkinfos.len());
 
     // Normalize image name
     let pattern_nonalnum =
