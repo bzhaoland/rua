@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use reqwest::Client;
 
 use crate::utils::SvnInfo;
@@ -49,16 +49,18 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
     }
 
     let mut comm = Command::new("python2");
-    comm.arg("/usr/lib/python2.7/site-packages/RBTools-0.4.1-py2.7.egg/rbtools/postreview-cops.py")
-        .arg(format!("--summary=Code review for bug {}", options.bug_id))
-        .arg(format!("--bugs-closed={}", options.bug_id))
-        .arg(format!("--branch={}", branch_name))
-        .arg("--server=http://cops-server.hillstonedev.com:8181")
-        .arg("-p"); // Publish it immediately
+    comm.args([
+        "/usr/lib/python2.7/site-packages/RBTools-0.4.1-py2.7.egg/rbtools/postreview-cops.py",
+        &format!("--summary=Code review for bug {}", options.bug_id),
+        &format!("--bugs-closed={}", options.bug_id),
+        &format!("--branch={}", branch_name),
+        "--server=http://cops-server.hillstonedev.com:8181",
+        "-p", // Publish it immediately
+    ]);
 
     // If review id is not given, then start a new one
     match options.review_id {
-        Some(v) => comm.args(["-r", v.to_string().as_str()]),
+        Some(v) => comm.args(["-r", &v.to_string()]),
         None => comm.arg(r#"--description-file=/devel/sw/bin/review_template"#),
     };
 
@@ -66,9 +68,10 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
         comm.args(options.file_list.as_ref().unwrap());
     }
 
-    let status = comm.status()?;
-    if !status.success() {
-        bail!("Error executing postreview-cops.py");
+    let output = comm.output()?;
+    if !output.status.success() {
+        bail!(anyhow!("{}", String::from_utf8_lossy(&output.stderr))
+            .context("Error executing postreview-cops.py"));
     }
 
     Ok(())
