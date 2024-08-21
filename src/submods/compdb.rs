@@ -32,30 +32,30 @@ impl fmt::Display for CompDBRecord {
 
 pub type CompDB = Vec<CompDBRecord>;
 
-pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
+pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
     let proj_root = Path::new(
         svninfo
             .working_copy_root_path()
-            .context("Error fetching project root")?,
+            .context("Working copy root path not available")?,
     );
 
     // Must run under the project root
     if env::current_dir()? != proj_root {
         bail!(
-            r#"Location error! Please run command under the project root, i.e. "{}"."#,
-            proj_root.to_string_lossy()
+            r#"Error location! Please run this command under the project root, i.e. "{}"."#,
+            proj_root.display()
         );
     }
 
     let lastrule_mkfile = proj_root.join("scripts/last-rules.mk");
     if !lastrule_mkfile.is_file() {
-        bail!(r#"File "{}" not found"#, lastrule_mkfile.to_string_lossy());
+        bail!(r#"File "{}" not available"#, lastrule_mkfile.display());
     }
 
     let rules_mkfile = proj_root.join("scripts/rules.mk");
     if !rules_mkfile.is_file() {
-        bail!(r#"File "{}" not found"#, rules_mkfile.to_string_lossy());
+        bail!(r#"File "{}" not available"#, rules_mkfile.display());
     }
 
     const NSTEPS: usize = 5;
@@ -88,7 +88,7 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
         .args([
             "make",
             "-C",
-            product_dir,
+            make_directory,
             make_target,
             "-j8",
             "-iknwB", // For pseudo building forcefully
@@ -115,14 +115,10 @@ pub fn gen_compdb(product_dir: &str, make_target: &str) -> anyhow::Result<()> {
     step += 1;
     print!("[{}/{}] RESTORING MKRULES...", step, NSTEPS);
     stdout.flush()?;
-    fs::write(&lastrule_mkfile, lastrule_text_orig).context(format!(
-        "Error writing to {}",
-        lastrule_mkfile.to_string_lossy()
-    ))?;
-    fs::write(&rules_mkfile, rules_text_orig).context(format!(
-        "Error writing to {}",
-        rules_mkfile.to_string_lossy()
-    ))?;
+    fs::write(&lastrule_mkfile, lastrule_text_orig)
+        .context(format!("Error writing {}", lastrule_mkfile.display()))?;
+    fs::write(&rules_mkfile, rules_text_orig)
+        .context(format!("Error writing {}", rules_mkfile.display()))?;
     println!(
         "\x1B[2K\r[{}/{}] RESTORING MKRULES...{}",
         step,

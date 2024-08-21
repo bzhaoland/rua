@@ -32,11 +32,11 @@ pub fn proc_perfanno<P: AsRef<Path>>(
     daemon_name: &str,
 ) -> anyhow::Result<Value> {
     let text = fs::read_to_string(&data_file).context(anyhow::anyhow!(
-        "Error reading file {}",
-        data_file.as_ref().to_string_lossy()
+        "Error reading {}",
+        data_file.as_ref().display()
     ))?;
-    let headline_pattern = Regex::new(r#"Samples[[:blank:]]*\|[[:blank:]]*.*?of (.*?) for.*?\(([[:digit:]]+)[[:blank:]]*samples"#)?;
-    let dataline_pattern = Regex::new(r#"([[:digit:]]+)[[:blank:]]*:[[:blank:]]*([[:alnum:]]+)[[:blank:]]*:[[:blank:]]*(.*?)[[:blank:]]*$"#)?;
+    let headline_pattern = Regex::new(r#"Samples[[:blank:]]*\|[[:blank:]]*.*?of (.*?) for.*?\(([[:digit:]]+)[[:blank:]]*samples"#).context("Error building pattern for headline")?;
+    let dataline_pattern = Regex::new(r#"([[:digit:]]+)[[:blank:]]*:[[:blank:]]*([[:alnum:]]+)[[:blank:]]*:[[:blank:]]*(.*?)[[:blank:]]*$"#).context("Error building pattern for dataline")?;
     let mut json_data = json!({
         "counter": 0,
         "mods": {},

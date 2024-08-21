@@ -122,19 +122,19 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     );
     if env::current_dir()?.as_path() != proj_root {
         bail!(
-            r#"Location error! Please run command under the project root, i.e. "{}"."#,
-            proj_root.to_string_lossy()
+            r#"Error location! Please run this command under the project root, i.e. "{}"."#,
+            proj_root.display()
         );
     }
 
     let plat_registry = proj_root.join("src/libplatform/hs_platform.c");
     if !plat_registry.is_file() {
-        bail!(r#"File "{}"not found"#, plat_registry.to_string_lossy());
+        bail!(r#"File "{}" not available"#, plat_registry.display());
     }
 
     let plat_table = proj_root.join("scripts/platform_table");
     if !plat_table.is_file() {
-        bail!(r#"File "{}" not found"#, plat_table.to_string_lossy());
+        bail!(r#"File "{}" not available"#, plat_table.display());
     }
 
     let repo_branch = svninfo.branch_name().context("Failed to fetch branch")?;
@@ -292,7 +292,15 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
 fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     let mut writer = csv::Writer::from_writer(std::io::stdout());
 
-    writer.write_record(["ProductName", "ProductModel", "ProductFamily ", "PlatformModel", "MakeTarget", "MakeDirectory", "MakeCommand"])?;
+    writer.write_record([
+        "ProductName",
+        "ProductModel",
+        "ProductFamily ",
+        "PlatformModel",
+        "MakeTarget",
+        "MakeDirectory",
+        "MakeCommand",
+    ])?;
     for info in infos.iter() {
         writer.write_record([
             &info.product_name,
@@ -381,7 +389,14 @@ fn dump_tsv(infos: &[PrintInfo]) -> anyhow::Result<()> {
         .quote_style(csv::QuoteStyle::NonNumeric)
         .from_writer(std::io::stdout());
 
-    writer.write_record(["ProductName", "ProductModel", "Platform", "MakeTarget", "MakeDirectory", "MakeCommand"])?;
+    writer.write_record([
+        "ProductName",
+        "ProductModel",
+        "Platform",
+        "MakeTarget",
+        "MakeDirectory",
+        "MakeCommand",
+    ])?;
     for info in infos.iter() {
         writer.write_record([
             &info.product_name,
