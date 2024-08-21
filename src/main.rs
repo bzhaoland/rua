@@ -111,9 +111,9 @@ enum Comm {
         prodname: String,
     },
 
-    /// Extensively translate addresses to file and locations
+    /// Extensively map instructions to file&locations (inline expanded)
     Perfan {
-        #[arg(help = "Annotated file to be processed (perf)", value_name = "FILE")]
+        #[arg(help = "File to process (perf annotate output)", value_name = "FILE")]
         file: PathBuf,
 
         #[arg(
