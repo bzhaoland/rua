@@ -68,10 +68,9 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
         comm.args(options.file_list.as_ref().unwrap());
     }
 
-    let output = comm.output()?;
-    if !output.status.success() {
-        bail!(anyhow!("{}", String::from_utf8_lossy(&output.stderr))
-            .context("Error executing postreview-cops.py"));
+    let status = comm.status()?;
+    if !status.success() {
+        bail!("Error executing postreview-cops.py: {}", status.code().context("Aborted")?);
     }
 
     Ok(())
