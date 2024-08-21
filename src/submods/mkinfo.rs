@@ -370,7 +370,7 @@ fn dump_list(printinfos: &[PrintInfo]) -> anyhow::Result<()> {
 
     out.push_str(
         &format!(
-            r#"Run command under the project root, i.e. "{}"
+            r#"Run the make command under the project root, i.e. "{}"
 "#,
             SvnInfo::new()?.working_copy_root_path().unwrap()
         )
