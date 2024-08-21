@@ -145,7 +145,7 @@ enum Comm {
     /// Initiate a new review request or refresh an existing one
     Review {
         #[arg(
-            value_name = "BUG-ID",
+            value_name = "BUG ID",
             help = "The bug id used for this review request"
         )]
         bug_id: u32,
