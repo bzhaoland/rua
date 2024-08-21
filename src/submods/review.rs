@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{bail, Context};
 use reqwest::Client;
 
 use crate::utils::SvnInfo;
@@ -9,7 +9,7 @@ use crate::utils::SvnInfo;
 pub struct ReviewOptions {
     pub bug_id: u32,
     pub review_id: Option<u32>,
-    pub file_list: Option<Vec<String>>,
+    pub files: Option<Vec<String>>,
     pub diff_file: Option<String>,
     pub reviewers: Option<Vec<String>>,
     pub branch_name: Option<String>,
@@ -64,8 +64,8 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
         None => comm.arg(r#"--description-file=/devel/sw/bin/review_template"#),
     };
 
-    if options.file_list.is_some() {
-        comm.args(options.file_list.as_ref().unwrap());
+    if options.files.is_some() {
+        comm.args(options.files.as_ref().unwrap());
     }
 
     let status = comm.status()?;

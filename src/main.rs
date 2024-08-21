@@ -146,13 +146,11 @@ enum Comm {
     Review {
         #[arg(
             value_name = "BUG-ID",
-            short = 'n',
-            long = "bug-id",
             help = "The bug id used for this review request"
         )]
         bug_id: u32,
         #[arg(
-            value_name = "REVIEW-ID",
+            value_name = "REVIEW ID",
             short = 'r',
             long = "review-id",
             help = "The review id of an existing review request"
@@ -161,10 +159,10 @@ enum Comm {
         #[arg(
             value_name = "FILES",
             short = 'f',
-            long = "file-list",
+            long = "files",
             help = "Files to be reviewed"
         )]
-        file_list: Option<Vec<String>>,
+        files: Option<Vec<String>>,
         #[arg(
             value_name = "DIFF-FILE",
             short = 'd',
@@ -283,7 +281,7 @@ async fn main() -> anyhow::Result<()> {
         Comm::Review {
             bug_id,
             review_id,
-            file_list,
+            files,
             diff_file,
             reviewers,
             branch_name,
@@ -293,7 +291,7 @@ async fn main() -> anyhow::Result<()> {
             let options = review::ReviewOptions {
                 bug_id,
                 review_id,
-                file_list,
+                files,
                 diff_file,
                 reviewers,
                 branch_name,
