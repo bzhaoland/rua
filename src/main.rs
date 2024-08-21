@@ -164,7 +164,7 @@ enum Comm {
         )]
         files: Option<Vec<String>>,
         #[arg(
-            value_name = "DIFF-FILE",
+            value_name = "DIFF FILE",
             short = 'd',
             long = "diff-file",
             help = "Diff files to be uploaded"
@@ -185,7 +185,7 @@ enum Comm {
         )]
         branch_name: Option<String>,
         #[arg(
-            value_name = "REPO-NAME",
+            value_name = "REPOSITORY NAME",
             short = 'p',
             long = "repo-name",
             help = "Repository name"
