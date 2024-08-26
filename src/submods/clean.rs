@@ -3,7 +3,7 @@ use std::path::Path;
 use std::process::Command;
 use std::{env, fs};
 
-use anyhow::{self, bail, Context};
+use anyhow::{self, Context};
 use crossterm::style::Stylize;
 use regex::Regex;
 use walkdir::WalkDir;
@@ -32,80 +32,81 @@ pub fn clean_build() -> anyhow::Result<()> {
 
     let nsteps: usize = if Path::new(&branch).is_dir() { 3 } else { 2 };
     let mut step: usize = 1;
-    let mut stdout = io::stdout();
+    let mut stderr = io::stderr();
 
     // Cleaning the objects generated in building process
-    print!("[{}/{}] LISTING TARGET OBJS...", step, nsteps);
-    stdout.flush()?;
+    let mut stderr_lock = stderr.lock();
+    write!(stderr_lock, "[{}/{}] LISTING TARGET OBJS...", step, nsteps)?;
+    stderr_lock.flush()?;
+
     let target_dir = Path::new("target");
     if target_dir.is_dir() {
-        let mut num_entries = 0;
-        for (idx, _) in WalkDir::new(target_dir)
+        let num_entries = WalkDir::new(target_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
-        {
-            num_entries += 1;
-            print!(
-                "\x1B[2K\r[{}/{}] LISTING TARGET OBJS...{}",
-                step,
-                nsteps,
-                (idx + 1).to_string().dark_yellow()
-            );
-            stdout.flush()?;
-        }
+            .map(|(i, _)| -> anyhow::Result<()> {
+                write!(
+                    stderr_lock,
+                    "\x1B[2K\r[{}/{}] LISTING TARGET OBJS...{}",
+                    step,
+                    nsteps,
+                    (i + 1).to_string().dark_yellow()
+                )?;
+                stderr_lock.flush()?;
+                Ok(())
+            })
+            .count();
+        let num_entries_suffix_str = num_entries.to_string().dark_yellow();
 
         // Remove the whole target directory
-        print!(
-            "\x1B[2K\r[{}/{}] CLEANING TARGET OBJS...{}/{}",
-            step,
-            nsteps,
-            "0".dark_green(),
-            num_entries.to_string().dark_yellow()
-        );
-        stdout.flush()?;
-        for (idx, entry) in WalkDir::new("target")
+        WalkDir::new("target")
             .contents_first(true)
             .into_iter()
             .enumerate()
-        {
-            let entry = entry.unwrap();
-            let entry = entry.into_path();
-            if entry.is_file() || entry.is_symlink() {
-                fs::remove_file(entry)?;
-            } else if entry.is_dir() {
-                fs::remove_dir_all(entry)?;
-            }
-            print!(
-                "\x1B[2K\r[{}/{}] CLEANING TARGET OBJS...{}/{}",
-                step,
-                nsteps,
-                (idx + 1).to_string().dark_green(),
-                num_entries.to_string().dark_yellow()
-            );
-            stdout.flush()?;
-        }
+            .map(|(i, v)| -> anyhow::Result<()> {
+                write!(
+                    stderr_lock,
+                    "\x1B[2K\r[{}/{}] CLEANING TARGET OBJS...{}/{}",
+                    step,
+                    nsteps,
+                    i.to_string().dark_green(),
+                    num_entries_suffix_str
+                )?;
+                stderr_lock.flush()?;
+                let entry = v?;
+                let path_ = entry.path();
+                if path_.is_file() || path_.is_symlink() {
+                    fs::remove_file(path_)
+                        .context(format!("Error removing file {}", path_.display()))?;
+                } else if path_.is_dir() {
+                    fs::remove_dir_all(path_)
+                        .context(format!("Error removing directory {}", path_.display()))?;
+                }
+                Ok(())
+            })
+            .count();
     }
-    println!(
+    writeln!(
+        stderr_lock,
         "\x1B[2K\r[{}/{}] CLEANING TARGET OBJS...{}",
         step,
         nsteps,
         "DONE".dark_green()
-    );
+    )?;
 
     // Clean unversioned entries
     step += 1;
-    print!("[{}/{}] LISTING UNVERSIONEDS...", step, nsteps);
-    stdout.flush()?;
+    write!(stderr_lock, "[{}/{}] LISTING UNVERSIONEDS...", step, nsteps)?;
+    stderr_lock.flush()?;
     let output = Command::new("svn")
         .args(["status", "src", "bin", "lib"])
         .output()
         .context("Command `svn status src` failed")?;
 
-    if !output.status.success() {
-        bail!("Command `svn status src` failed");
-    }
-    let pattern_file = Regex::new(r#"(?m)^\?[[:blank:]]+(\S+)[[:space:]]*$"#).context("Error creating regex pattern")?;
+    if !output.status.success() {}
+    let pattern_file = Regex::new(r#"(?m)^\?[[:blank:]]+(\S+)[[:space:]]*$"#)
+        .context("Error creating regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
         .context(anyhow::anyhow!("Error converting to `String` type"))?;
     let mut filelist = Vec::new();
@@ -113,44 +114,45 @@ pub fn clean_build() -> anyhow::Result<()> {
         filelist.push(file.to_string());
     }
 
-    print!(
-        "\x1B[2K\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}",
-        step,
-        nsteps,
-        "0".dark_green(),
-        filelist.len().to_string().dark_yellow()
-    );
-    stdout.flush()?;
-    for (idx, item) in filelist.iter().enumerate() {
-        let entry = Path::new(item);
-        if entry.is_file() || entry.is_symlink() {
-            fs::remove_file(item)?;
-        } else if entry.is_dir() {
-            fs::remove_dir_all(entry)?;
-        }
-        print!(
-            "\x1B[2K\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}",
-            step,
-            nsteps,
-            (idx + 1).to_string().dark_green(),
-            filelist.len().to_string().dark_yellow()
-        );
-        stdout.flush()?;
-    }
-    println!(
+    filelist
+        .iter()
+        .enumerate()
+        .map(|(idx, item)| -> anyhow::Result<()> {
+            write!(
+                stderr_lock,
+                "\x1B[2K\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}",
+                step,
+                nsteps,
+                idx.to_string().dark_green(),
+                filelist.len().to_string().dark_yellow()
+            )?;
+            stderr.flush()?;
+            let path_ = Path::new(item);
+            if path_.is_file() || path_.is_symlink() {
+                fs::remove_file(path_)
+                    .context(format!("Error removing file {}", path_.display()))?;
+            } else if path_.is_dir() {
+                fs::remove_dir_all(path_)
+                    .context(format!("Error removing directory {}", path_.display()))?;
+            }
+            Ok(())
+        })
+        .count();
+    writeln!(
+        stderr_lock,
         "\x1B[2K\r[{}/{}] CLEANING UNVERSIONEDS...{}",
         step,
         nsteps,
         "DONE".dark_green()
-    );
+    )?;
 
     // Clean UI files
     let ui_dir = Path::new(&branch); // UI directory name is the same as the branch name
     if ui_dir.is_dir() {
         step += 1;
 
-        print!("[{}/{}] LISTING UI OBJS...", step, nsteps);
-        stdout.flush()?;
+        write!(stderr_lock, "[{}/{}] LISTING UI OBJS...", step, nsteps)?;
+        stderr.flush()?;
 
         let mut num_entries = 0;
         for (idx, _) in WalkDir::new(ui_dir)
@@ -159,52 +161,50 @@ pub fn clean_build() -> anyhow::Result<()> {
             .enumerate()
         {
             num_entries += 1;
-            print!(
+            write!(
+                stderr_lock,
                 "\x1B[2K\r[{}/{}] LISTING UI OBJS...{}",
                 step,
                 nsteps,
                 (idx + 1).to_string().dark_yellow()
-            );
-            stdout.flush()?;
+            )?;
+            stderr.flush()?;
         }
 
         // Cleaning UI files
-        print!(
-            "\x1B[2K\r[{}/{}] CLEANING UI OBJS...{}/{}",
-            step,
-            nsteps,
-            "0".dark_green(),
-            num_entries.to_string().dark_yellow()
-        );
-        stdout.flush()?;
+        stderr.flush()?;
         for (idx, entry) in WalkDir::new(ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
         {
-            let entry = entry.unwrap();
-            let entry = entry.into_path();
-            if entry.is_file() || entry.is_symlink() {
-                fs::remove_file(entry)?;
-            } else if entry.is_dir() {
-                fs::remove_dir_all(entry)?;
-            }
-            print!(
+            write!(
+                stderr_lock,
                 "\x1B[2K\r[{}/{}] CLEANING UI OBJS...{}/{}",
                 step,
                 nsteps,
-                (idx + 1).to_string().dark_green(),
+                idx.to_string().dark_green(),
                 num_entries.to_string().dark_yellow()
-            );
-            stdout.flush()?;
+            )?;
+            stderr.flush()?;
+            let entry = entry?;
+            let path_ = entry.path();
+            if path_.is_file() || path_.is_symlink() {
+                fs::remove_file(path_)
+                    .context(format!("Error removing file {}", path_.display()))?;
+            } else if path_.is_dir() {
+                fs::remove_dir_all(path_)
+                    .context(format!("Error removing directory {}", path_.display()))?;
+            }
         }
 
-        println!(
-            "\x1B[2K\r[{}/{}] CLEANING UI OBJS...{}",
+        writeln!(
+            stderr_lock,
+            "\x1B[2K\r[{}/{}] CLEANING UI OBJS...{}\n",
             step,
             nsteps,
             "DONE".dark_green()
-        );
+        )?;
     }
 
     Ok(())

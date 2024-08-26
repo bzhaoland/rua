@@ -40,7 +40,6 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
             .context("Working copy root path not available")?,
     );
 
-    // Must run under the project root
     if env::current_dir()? != proj_root {
         bail!(
             r#"Error location! Please run this command under the project root, i.e. "{}"."#,
