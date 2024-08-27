@@ -70,7 +70,10 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
 
     let status = comm.status()?;
     if !status.success() {
-        bail!("Error executing postreview-cops.py: {}", status.code().context("Aborted")?);
+        bail!(
+            "Error executing postreview-cops.py: {}",
+            status.code().context("Aborted")?
+        );
     }
 
     Ok(())

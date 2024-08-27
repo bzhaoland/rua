@@ -3,7 +3,7 @@ use std::path::Path;
 use std::process::Command;
 use std::{env, fs};
 
-use anyhow::{self, Context};
+use anyhow::{bail, Context};
 use crossterm::style::Stylize;
 use regex::Regex;
 use walkdir::WalkDir;
@@ -104,7 +104,10 @@ pub fn clean_build() -> anyhow::Result<()> {
         .output()
         .context("Command `svn status src` failed")?;
 
-    if !output.status.success() {}
+    if !output.status.success() {
+        bail!("Error invoking `svn status src bin lib`");
+    }
+
     let pattern_file = Regex::new(r#"(?m)^\?[[:blank:]]+(\S+)[[:space:]]*$"#)
         .context("Error creating regex pattern")?;
     let output_str = String::from_utf8(output.stdout)

@@ -1,6 +1,7 @@
 use std::env;
 use std::fmt;
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 use anyhow::bail;
@@ -46,15 +47,15 @@ impl fmt::Display for DumpFormat {
     }
 }
 
-/// Structure to hold product information.
+/// Structure holding product information.
 #[derive(Debug)]
 #[allow(dead_code)]
 struct ProductInfo {
-    platform_model: String,
-    product_model: String,
+    platform_code: String,
+    model: String,
     name_id: usize,
     oem_id: String,
-    product_family: String,
+    family: String,
     shortname: String,
     longname: String,
     snmp_descr: String,
@@ -127,9 +128,9 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         );
     }
 
-    let plat_registry = proj_root.join("src/libplatform/hs_platform.c");
-    if !plat_registry.is_file() {
-        bail!(r#"File "{}" not available"#, plat_registry.display());
+    let product_info_path = proj_root.join("src/libplatform/hs_platform.c");
+    if !product_info_path.is_file() {
+        bail!(r#"File "{}" not available"#, product_info_path.display());
     }
 
     let plat_table = proj_root.join("scripts/platform_table");
@@ -142,37 +143,30 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     let newer_mkfile = (repo_branch.as_str() == "MX_MAIN" && repo_revision >= 293968)
         || (repo_branch.as_str() == "HAWAII_REL_R11" && repo_revision >= 295630);
 
-    // Find all matched record(s) from src/libplatform/hs_platform.c
-    let platinfo_text = fs::read_to_string(&plat_registry).context(format!(
-        r#"Error reading file "{}""#,
-        plat_registry.display()
+    // Find out all matched records in src/libplatform/hs_platform.c
+    let product_info_file = fs::File::open(&product_info_path).context(format!(
+        "Error opening file {}",
+        product_info_path.display()
     ))?;
-    let platinfo_pattern = Regex::new(&format!(r#"(?im)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern for platinfo")?;
+    let product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
+    let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern of product info")?;
     let mut products: Vec<ProductInfo> = Vec::new();
-    for (
-        _,
-        [platmodel, prodmodel, nameid, oemid, family, shortname, longname, descr, snmpoid, mut iconpath],
-    ) in platinfo_pattern
-        .captures_iter(&platinfo_text)
-        .map(|c| c.extract())
-    {
-        iconpath = iconpath.trim();
-        products.push(ProductInfo {
-            platform_model: platmodel.to_string(),
-            product_model: prodmodel.to_string(),
-            name_id: nameid.parse::<usize>()?,
-            oem_id: oemid.to_string(),
-            product_family: family.to_string(),
-            shortname: shortname.to_string(),
-            longname: longname.to_string(),
-            snmp_descr: descr.to_string(),
-            snmp_oid: snmpoid.to_string(),
-            icon_path: if iconpath.is_empty() || iconpath == "NULL" {
-                None
-            } else {
-                Some(iconpath.to_string())
-            },
-        })
+    for line in product_info_reader.lines() {
+        let line = line.context("Error reading product inventory")?;
+        if let Some(captures) = product_info_pattern.captures(&line) {
+            products.push(ProductInfo {
+                platform_code: captures.get(1).unwrap().as_str().to_string(),
+                model: captures.get(2).unwrap().as_str().to_string(),
+                name_id: captures.get(3).unwrap().as_str().parse::<usize>()?,
+                oem_id: captures.get(4).unwrap().as_str().to_string(),
+                family: captures.get(5).unwrap().as_str().to_string(),
+                shortname: captures.get(6).unwrap().as_str().to_string(),
+                longname: captures.get(7).unwrap().as_str().to_string(),
+                snmp_descr: captures.get(8).unwrap().as_str().to_string(),
+                snmp_oid: captures.get(9).unwrap().as_str().to_string(),
+                icon_path: captures.get(10).map(|x| x.as_str().to_string()),
+            })
+        }
     }
 
     // Fetch makeinfo for each product
@@ -191,7 +185,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         })
     }
 
-    // Normalize image name
+    // Normalize the image name
     let pattern_nonalnum =
         Regex::new(r#"[^[:alnum:]]+"#).context("Error building non-alnum regex pattern")?;
     let mut imagename_infix = String::new();
@@ -240,18 +234,15 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     let mut printinfos: Vec<PrintInfo> = Vec::new();
     for product in products.iter() {
         let imagename_prodname = pattern_nonalnum.replace_all(&product.shortname, "");
-        for mkinfo in mkinfos.iter() {
-            if mkinfo.plat_model != product.platform_model {
-                continue;
-            }
-
-            if newer_mkfile
-                && mkinfo.prod_family.is_some()
-                && mkinfo.prod_family.as_ref().unwrap() != &product.product_family
-            {
-                continue;
-            }
-
+        for mkinfo in mkinfos
+            .iter()
+            .filter(|x| x.plat_model == product.platform_code)
+            .filter(|x| {
+                !newer_mkfile
+                    || (x.prod_family.is_some()
+                        && x.prod_family.as_ref().unwrap() == &product.family)
+            })
+        {
             let mut make_goal = mkinfo.make_goal.clone();
             if makeflag.contains(MakeFlag::INET_V6) {
                 make_goal.push_str("-ipv6");
@@ -275,8 +266,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             );
             printinfos.push(PrintInfo {
                 product_name: product.longname.clone(),
-                product_model: product.product_model.clone(),
-                product_family: product.product_family.clone(),
+                product_model: product.model.clone(),
+                product_family: product.family.clone(),
                 platform_model: mkinfo.plat_model.clone(),
                 make_target: make_goal,
                 make_directory: mkinfo.make_dirc.clone(),
@@ -295,7 +286,7 @@ fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     writer.write_record([
         "ProductName",
         "ProductModel",
-        "ProductFamily ",
+        "ProductFamily",
         "PlatformModel",
         "MakeTarget",
         "MakeDirectory",
@@ -312,6 +303,7 @@ fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
             &info.make_command,
         ])?;
     }
+
     writer.flush()?;
 
     anyhow::Ok(())
@@ -392,6 +384,7 @@ fn dump_tsv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     writer.write_record([
         "ProductName",
         "ProductModel",
+        "ProductFamily",
         "Platform",
         "MakeTarget",
         "MakeDirectory",
@@ -401,6 +394,7 @@ fn dump_tsv(infos: &[PrintInfo]) -> anyhow::Result<()> {
         writer.write_record([
             &info.product_name,
             &info.product_model,
+            &info.product_family,
             &info.platform_model,
             &info.make_target,
             &info.make_directory,

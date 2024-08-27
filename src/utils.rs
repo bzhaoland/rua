@@ -30,10 +30,10 @@ pub fn get_hostname() -> anyhow::Result<OsString> {
     Ok(OsString::from_vec(hostname_buf))
 }
 
-/// Get current username through external command `id -un`.
-/// Unfortunately, crates `whoami` and `users` both function uncorrectly,
-/// they got nothing when calling corresponding functions to get current username.
-/// Besides, method using `libc::getuid` or `libc::getpwid` wrapped in an unsafe
+/// Get current username using `id -un`.
+/// Unfortunately, neither `whoami` or `users` work correctly under company's
+/// environment, they got nothing when trying to get current username.
+/// Besides, methods using `libc::getuid` or `libc::getpwid` wrapped in an unsafe
 /// block functioned uncorrectly too in company's CentOS7 server. Maybe it is
 /// because there is no `passwd` table available on the server.
 /// Method `libc::getlogin` does not work inside container.
