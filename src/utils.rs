@@ -162,8 +162,8 @@ Last Changed Date: ([^\n]+)"#,
     }
 
     #[allow(dead_code)]
-    pub fn working_copy_root_path(&self) -> Option<&String> {
-        self.working_copy_root_path.as_ref()
+    pub fn working_copy_root_path(&self) -> Option<&str> {
+        self.working_copy_root_path.as_ref().map(|x| x.as_str())
     }
 
     #[allow(dead_code)]

@@ -1,6 +1,8 @@
 use std::env;
 use std::fmt;
 use std::fs;
+use std::io;
+use std::io::Write;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
@@ -65,14 +67,14 @@ struct ProductInfo {
 
 #[derive(Debug)]
 pub struct MakeInfo {
-    plat_model: String,
-    prod_family: Option<String>,
-    make_goal: String,
-    make_dirc: String,
+    platform_model: String,
+    product_family: Option<String>,
+    make_target: String,
+    make_directory: String,
 }
 
 #[derive(Debug)]
-pub struct PrintInfo {
+pub struct CompileInfo {
     product_name: String,
     product_model: String,
     product_family: String,
@@ -88,23 +90,23 @@ impl fmt::Display for MakeInfo {
             f,
             r#"MakeInfo {{
   platform_model: "{}",
-  goal     : "{}",
-  dirc     : "{}",
+  make_target: "{}",
+  make_directory: "{}",
 }}"#,
-            self.plat_model, self.make_goal, self.make_dirc,
+            self.platform_model, self.make_target, self.make_directory,
         )
     }
 }
 
-impl fmt::Display for PrintInfo {
+impl fmt::Display for CompileInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             r#"CompileInfo {{
   platform_model: "{}",
-  make_goal     : "{}",
-  make_dirc     : "{}",
-  make_comm     : "{}"
+  make_target: "{}",
+  make_directory: "{}",
+  make_command: "{}"
 }}"#,
             self.platform_model, self.make_target, self.make_directory, self.make_command,
         )
@@ -113,9 +115,10 @@ impl fmt::Display for PrintInfo {
 
 /// Generate the make information for the given platform.
 /// This function must run under project root.
-pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<PrintInfo>> {
+pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
+    // Check location
     let proj_root = Path::new(
         svninfo
             .working_copy_root_path()
@@ -128,20 +131,35 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         );
     }
 
+    // Check file existence
     let product_info_path = proj_root.join("src/libplatform/hs_platform.c");
     if !product_info_path.is_file() {
         bail!(r#"File "{}" not available"#, product_info_path.display());
     }
-
-    let plat_table = proj_root.join("scripts/platform_table");
-    if !plat_table.is_file() {
-        bail!(r#"File "{}" not available"#, plat_table.display());
+    let makeinfo_path = proj_root.join("scripts/platform_table");
+    if !makeinfo_path.is_file() {
+        bail!(r#"File "{}" not available"#, makeinfo_path.display());
     }
 
-    let repo_branch = svninfo.branch_name().context("Failed to fetch branch")?;
-    let repo_revision = svninfo.revision().context("Failed to fetch revision")?;
-    let newer_mkfile = (repo_branch.as_str() == "MX_MAIN" && repo_revision >= 293968)
-        || (repo_branch.as_str() == "HAWAII_REL_R11" && repo_revision >= 295630);
+    let repo_branch = svninfo.branch_name().context("Error fetching branch")?;
+    let repo_revision = svninfo.revision().context("Error fetching revision")?;
+    let has_family_field_in_plattable =
+        match repo_branch.chars().take(7).collect::<String>().as_str() {
+            "MX_MAIN" if repo_revision >= 293968 => true,
+            "HAWAII_" => {
+                let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
+                    .context("Error building pattern for release version")?
+                    .captures(&repo_branch.as_str())
+                    .context("Error capturing release version from branch name")?
+                    .get(1)
+                    .unwrap()
+                    .as_str()
+                    .parse::<usize>()
+                    .context("Error parsing release version as an integer")?;
+                (hawaii_release_ver == 11 && repo_revision >= 295630) || hawaii_release_ver > 11
+            }
+            _ => false,
+        };
 
     // Find out all matched records in src/libplatform/hs_platform.c
     let product_info_file = fs::File::open(&product_info_path).context(format!(
@@ -150,11 +168,15 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     ))?;
     let product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
     let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern of product info")?;
-    let mut products: Vec<ProductInfo> = Vec::new();
+    let mut product_info_list: Vec<ProductInfo> = Vec::new();
     for line in product_info_reader.lines() {
-        let line = line.context("Error reading product inventory")?;
+        let line = line.context(format!(
+            "Error reading file {}",
+            product_info_path.display()
+        ))?;
+
         if let Some(captures) = product_info_pattern.captures(&line) {
-            products.push(ProductInfo {
+            product_info_list.push(ProductInfo {
                 platform_code: captures.get(1).unwrap().as_str().to_string(),
                 model: captures.get(2).unwrap().as_str().to_string(),
                 name_id: captures.get(3).unwrap().as_str().parse::<usize>()?,
@@ -170,27 +192,39 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     }
 
     // Fetch makeinfo for each product
-    let makeinfo_text = fs::read_to_string(&plat_table)
-        .context(format!(r#"Error reading "{}""#, plat_table.display()))?;
+    let makeinfo_file = fs::File::open(&makeinfo_path).context(format!(
+        r#"Error opening file "{}""#,
+        makeinfo_path.display()
+    ))?;
+    let makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
     let makeinfo_pattern =
-        Regex::new(r#"(?m)^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
+        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
             .context("Error building regex pattern for makeinfo")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
-    for item in makeinfo_pattern.captures_iter(&makeinfo_text) {
-        mkinfos.push(MakeInfo {
-            plat_model: item.get(1).unwrap().as_str().to_string(),
-            prod_family: item.get(4).map(|v| v.as_str().to_string()),
-            make_goal: item.get(2).unwrap().as_str().to_string(),
-            make_dirc: item.get(3).unwrap().as_str().to_string(),
-        })
+    for line in makeinfo_reader.lines() {
+        let line = line.context(format!(
+            r#"Error reading file "{}""#,
+            makeinfo_path.display()
+        ))?;
+
+        if let Some(captures) = makeinfo_pattern.captures(&line) {
+            mkinfos.push(MakeInfo {
+                platform_model: captures.get(1).unwrap().as_str().to_string(),
+                product_family: captures.get(4).map(|v| v.as_str().to_string()),
+                make_target: captures.get(2).unwrap().as_str().to_string(),
+                make_directory: captures.get(3).unwrap().as_str().to_string(),
+            })
+        }
     }
 
-    // Normalize the image name
-    let pattern_nonalnum =
-        Regex::new(r#"[^[:alnum:]]+"#).context("Error building non-alnum regex pattern")?;
+    // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let mut imagename_infix = String::new();
+    let mut imagename_suffix = String::new();
 
-    // Extracting patterns like R10 or R10_F from branch name
+    let pattern_nonalnum =
+        Regex::new(r#"[^[:alnum:]]+"#).context("Error building regex pattern for nonalnum")?;
+
+    // Use branch name abbreviation to compose the image name
     let branch_name = &repo_branch;
     let nickname_pattern = Regex::new(r"HAWAII_([-[:word:]]+)")
         .context("Error building regex pattern for nickname")
@@ -208,8 +242,6 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
         )
         .to_string();
     imagename_infix.push_str(&branch_nickname);
-
-    let mut imagename_suffix = String::new();
 
     // IPv6 check
     if makeflag.contains(MakeFlag::INET_V6) {
@@ -231,25 +263,25 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
     imagename_suffix.push('-');
     imagename_suffix.push_str(&username);
 
-    let mut printinfos: Vec<PrintInfo> = Vec::new();
-    for product in products.iter() {
+    let mut compile_infos: Vec<CompileInfo> = Vec::new();
+    for product in product_info_list.iter() {
         let imagename_prodname = pattern_nonalnum.replace_all(&product.shortname, "");
         for mkinfo in mkinfos
             .iter()
-            .filter(|x| x.plat_model == product.platform_code)
+            .filter(|x| x.platform_model == product.platform_code)
             .filter(|x| {
-                !newer_mkfile
-                    || (x.prod_family.is_some()
-                        && x.prod_family.as_ref().unwrap() == &product.family)
+                !has_family_field_in_plattable
+                    || (x.product_family.is_some()
+                        && x.product_family.as_ref().unwrap() == &product.family)
             })
         {
-            let mut make_goal = mkinfo.make_goal.clone();
+            let mut make_goal = mkinfo.make_target.clone();
             if makeflag.contains(MakeFlag::INET_V6) {
                 make_goal.push_str("-ipv6");
             }
 
             let imagename_makegoal = pattern_nonalnum
-                .replace_all(&mkinfo.make_goal, "")
+                .replace_all(&mkinfo.make_target, "")
                 .to_uppercase();
             let imagename = format!(
                 "{}-{}-{}-{}",
@@ -257,30 +289,30 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Prin
             );
             let make_comm = format!(
                 "hsdocker7 make -C {} -j16 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
-                mkinfo.make_dirc, make_goal,
+                mkinfo.make_directory, make_goal,
                 if makeflag.contains(MakeFlag::COVERITY) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::R_BUILD) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_UI) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_PW) { 1 } else { 0 },
                 imagename,
             );
-            printinfos.push(PrintInfo {
+            compile_infos.push(CompileInfo {
                 product_name: product.longname.clone(),
                 product_model: product.model.clone(),
                 product_family: product.family.clone(),
-                platform_model: mkinfo.plat_model.clone(),
+                platform_model: mkinfo.platform_model.clone(),
                 make_target: make_goal,
-                make_directory: mkinfo.make_dirc.clone(),
+                make_directory: mkinfo.make_directory.clone(),
                 make_command: make_comm,
             });
         }
     }
 
-    anyhow::Ok(printinfos)
+    anyhow::Ok(compile_infos)
 }
 
 /// Dump mkinfo records as csv
-fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
+fn dump_csv(infos: &[CompileInfo]) -> anyhow::Result<()> {
     let mut writer = csv::Writer::from_writer(std::io::stdout());
 
     writer.write_record([
@@ -309,73 +341,75 @@ fn dump_csv(infos: &[PrintInfo]) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
-fn dump_json(printinfos: &[PrintInfo]) -> anyhow::Result<()> {
-    let mut out: Value = json!([]);
-    for printinfo in printinfos.iter() {
-        out.as_array_mut().unwrap().push(json!({
-            "ProductName": printinfo.product_name,
-            "ProductModel": printinfo.product_name,
-            "ProductFamily": printinfo.product_family,
-            "Platform": printinfo.platform_model,
-            "MakeTarget": printinfo.make_target,
-            "MakePath": printinfo.make_directory,
-            "MakeCommand": printinfo.make_command,
+fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
+    let mut output: Value = json!([]);
+    for item in compile_infos.iter() {
+        output.as_array_mut().unwrap().push(json!({
+            "ProductName": item.product_name,
+            "ProductModel": item.product_name,
+            "ProductFamily": item.product_family,
+            "Platform": item.platform_model,
+            "MakeTarget": item.make_target,
+            "MakePath": item.make_directory,
+            "MakeCommand": item.make_command,
         }));
     }
-    println!("{}", serde_json::to_string_pretty(&out)?);
+    println!("{}", serde_json::to_string_pretty(&output)?);
 
     anyhow::Ok(())
 }
 
-fn dump_list(printinfos: &[PrintInfo]) -> anyhow::Result<()> {
+fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     // Style control
-    let width = terminal::window_size()?.columns;
+    let term_cols = terminal::window_size()?.columns;
 
-    if printinfos.is_empty() {
-        println!("No matched makeinfo.");
+    if compile_infos.is_empty() {
+        println!("No matched info.");
         return anyhow::Ok(());
     }
 
     // Decorations
-    let head_decor = "=".repeat(width as usize).dark_green().to_string();
-    let data_decor = "-".repeat(width as usize).dark_green().to_string();
+    let head_decor = "=".repeat(term_cols as usize).dark_green().to_string();
+    let data_decor = "-".repeat(term_cols as usize).dark_green().to_string();
 
-    let mut out = String::new();
-    out.push_str(&format!(
-        "{} matched makeinfo{}:\n",
-        printinfos.len(),
-        if printinfos.len() > 1 { "s" } else { "" }
-    ));
+    let mut stdout_lock = io::stdout().lock();
+    writeln!(
+        stdout_lock,
+        "{} matched info{}:",
+        compile_infos.len().to_string().dark_green(),
+        if compile_infos.len() > 1 { "s" } else { "" }
+    )?;
 
-    out.push_str(&format!("{}\n", head_decor));
-    for (idx, item) in printinfos.iter().enumerate() {
-        out.push_str(&format!(
-            "ProductName   : {}\nProductModel  : {}\nProductFamily : {}\nPlatform      : {}\nMakeTarget    : {}\nMakeDirectory : {}\nMakeCommand   : {}\n",
-            item.product_name, item.product_model, item.product_family, item.platform_model, item.make_target, item.make_directory, item.make_command
-        ));
+    writeln!(stdout_lock, "{}", head_decor)?;
+    for (idx, item) in compile_infos.iter().enumerate() {
+        writeln!(stdout_lock, "ProductName   :{}", item.product_name)?;
+        writeln!(stdout_lock, "ProductModel  :{}", item.product_model)?;
+        writeln!(stdout_lock, "ProductFamily :{}", item.product_family)?;
+        writeln!(stdout_lock, "Platform      :{}", item.platform_model)?;
+        writeln!(stdout_lock, "MakeTarget    :{}", item.make_target)?;
+        writeln!(stdout_lock, "MakeDirectory :{}", item.make_directory)?;
+        writeln!(stdout_lock, "MakeCommand   :{}", item.make_command)?;
 
-        if idx < printinfos.len() - 1 {
-            out.push_str(&format!("{}\n", data_decor));
+        if idx < compile_infos.len() - 1 {
+            writeln!(stdout_lock, "{}", data_decor)?;
         }
     }
-    out.push_str(&format!("{}\n", head_decor));
+    writeln!(stdout_lock, "{}", head_decor)?;
 
-    out.push_str(
-        &format!(
-            r#"Run the make command under the project root, i.e. "{}"
+    let svninfo = SvnInfo::new()?;
+    let proj_root = svninfo.working_copy_root_path().unwrap().dark_yellow();
+    writeln!(
+        stdout_lock,
+        r#"Run the make command under the project root, i.e. "{}"
 "#,
-            SvnInfo::new()?.working_copy_root_path().unwrap()
-        )
-        .dark_yellow()
-        .to_string(),
-    );
-
-    print!("{}", out);
+        proj_root
+    )?;
+    stdout_lock.flush()?;
 
     anyhow::Ok(())
 }
 
-fn dump_tsv(infos: &[PrintInfo]) -> anyhow::Result<()> {
+fn dump_tsv(infos: &[CompileInfo]) -> anyhow::Result<()> {
     let mut writer = csv::WriterBuilder::new()
         .delimiter(b'\t')
         .quote_style(csv::QuoteStyle::NonNumeric)
@@ -407,7 +441,7 @@ fn dump_tsv(infos: &[PrintInfo]) -> anyhow::Result<()> {
 }
 
 /// Dump the make information to the screen.
-pub fn dump_mkinfo(infos: &[PrintInfo], format: DumpFormat) -> anyhow::Result<()> {
+pub fn dump_mkinfo(infos: &[CompileInfo], format: DumpFormat) -> anyhow::Result<()> {
     match format {
         DumpFormat::Csv => dump_csv(infos),
         DumpFormat::Json => dump_json(infos),
