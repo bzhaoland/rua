@@ -60,51 +60,52 @@ pub fn get_current_username() -> Option<String> {
 }
 
 pub struct SvnInfo {
-    working_copy_root_path: Option<String>,
-    url: Option<String>,
-    relative_url: Option<String>,
-    repository_root: Option<String>,
-    repository_uuid: Option<String>,
-    revision: Option<usize>,
-    node_kind: Option<String>,
-    schedule: Option<String>,
-    last_changed_author: Option<String>,
-    last_changed_revision: Option<usize>,
-    last_changed_date: Option<String>,
+    working_copy_root_path: String,
+    url: String,
+    relative_url: String,
+    repository_root: String,
+    repository_uuid: String,
+    revision: usize,
+    node_kind: String,
+    schedule: String,
+    last_changed_author: String,
+    last_changed_revision: usize,
+    last_changed_date: String,
 }
 
 impl SvnInfo {
     pub fn new() -> anyhow::Result<Self> {
         let mut instance = SvnInfo {
-            working_copy_root_path: None,
-            url: None,
-            relative_url: None,
-            repository_root: None,
-            repository_uuid: None,
-            revision: None,
-            node_kind: None,
-            schedule: None,
-            last_changed_author: None,
-            last_changed_revision: None,
-            last_changed_date: None,
+            working_copy_root_path: String::new(),
+            url: String::new(),
+            relative_url: String::new(),
+            repository_root: String::new(),
+            repository_uuid: String::new(),
+            revision: 0,
+            node_kind: String::new(),
+            schedule: String::new(),
+            last_changed_author: String::new(),
+            last_changed_revision: 0,
+            last_changed_date: String::new(),
         };
+
         instance.info()?;
         Ok(instance)
     }
 
     #[allow(dead_code)]
     pub fn reset(&mut self) {
-        self.working_copy_root_path = None;
-        self.url = None;
-        self.relative_url = None;
-        self.repository_root = None;
-        self.repository_uuid = None;
-        self.revision = None;
-        self.node_kind = None;
-        self.schedule = None;
-        self.last_changed_author = None;
-        self.last_changed_revision = None;
-        self.last_changed_date = None;
+        self.working_copy_root_path.clear();
+        self.url.clear();
+        self.relative_url.clear();
+        self.repository_root.clear();
+        self.repository_uuid.clear();
+        self.revision = 0;
+        self.node_kind.clear();
+        self.schedule.clear();
+        self.last_changed_author.clear();
+        self.last_changed_revision = 0;
+        self.last_changed_date.clear();
     }
 
     /// Invoking .info method means executing `svn info` command once and storing its output
@@ -135,50 +136,88 @@ Last Changed Date: ([^\n]+)"#,
         )
         .expect("Error building regex pattern for project root");
 
-        let captures = pattern
-            .captures(&info)
-            .context("Error capturing svn info")?;
-        self.working_copy_root_path = captures.get(1).map(|x| x.as_str().to_string());
-        self.url = captures.get(2).map(|x| x.as_str().to_string());
-        self.relative_url = captures.get(3).map(|x| x.as_str().to_string());
-        self.repository_root = captures.get(4).map(|x| x.as_str().to_string());
-        self.repository_uuid = captures.get(5).map(|x| x.as_str().to_string());
-        self.revision = captures.get(6).map(|x| {
-            x.as_str()
-                .parse()
-                .expect("Error parsing the captured revision string as an integer")
-        });
-        self.node_kind = captures.get(7).map(|x| x.as_str().to_string());
-        self.schedule = captures.get(8).map(|x| x.as_str().to_string());
-        self.last_changed_author = captures.get(9).map(|x| x.as_str().to_string());
-        self.last_changed_revision = captures.get(10).map(|x| {
-            x.as_str()
-                .parse()
-                .expect("Error parsing as an integer for revision")
-        });
-        self.last_changed_date = captures.get(11).map(|x| x.as_str().to_string());
+        let captures = pattern.captures(&info).context("Error matching svn info")?;
+        self.working_copy_root_path = captures
+            .get(1)
+            .context("Error capturing the working copy root path from the svn info")?
+            .as_str()
+            .to_string();
+        self.url = captures
+            .get(2)
+            .context("Error capturing the url from the svn info")?
+            .as_str()
+            .to_string();
+        self.relative_url = captures
+            .get(3)
+            .context("Error capturing the relative url from the svn info")?
+            .as_str()
+            .to_string();
+        self.repository_root = captures
+            .get(4)
+            .context("Error capturing the repository root from the svn info")?
+            .as_str()
+            .to_string();
+        self.repository_uuid = captures
+            .get(5)
+            .context("Error capturing the repository uuid from the svn info")?
+            .as_str()
+            .to_string();
+        self.revision = captures
+            .get(6)
+            .context("Error capturing the revision from the svn info")?
+            .as_str()
+            .to_string()
+            .parse()
+            .context("Error parsing the revision as an integer")?;
+        self.node_kind = captures
+            .get(7)
+            .context("Error capturing the node kind from the svn info")?
+            .as_str()
+            .to_string();
+        self.schedule = captures
+            .get(8)
+            .context("Error capturing the schedule from the svn info")?
+            .as_str()
+            .to_string();
+        self.last_changed_author = captures
+            .get(9)
+            .context("Error capturing the last changed author from the svn info")?
+            .as_str()
+            .to_string();
+        self.last_changed_revision = captures
+            .get(10)
+            .context("Error capturing the last changed revision from the svn info")?
+            .as_str()
+            .to_string()
+            .parse()
+            .context("Error parsing the last changed revision as an integer")?;
+        self.last_changed_date = captures
+            .get(11)
+            .context("Error capturing the last changed date from the svn info")?
+            .as_str()
+            .to_string();
 
         Ok(())
     }
 
     #[allow(dead_code)]
-    pub fn working_copy_root_path(&self) -> Option<&str> {
-        self.working_copy_root_path.as_ref().map(|x| x.as_str())
+    pub fn working_copy_root_path(&self) -> &str {
+        self.working_copy_root_path.as_str()
     }
 
     #[allow(dead_code)]
-    pub fn url(&self) -> Option<&String> {
-        self.url.as_ref()
+    pub fn url(&self) -> &str {
+        self.url.as_str()
     }
 
     #[allow(dead_code)]
-    pub fn relative_url(&self) -> Option<&String> {
-        self.relative_url.as_ref()
+    pub fn relative_url(&self) -> &str {
+        self.relative_url.as_str()
     }
 
     #[allow(dead_code)]
-    pub fn branch_name(&self) -> Option<String> {
-        let rel_url = self.relative_url.as_ref()?;
+    pub fn branch_name(&self) -> &str {
+        let rel_url = self.relative_url();
         let branch_pattern = Regex::new(r#"\^/branches/([-[:word:]]+)"#)
             .context("Error building regex pattern for capturing branch name")
             .unwrap();
@@ -188,53 +227,54 @@ Last Changed Date: ([^\n]+)"#,
             .get(1)
             .unwrap()
             .as_str();
-
-        Some(branch_name.to_string())
+        branch_name
     }
 
     #[allow(dead_code)]
-    pub fn repository_root(&self) -> Option<&String> {
-        self.repository_root.as_ref()
+    pub fn repository_root(&self) -> &str {
+        self.repository_root.as_str()
     }
 
     #[allow(dead_code)]
-    pub fn repository_uuid(&self) -> Option<&String> {
-        self.repository_uuid.as_ref()
+    pub fn repository_uuid(&self) -> &str {
+        self.repository_uuid.as_str()
     }
 
     #[allow(dead_code)]
-    pub fn revision(&self) -> Option<usize> {
+    pub fn revision(&self) -> usize {
         self.revision
     }
 
     #[allow(dead_code)]
-    pub fn node_kind(&self) -> Option<&String> {
-        self.node_kind.as_ref()
+    pub fn node_kind(&self) -> &str {
+        self.node_kind.as_str()
     }
 
     #[allow(dead_code)]
-    pub fn schedule(&self) -> Option<&String> {
-        self.schedule.as_ref()
+    pub fn schedule(&self) -> &str {
+        self.schedule.as_str()
     }
 
     #[allow(dead_code)]
-    pub fn last_changed_author(&self) -> Option<&String> {
-        self.last_changed_author.as_ref()
+    pub fn last_changed_author(&self) -> &str {
+        self.last_changed_author.as_str()
     }
 
     #[allow(dead_code)]
-    pub fn last_changed_revision(&self) -> Option<usize> {
+    pub fn last_changed_revision(&self) -> usize {
         self.last_changed_revision
     }
 
     #[allow(dead_code)]
-    pub fn last_changed_date(&self) -> Option<&String> {
-        self.last_changed_date.as_ref()
+    pub fn last_changed_date(&self) -> &str {
+        self.last_changed_date.as_str()
     }
 
     #[allow(dead_code)]
     pub fn is_proj_root(&self) -> bool {
-        env::current_dir().unwrap().as_path()
-            == Path::new(self.working_copy_root_path.as_ref().unwrap())
+        env::current_dir()
+            .expect("Error getting current directory")
+            .as_path()
+            == Path::new(self.working_copy_root_path())
     }
 }

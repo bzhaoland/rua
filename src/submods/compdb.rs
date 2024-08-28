@@ -34,11 +34,7 @@ pub type CompDB = Vec<CompDBRecord>;
 
 pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
-    let proj_root = Path::new(
-        svninfo
-            .working_copy_root_path()
-            .context("Working copy root path not available")?,
-    );
+    let proj_root = Path::new(svninfo.working_copy_root_path());
 
     if env::current_dir()? != proj_root {
         bail!(

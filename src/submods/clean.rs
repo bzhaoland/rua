@@ -12,11 +12,7 @@ use crate::utils::SvnInfo;
 
 pub fn clean_build() -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
-    let proj_root = Path::new(
-        svninfo
-            .working_copy_root_path()
-            .context("Error fetching project root")?,
-    );
+    let proj_root = Path::new(svninfo.working_copy_root_path());
 
     // Must run under the project root
     if env::current_dir()?.as_path() != proj_root {
@@ -26,11 +22,11 @@ pub fn clean_build() -> anyhow::Result<()> {
         );
     }
 
-    let branch = svninfo
-        .branch_name()
-        .context("Error fetching branch name")?;
-
-    let nsteps: usize = if Path::new(&branch).is_dir() { 3 } else { 2 };
+    let nsteps: usize = if Path::new(svninfo.branch_name()).is_dir() {
+        3
+    } else {
+        2
+    };
     let mut step: usize = 1;
     let mut stderr = io::stderr();
 
@@ -150,7 +146,7 @@ pub fn clean_build() -> anyhow::Result<()> {
     )?;
 
     // Clean UI files
-    let ui_dir = Path::new(&branch); // UI directory name is the same as the branch name
+    let ui_dir = Path::new(svninfo.branch_name()); // UI directory name is the same as the branch name
     if ui_dir.is_dir() {
         step += 1;
 

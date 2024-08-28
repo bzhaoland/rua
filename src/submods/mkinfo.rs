@@ -1,22 +1,17 @@
 use std::env;
 use std::fmt;
 use std::fs;
-use std::io;
-use std::io::Write;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::io::{self, BufRead, BufReader, Write};
+use std::path;
 
-use anyhow::bail;
-use anyhow::{self, Context};
+use anyhow::{self, bail, Context};
 use bitflags::bitflags;
-use chrono::Local;
 use clap::ValueEnum;
 use crossterm::{style::Stylize, terminal};
 use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::utils;
-use crate::utils::SvnInfo;
 
 bitflags! {
     #[repr(transparent)]
@@ -119,11 +114,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
     let svninfo = utils::SvnInfo::new()?;
 
     // Check location
-    let proj_root = Path::new(
-        svninfo
-            .working_copy_root_path()
-            .context("Error fetching project root")?,
-    );
+    let proj_root = path::Path::new(svninfo.working_copy_root_path());
     if env::current_dir()?.as_path() != proj_root {
         bail!(
             r#"Error location! Please run this command under the project root, i.e. "{}"."#,
@@ -141,15 +132,15 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
         bail!(r#"File "{}" not available"#, makeinfo_path.display());
     }
 
-    let repo_branch = svninfo.branch_name().context("Error fetching branch")?;
-    let repo_revision = svninfo.revision().context("Error fetching revision")?;
+    let repo_branch = svninfo.branch_name();
+    let repo_revision = svninfo.revision();
     let has_family_field_in_plattable =
         match repo_branch.chars().take(7).collect::<String>().as_str() {
             "MX_MAIN" if repo_revision >= 293968 => true,
             "HAWAII_" => {
                 let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
                     .context("Error building pattern for release version")?
-                    .captures(&repo_branch.as_str())
+                    .captures(repo_branch)
                     .context("Error capturing release version from branch name")?
                     .get(1)
                     .unwrap()
@@ -166,15 +157,11 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
         "Error opening file {}",
         product_info_path.display()
     ))?;
-    let product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
-    let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}[[:blank:]]*,.*$"#, nickname)).context("Error building regex pattern of product info")?;
-    let mut product_info_list: Vec<ProductInfo> = Vec::new();
-    for line in product_info_reader.lines() {
-        let line = line.context(format!(
-            "Error reading file {}",
-            product_info_path.display()
-        ))?;
-
+    let mut product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
+    let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}"#, nickname)).context("Error building regex pattern of product info")?;
+    let mut product_info_list: Vec<ProductInfo> = Vec::with_capacity(128);
+    let mut line = String::with_capacity(512);
+    while product_info_reader.read_line(&mut line)? != 0 {
         if let Some(captures) = product_info_pattern.captures(&line) {
             product_info_list.push(ProductInfo {
                 platform_code: captures.get(1).unwrap().as_str().to_string(),
@@ -189,24 +176,21 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
                 icon_path: captures.get(10).map(|x| x.as_str().to_string()),
             })
         }
+        line.clear();
     }
+    product_info_list.shrink_to_fit();
 
     // Fetch makeinfo for each product
     let makeinfo_file = fs::File::open(&makeinfo_path).context(format!(
         r#"Error opening file "{}""#,
         makeinfo_path.display()
     ))?;
-    let makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
+    let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
     let makeinfo_pattern =
-        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*$"#)
+        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
             .context("Error building regex pattern for makeinfo")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
-    for line in makeinfo_reader.lines() {
-        let line = line.context(format!(
-            r#"Error reading file "{}""#,
-            makeinfo_path.display()
-        ))?;
-
+    while makeinfo_reader.read_line(&mut line)? != 0 {
         if let Some(captures) = makeinfo_pattern.captures(&line) {
             mkinfos.push(MakeInfo {
                 platform_model: captures.get(1).unwrap().as_str().to_string(),
@@ -215,33 +199,32 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
                 make_directory: captures.get(3).unwrap().as_str().to_string(),
             })
         }
+        line.clear()
     }
+    mkinfos.shrink_to_fit();
 
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
-    let mut imagename_infix = String::new();
-    let mut imagename_suffix = String::new();
+    let mut imagename_suffix = String::with_capacity(16);
 
     let pattern_nonalnum =
         Regex::new(r#"[^[:alnum:]]+"#).context("Error building regex pattern for nonalnum")?;
 
     // Use branch name abbreviation to compose the image name
-    let branch_name = &repo_branch;
     let nickname_pattern = Regex::new(r"HAWAII_([-[:word:]]+)")
         .context("Error building regex pattern for nickname")
         .unwrap();
-    let captures = nickname_pattern.captures(branch_name);
+    let captures = nickname_pattern.captures(repo_branch);
     let branch_nickname = pattern_nonalnum
         .replace_all(
             &match captures {
                 Some(v) => v
                     .get(1)
-                    .map_or(branch_name.to_owned(), |x| x.as_str().to_string()),
-                None => branch_name.to_string(),
+                    .map_or(repo_branch.to_owned(), |x| x.as_str().to_string()),
+                None => repo_branch.to_string(),
             },
             "",
         )
         .to_string();
-    imagename_infix.push_str(&branch_nickname);
 
     // IPv6 check
     if makeflag.contains(MakeFlag::INET_V6) {
@@ -256,7 +239,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
     });
 
     // Timestamp
-    imagename_suffix.push_str(&Local::now().format("%m%d").to_string());
+    imagename_suffix.push_str(&chrono::Local::now().format("%m%d").to_string());
 
     // Username
     let username = utils::get_current_username().context("Failed to get username")?;
@@ -285,7 +268,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
                 .to_uppercase();
             let imagename = format!(
                 "{}-{}-{}-{}",
-                imagename_prodname, imagename_infix, imagename_makegoal, imagename_suffix
+                imagename_prodname, branch_nickname, imagename_makegoal, imagename_suffix
             );
             let make_comm = format!(
                 "hsdocker7 make -C {} -j16 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
@@ -399,7 +382,7 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     writeln!(
         stdout_lock,
         r#"Run the make command under the project root, i.e. "{}""#,
-        SvnInfo::new()?.working_copy_root_path().unwrap()
+        utils::SvnInfo::new()?.working_copy_root_path()
     )?;
     stdout_lock.flush()?;
 
