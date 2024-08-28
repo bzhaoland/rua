@@ -369,40 +369,37 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     }
 
     // Decorations
-    let head_decor = "=".repeat(term_cols as usize).dark_green().to_string();
-    let data_decor = "-".repeat(term_cols as usize).dark_green().to_string();
+    let outer_decor = "=".repeat(term_cols as usize).dark_green().to_string();
+    let inner_decor = "-".repeat(term_cols as usize).dark_green().to_string();
 
     let mut stdout_lock = io::stdout().lock();
     writeln!(
         stdout_lock,
         "{} matched info{}:",
-        compile_infos.len().to_string().dark_green(),
+        compile_infos.len(),
         if compile_infos.len() > 1 { "s" } else { "" }
     )?;
 
-    writeln!(stdout_lock, "{}", head_decor)?;
+    writeln!(stdout_lock, "{}", outer_decor)?;
     for (idx, item) in compile_infos.iter().enumerate() {
-        writeln!(stdout_lock, "ProductName   :{}", item.product_name)?;
-        writeln!(stdout_lock, "ProductModel  :{}", item.product_model)?;
-        writeln!(stdout_lock, "ProductFamily :{}", item.product_family)?;
-        writeln!(stdout_lock, "Platform      :{}", item.platform_model)?;
-        writeln!(stdout_lock, "MakeTarget    :{}", item.make_target)?;
-        writeln!(stdout_lock, "MakeDirectory :{}", item.make_directory)?;
-        writeln!(stdout_lock, "MakeCommand   :{}", item.make_command)?;
+        writeln!(stdout_lock, "ProductName   : {}", item.product_name)?;
+        writeln!(stdout_lock, "ProductModel  : {}", item.product_model)?;
+        writeln!(stdout_lock, "ProductFamily : {}", item.product_family)?;
+        writeln!(stdout_lock, "Platform      : {}", item.platform_model)?;
+        writeln!(stdout_lock, "MakeTarget    : {}", item.make_target)?;
+        writeln!(stdout_lock, "MakeDirectory : {}", item.make_directory)?;
+        writeln!(stdout_lock, "MakeCommand   : {}", item.make_command)?;
 
         if idx < compile_infos.len() - 1 {
-            writeln!(stdout_lock, "{}", data_decor)?;
+            writeln!(stdout_lock, "{}", inner_decor)?;
         }
     }
-    writeln!(stdout_lock, "{}", head_decor)?;
+    writeln!(stdout_lock, "{}", outer_decor)?;
 
-    let svninfo = SvnInfo::new()?;
-    let proj_root = svninfo.working_copy_root_path().unwrap().dark_yellow();
     writeln!(
         stdout_lock,
-        r#"Run the make command under the project root, i.e. "{}"
-"#,
-        proj_root
+        r#"Run the make command under the project root, i.e. "{}""#,
+        SvnInfo::new()?.working_copy_root_path().unwrap()
     )?;
     stdout_lock.flush()?;
 
