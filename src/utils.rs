@@ -26,7 +26,7 @@ pub fn get_hostname() -> anyhow::Result<OsString> {
         .iter()
         .position(|&b| b == 0)
         .unwrap_or(hostname_buf.len());
-    hostname_buf.resize(end, 0);
+    hostname_buf.truncate(end);
     Ok(OsString::from_vec(hostname_buf))
 }
 
@@ -51,10 +51,10 @@ pub fn get_current_username() -> Option<String> {
     }
 
     Some(
-        String::from_utf8(output.stdout)
+        OsString::from_vec(output.stdout)
+            .into_string()
             .unwrap()
-            .strip_suffix('\n')
-            .unwrap()
+            .trim()
             .to_string(),
     )
 }
