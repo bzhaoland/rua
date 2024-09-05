@@ -12,7 +12,7 @@ use crate::utils::SvnInfo;
 
 pub fn clean_build() -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
-    let proj_root = Path::new(svninfo.working_copy_root_path());
+    let proj_root = svninfo.working_copy_root_path();
 
     // Must run under the project root
     if env::current_dir()?.as_path() != proj_root {

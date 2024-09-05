@@ -201,8 +201,8 @@ Last Changed Date: ([^\n]+)"#,
     }
 
     #[allow(dead_code)]
-    pub fn working_copy_root_path(&self) -> &str {
-        self.working_copy_root_path.as_str()
+    pub fn working_copy_root_path(&self) -> &Path {
+        Path::new(&self.working_copy_root_path)
     }
 
     #[allow(dead_code)]
@@ -268,13 +268,5 @@ Last Changed Date: ([^\n]+)"#,
     #[allow(dead_code)]
     pub fn last_changed_date(&self) -> &str {
         self.last_changed_date.as_str()
-    }
-
-    #[allow(dead_code)]
-    pub fn is_proj_root(&self) -> bool {
-        env::current_dir()
-            .expect("Error getting current directory")
-            .as_path()
-            == Path::new(self.working_copy_root_path())
     }
 }

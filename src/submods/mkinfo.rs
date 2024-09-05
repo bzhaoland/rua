@@ -109,12 +109,12 @@ impl fmt::Display for CompileInfo {
 }
 
 /// Generate the make information for the given platform.
-/// This function must run under project root.
+/// This function must run under the project root which is a valid svn repo.
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
     // Check location
-    let proj_root = path::Path::new(svninfo.working_copy_root_path());
+    let proj_root = svninfo.working_copy_root_path();
     if env::current_dir()?.as_path() != proj_root {
         bail!(
             r#"Error location! Please run this command under the project root, i.e. "{}"."#,
@@ -382,7 +382,7 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     writeln!(
         stdout_lock,
         r#"Run the make command under the project root, i.e. "{}""#,
-        utils::SvnInfo::new()?.working_copy_root_path()
+        utils::SvnInfo::new()?.working_copy_root_path().display()
     )?;
     stdout_lock.flush()?;
 
