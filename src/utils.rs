@@ -1,4 +1,3 @@
-use std::env;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::Path;

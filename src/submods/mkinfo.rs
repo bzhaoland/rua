@@ -2,7 +2,6 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{self, BufRead, BufReader, Write};
-use std::path;
 
 use anyhow::{self, bail, Context};
 use bitflags::bitflags;

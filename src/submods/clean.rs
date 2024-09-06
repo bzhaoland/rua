@@ -44,7 +44,7 @@ pub fn clean_build() -> anyhow::Result<()> {
             .map(|(i, _)| -> anyhow::Result<()> {
                 write!(
                     stderr_lock,
-                    "\x1B[2K\r[{}/{}] LISTING TARGET OBJS...{}",
+                    "\r[{}/{}] LISTING TARGET OBJS...{}\x1B[0K",
                     step,
                     nsteps,
                     (i + 1).to_string().dark_yellow()
@@ -63,7 +63,7 @@ pub fn clean_build() -> anyhow::Result<()> {
             .map(|(i, v)| -> anyhow::Result<()> {
                 write!(
                     stderr_lock,
-                    "\x1B[2K\r[{}/{}] CLEANING TARGET OBJS...{}/{}",
+                    "\r[{}/{}] CLEANING TARGET OBJS...{}/{}\x1B[0K",
                     step,
                     nsteps,
                     i.to_string().dark_green(),
@@ -85,7 +85,7 @@ pub fn clean_build() -> anyhow::Result<()> {
     }
     writeln!(
         stderr_lock,
-        "\x1B[2K\r[{}/{}] CLEANING TARGET OBJS...{}",
+        "\r[{}/{}] CLEANING TARGET OBJS...{}\x1B[0K",
         step,
         nsteps,
         "DONE".dark_green()
@@ -119,7 +119,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         .map(|(idx, item)| -> anyhow::Result<()> {
             write!(
                 stderr_lock,
-                "\x1B[2K\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}",
+                "\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}\x1B[0K",
                 step,
                 nsteps,
                 idx.to_string().dark_green(),
@@ -139,7 +139,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         .count();
     writeln!(
         stderr_lock,
-        "\x1B[2K\r[{}/{}] CLEANING UNVERSIONEDS...{}",
+        "\r[{}/{}] CLEANING UNVERSIONEDS...{}\x1B[0K",
         step,
         nsteps,
         "DONE".dark_green()
@@ -162,7 +162,7 @@ pub fn clean_build() -> anyhow::Result<()> {
             num_entries += 1;
             write!(
                 stderr_lock,
-                "\x1B[2K\r[{}/{}] LISTING UI OBJS...{}",
+                "\r[{}/{}] LISTING UI OBJS...{}\x1B[0K",
                 step,
                 nsteps,
                 (idx + 1).to_string().dark_yellow()
@@ -179,7 +179,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         {
             write!(
                 stderr_lock,
-                "\x1B[2K\r[{}/{}] CLEANING UI OBJS...{}/{}",
+                "\r[{}/{}] CLEANING UI OBJS...{}/{}\x1B[0K",
                 step,
                 nsteps,
                 idx.to_string().dark_green(),
@@ -199,7 +199,7 @@ pub fn clean_build() -> anyhow::Result<()> {
 
         writeln!(
             stderr_lock,
-            "\x1B[2K\r[{}/{}] CLEANING UI OBJS...{}\n",
+            "\r[{}/{}] CLEANING UI OBJS...{}\x1B[0K",
             step,
             nsteps,
             "DONE".dark_green()
