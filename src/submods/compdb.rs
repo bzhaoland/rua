@@ -2,7 +2,7 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Command;
 
 use anyhow::{bail, Context};
@@ -60,20 +60,32 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     // Inject hackrule
     print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
     stdout.flush()?;
-    let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+\$\(CFLAGS_GLOBAL_CP\)\s+\$\(CFLAGS_LOCAL_CP\)\s+-MMD\s+-c\s+-o\s+\$@\s+\$<\s*?$"#).unwrap();
-    let lastrule_text_orig = fs::read_to_string(&lastrule_mkfile)?;
-    let lastrule_text_hacked = pattern_c.replace_all(&lastrule_text_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(CC) $(CFLAGS_GLOBAL_CP) $(CFLAGS_LOCAL_CP) -MMD -c -o $$@ $$< >>:file:>> $$<").to_string();
-    fs::write(&lastrule_mkfile, lastrule_text_hacked)?;
-    let pattern_cc = Regex::new(r#"(?m)^\t\s*\$\(COMPILE_CXX_CP_E\)\s*?$"#).unwrap();
-    let rules_text_orig = fs::read_to_string(&rules_mkfile)?;
-    let rules_text_hacked = pattern_cc.replace_all(&rules_text_orig, "\t##JCDB## >>:directory:>> $$(shell pwd | sed -z 's/\\n//g') >>:command:>> $$(COMPILE_CXX_CP) >>:file:>> $$<").to_string();
+    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS_GLOBAL_CP\)[[:blank:]]+\$\(CFLAGS_LOCAL_CP[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#).context(format!("Error building regex pattern for C compile command"))?;
+    let lastrule_text_orig = fs::read_to_string(lastrule_mkfile.as_path())?;
+    let captures = pattern_c
+        .captures(&lastrule_text_orig)
+        .context("Error capturing pattern_c")?;
+    let compile_command_c = captures.get(1).unwrap().as_str();
+    let lastrule_text_hacked = pattern_c.replace_all(&lastrule_text_orig, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compile_command_c)).to_string();
+    fs::write(&lastrule_mkfile, lastrule_text_hacked).context(format!(
+        r#"Error writing file "{}""#,
+        lastrule_mkfile.display()
+    ))?;
+    let pattern_cc = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
+        .context("Error building regex pattern for C++ compile command")?;
+    let rules_text_orig = fs::read_to_string(&rules_mkfile).context(format!(
+        r#"Error reading file "{}""#,
+        rules_mkfile.display()
+    ))?;
+    let rules_text_hacked = pattern_cc.replace_all(&rules_text_orig, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
     fs::write(&rules_mkfile, rules_text_hacked)?;
     println!(
-        "\x1B[2K\r[{}/{}] INJECTING MKRULES...{}",
+        "\r[{}/{}] INJECTING MKRULES...{}\x1B[0K",
         step,
         NSTEPS,
         "DONE".dark_green()
     );
+    // bail!("");
 
     // Build the target (pseudo)
     step += 1;
@@ -97,10 +109,10 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         .context("Command `hsdocker7 make ...` failed")?;
     let status = output.status;
     if !status.success() {
-        bail!("Pseudoly building failed: {}", status);
+        bail!("Pseudo building failed: {}", status);
     }
     println!(
-        "\x1B[2K\r[{}/{}] BUILDING PSEUDOLY...{}",
+        "\r[{}/{}] BUILDING PSEUDOLY...{}\x1B[0K",
         step,
         NSTEPS,
         "DONE".dark_green()
@@ -115,7 +127,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     fs::write(&rules_mkfile, rules_text_orig)
         .context(format!("Error writing {}", rules_mkfile.display()))?;
     println!(
-        "\x1B[2K\r[{}/{}] RESTORING MKRULES...{}",
+        "\r[{}/{}] RESTORING MKRULES...{}\x1B[0K",
         step,
         NSTEPS,
         "DONE".dark_green()
@@ -127,27 +139,21 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     stdout.flush()?;
     let output_str = String::from_utf8(output.stdout).context("Error creating string")?;
     let pattern_hackrule = Regex::new(
-        r#"(?m)^##JCDB##\s+>>:directory:>>\s+([^>]+?)\s+>>:command:>>\s+([^>]+?)\s+>>:file:>>\s+(.+)\s*?$"#,
-    ).context("Error creating hackrule pattern")?;
+        r#"(?m)^##JCDB##[[:blank:]]+>>:directory:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:command:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:file:>>[[:blank:]]+(.+)[[:blank:]]*$"#,
+    ).context("Error building hackrule pattern")?;
     let mut records: Vec<CompDBRecord> = Vec::new();
     for (_, [dirc, comm, file]) in pattern_hackrule
         .captures_iter(&output_str)
         .map(|c| c.extract())
     {
-        let dirc = dirc.to_string();
-        let comm = comm.to_string();
-        let file = PathBuf::from(&dirc)
-            .join(file)
-            .to_string_lossy()
-            .to_string();
         records.push(CompDBRecord {
-            directory: dirc,
-            command: comm,
-            file,
+            directory: dirc.to_string(),
+            command: comm.to_string(),
+            file: Path::new(&dirc).join(file).to_string_lossy().to_string(),
         });
     }
     println!(
-        "\x1B[2K\r[{}/{}] PARSING BUILDLOG...{}",
+        "\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K",
         step,
         NSTEPS,
         "DONE".dark_green()
@@ -170,7 +176,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         serde_json::to_string_pretty(&jcdb)?,
     )?;
     println!(
-        "\x1B[2K\r[{}/{}] GENERATING JCDB...{}",
+        "\r[{}/{}] GENERATING JCDB...{}\x1B[0K",
         step,
         NSTEPS,
         "DONE".dark_green()

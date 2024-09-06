@@ -2,6 +2,7 @@ mod submods;
 mod utils;
 
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use anstyle::AnsiColor;
 use clap::builder::styling;
@@ -202,8 +203,18 @@ enum Comm {
 
     /// Show all possible compile commands for filename (based on compilation database)
     Showcc {
-        #[arg(value_name = "FILENAME", help = "Fetch compile command of which file")]
-        filename: String,
+        #[arg(
+            value_name = "SOURCE-FILE-NAME",
+            help = "Source file name for which to fetch all the available compile commands"
+        )]
+        compilation_unit: String,
+        #[arg(
+            value_name = "COMPDB",
+            short = 'c',
+            long = "compdb",
+            help = r#"Compilation database (defaults to file "compile_commands.json" in the current directory)"#
+        )]
+        compilation_db: Option<String>,
     },
 
     /// Generate a filelist for Source Insight
@@ -232,8 +243,16 @@ async fn main() -> anyhow::Result<()> {
             product_dir,
             make_target,
         } => compdb::gen_compdb(&product_dir, &make_target),
-        Comm::Showcc { filename } => {
-            let records = showcc::fetch_compile_command(filename.as_str())?;
+        Comm::Showcc {
+            compilation_unit,
+            compilation_db,
+        } => {
+            let compilation_db = match compilation_db {
+                Some(v) => PathBuf::from_str(v.as_str())?,
+                None => PathBuf::from_str("compile_commands.json")?,
+            };
+            let records =
+                showcc::fetch_compile_command(compilation_unit.as_str(), compilation_db.as_path())?;
             showcc::print_records(&records)?;
             Ok(())
         }

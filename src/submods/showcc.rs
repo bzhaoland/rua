@@ -7,9 +7,11 @@ use crossterm::{style::Stylize, terminal};
 use crate::submods::compdb::{CompDB, CompDBRecord};
 
 /// Fetch the corresponding compile command from compilation database for the given filename.
-pub fn fetch_compile_command(filename: &str) -> Result<Vec<CompDBRecord>> {
-    let compdb_str = fs::read_to_string("./compile_commands.json")?;
-    let compdb: CompDB = serde_json::from_str(&compdb_str).context("CompDB parsed error!")?;
+pub fn fetch_compile_command(filename: &str, compdb: &Path) -> Result<Vec<CompDBRecord>> {
+    let compdb_str = fs::read_to_string(compdb)
+        .context(format!(r#"Error reading file "{}""#, compdb.display()))?;
+    let compdb: CompDB = serde_json::from_str(&compdb_str)
+        .context(format!(r#"Error parsing "{}"!"#, compdb.display()))?;
     let mut commands = vec![];
 
     for item in compdb.into_iter() {
