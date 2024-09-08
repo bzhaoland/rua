@@ -43,14 +43,14 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         );
     }
 
-    let lastrule_mkfile = proj_root.join("scripts/last-rules.mk");
-    if !lastrule_mkfile.is_file() {
-        bail!(r#"File "{}" not available"#, lastrule_mkfile.display());
+    let makefile_1 = proj_root.join("scripts/last-rules.mk");
+    if !makefile_1.is_file() {
+        bail!(r#"File "{}" not available"#, makefile_1.display());
     }
 
-    let rules_mkfile = proj_root.join("scripts/rules.mk");
-    if !rules_mkfile.is_file() {
-        bail!(r#"File "{}" not available"#, rules_mkfile.display());
+    let makefile_2 = proj_root.join("scripts/rules.mk");
+    if !makefile_2.is_file() {
+        bail!(r#"File "{}" not available"#, makefile_2.display());
     }
 
     const NSTEPS: usize = 5;
@@ -61,31 +61,28 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
     stdout.flush()?;
     let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS_GLOBAL_CP\)[[:blank:]]+\$\(CFLAGS_LOCAL_CP[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#).context(format!("Error building regex pattern for C compile command"))?;
-    let lastrule_text_orig = fs::read_to_string(lastrule_mkfile.as_path())?;
+    let makerule_1 = fs::read_to_string(makefile_1.as_path())?;
     let captures = pattern_c
-        .captures(&lastrule_text_orig)
+        .captures(&makerule_1)
         .context("Error capturing pattern_c")?;
     let compile_command_c = captures.get(1).unwrap().as_str();
-    let lastrule_text_hacked = pattern_c.replace_all(&lastrule_text_orig, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compile_command_c)).to_string();
-    fs::write(&lastrule_mkfile, lastrule_text_hacked).context(format!(
-        r#"Error writing file "{}""#,
-        lastrule_mkfile.display()
-    ))?;
+    let makerule_1_hacked = pattern_c.replace_all(&makerule_1, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compile_command_c)).to_string();
+    fs::write(&makefile_1, makerule_1_hacked)
+        .context(format!(r#"Error writing file "{}""#, makefile_1.display()))?;
     let pattern_cc = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
         .context("Error building regex pattern for C++ compile command")?;
-    let rules_text_orig = fs::read_to_string(&rules_mkfile).context(format!(
-        r#"Error reading file "{}""#,
-        rules_mkfile.display()
-    ))?;
-    let rules_text_hacked = pattern_cc.replace_all(&rules_text_orig, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
-    fs::write(&rules_mkfile, rules_text_hacked)?;
+    let makerule_2 = fs::read_to_string(&makefile_2)
+        .context(format!(r#"Error reading file "{}""#, makefile_2.display()))?;
+    let makerule_2_hacked = pattern_cc.replace_all(&makerule_2, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
+    fs::write(&makefile_2, makerule_2_hacked)?;
     println!(
-        "\r[{}/{}] INJECTING MKRULES...{}\x1B[0K",
+        "\r[{}/{}] INJECTING MKRULES({}&{} MODIFED)...{}\x1B[0K",
         step,
         NSTEPS,
+        makefile_1.display(),
+        makefile_2.display(),
         "DONE".dark_green()
     );
-    // bail!("");
 
     // Build the target (pseudo)
     step += 1;
@@ -122,14 +119,16 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     step += 1;
     print!("[{}/{}] RESTORING MKRULES...", step, NSTEPS);
     stdout.flush()?;
-    fs::write(&lastrule_mkfile, lastrule_text_orig)
-        .context(format!("Error writing {}", lastrule_mkfile.display()))?;
-    fs::write(&rules_mkfile, rules_text_orig)
-        .context(format!("Error writing {}", rules_mkfile.display()))?;
+    fs::write(&makefile_1, makerule_1)
+        .context(format!("Error writing {}", makefile_1.display()))?;
+    fs::write(&makefile_2, makerule_2)
+        .context(format!("Error writing {}", makefile_2.display()))?;
     println!(
-        "\r[{}/{}] RESTORING MKRULES...{}\x1B[0K",
+        "\r[{}/{}] RESTORING MKRULES({}&{} RESTORED)...{}\x1B[0K",
         step,
         NSTEPS,
+        makefile_1.display(),
+        makefile_2.display(),
         "DONE".dark_green()
     );
 

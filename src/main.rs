@@ -7,6 +7,7 @@ use std::str::FromStr;
 use anstyle::AnsiColor;
 use clap::builder::styling;
 use clap::{Parser, Subcommand};
+use crossterm::style::Stylize;
 
 use crate::submods::clean;
 use crate::submods::compdb;
@@ -43,10 +44,18 @@ enum Comm {
     Clean,
 
     /// Generate JSON Compilation Database for a specific target, such as a-dnv/a-dnv-ipv6
-    #[command(after_help = r#"Examples:
+    #[command(after_help = format!(
+r#"{}
   rua compdb products/ngfw_as a-dnv       # For A1000/A1100/A2000...
   rua compdb products/ngfw_as a-dnv-ipv6  # For A1000/A1100/A2000... with IPv6 enabled
-  rua compdb products/ngfw_as kunlun-ipv6 # For X20803/X20812... with IPv6 enabled"#)]
+  rua compdb products/ngfw_as kunlun-ipv6 # For X20803/X20812... with IPv6 enabled
+
+{}
+  This command may modify two files named "scripts/last-rules.mk" and
+  "scripts/rules.mk" respectively. You may have to restore them manually
+  (execute `svn revert scripts/last-rules.mk scripts/rules.mk` under the
+  project root) if the process is unexpectedly interrupted while running."#,
+  "Examples:".yellow(), "Caution:".red()))]
     Compdb {
         #[arg(
             value_name = "PATH",
