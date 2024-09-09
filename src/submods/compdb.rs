@@ -59,14 +59,14 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Inject hackrule
     print!(
-        "[{}/{}] INJECTING MKFILES(MODIFYING {}&{})...",
+        "[{}/{}] INJECTING MKFILES...(MODIFYING {}&{})",
         step,
         NSTEPS,
         makefile_1.display(),
         makefile_2.display()
     );
     stdout.flush()?;
-    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS\)[[:word:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
+    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context(format!("Error building regex pattern for C compile command"))?;
     let makerule_1 = fs::read_to_string(makefile_1.as_path())?;
     let captures = pattern_c
@@ -83,7 +83,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     let makerule_2_hacked = pattern_cc.replace_all(&makerule_2, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
     fs::write(&makefile_2, makerule_2_hacked)?;
     println!(
-        "\r[{}/{}] INJECTING MKFILES(MODIFIED {}&{})...{}\x1B[0K",
+        "\r[{}/{}] INJECTING MKFILES...{}({}&{} MODIFIED)\x1B[0K",
         step,
         NSTEPS,
         makefile_1.display(),
