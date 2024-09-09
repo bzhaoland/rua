@@ -17,11 +17,15 @@ use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
 
+const CLAP_COLOR_HEADER: anstyle::Style = AnsiColor::Yellow.on_default().bold();
+const CLAP_COLOR_USAGE: anstyle::Style = AnsiColor::Yellow.on_default().bold();
+const CLAP_COLOR_LITERAL: anstyle::Style = AnsiColor::Green.on_default();
+const CLAP_COLOR_PLACEHOLDER: anstyle::Style = AnsiColor::Cyan.on_default();
 const STYLES: styling::Styles = styling::Styles::styled()
-    .header(AnsiColor::Yellow.on_default().bold())
-    .usage(AnsiColor::Yellow.on_default().bold())
-    .literal(AnsiColor::Green.on_default())
-    .placeholder(AnsiColor::Cyan.on_default());
+    .header(CLAP_COLOR_HEADER)
+    .usage(CLAP_COLOR_USAGE)
+    .literal(CLAP_COLOR_LITERAL)
+    .placeholder(CLAP_COLOR_PLACEHOLDER);
 
 #[derive(Parser)]
 #[command(
@@ -51,11 +55,10 @@ r#"{}
   rua compdb products/ngfw_as kunlun-ipv6 # For X20803/X20812... with IPv6 enabled
 
 {}
-  This command may modify two files named "scripts/last-rules.mk" and
-  "scripts/rules.mk" respectively. You may have to restore them manually
-  (execute `svn revert scripts/last-rules.mk scripts/rules.mk` under the
-  project root) if the process is unexpectedly interrupted while running."#,
-  "Examples:".yellow(), "Caution:".red()))]
+  This command may modify two files named "scripts/last-rules.mk" and "scripts/rules.mk"
+  respectively. You may have to restore them manually by executing `svn revert ...` if the
+  process is interrupted unexpectedly while running."#,
+  "Examples:".dark_yellow().bold(), "Caution:".dark_red().bold()))]
     Compdb {
         #[arg(
             value_name = "PATH",
@@ -67,12 +70,12 @@ r#"{}
     },
 
     /// Get all matched makeinfos for product
-    #[command(after_help = r#"Examples:
-  rua mkinfo A1000
-  rua mkinfo -6 A1000 # Dual-stack
-  rua mkinfo X10800
-  rua mkinfo X20812
-  rua mkinfo 'X\d+' # Regex pattern for X6180/X7180/X8180..."#)]
+    #[command(after_help = format!(r#"{}
+  rua mkinfo A1000    # With only IPv4 enabled
+  rua mkinfo -6 A1000 # With both IPv4 and IPv6 enabled
+  rua mkinfo X20803
+  rua mkinfo 'X\d+'   # Regex pattern for all X-series available supported by this branch"#,
+  "Examples:".dark_yellow().bold()))]
     Mkinfo {
         #[arg(
             short = '4',

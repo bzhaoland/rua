@@ -45,12 +45,12 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     let makefile_1 = proj_root.join("scripts/last-rules.mk");
     if !makefile_1.is_file() {
-        bail!(r#"File "{}" not available"#, makefile_1.display());
+        bail!(r#"Makefile "{}" not found"#, makefile_1.display());
     }
 
     let makefile_2 = proj_root.join("scripts/rules.mk");
     if !makefile_2.is_file() {
-        bail!(r#"File "{}" not available"#, makefile_2.display());
+        bail!(r#"Makefile "{}" not found"#, makefile_2.display());
     }
 
     const NSTEPS: usize = 5;
@@ -58,9 +58,16 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     let mut stdout = io::stdout();
 
     // Inject hackrule
-    print!("[{}/{}] INJECTING MKRULES...", step, NSTEPS);
+    print!(
+        "[{}/{}] INJECTING MKFILES(MODIFYING {}&{})...",
+        step,
+        NSTEPS,
+        makefile_1.display(),
+        makefile_2.display()
+    );
     stdout.flush()?;
-    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS_GLOBAL_CP\)[[:blank:]]+\$\(CFLAGS_LOCAL_CP[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#).context(format!("Error building regex pattern for C compile command"))?;
+    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS_\)[[:blank:]]+\$\(CFLAGS_[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
+        .context(format!("Error building regex pattern for C compile command"))?;
     let makerule_1 = fs::read_to_string(makefile_1.as_path())?;
     let captures = pattern_c
         .captures(&makerule_1)
@@ -76,7 +83,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     let makerule_2_hacked = pattern_cc.replace_all(&makerule_2, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
     fs::write(&makefile_2, makerule_2_hacked)?;
     println!(
-        "\r[{}/{}] INJECTING MKRULES({}&{} MODIFED)...{}\x1B[0K",
+        "\r[{}/{}] INJECTING MKFILES(MODIFIED {}&{})...{}\x1B[0K",
         step,
         NSTEPS,
         makefile_1.display(),
@@ -103,10 +110,10 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
             "IMG_NAME=RUAIHA",
         ])
         .output()
-        .context("Command `hsdocker7 make ...` failed")?;
+        .context("Dry-run command `hsdocker7 make ...` failed")?;
     let status = output.status;
     if !status.success() {
-        bail!("Pseudo building failed: {}", status);
+        bail!("Error building pseudoly: {:?}", status.code());
     }
     println!(
         "\r[{}/{}] BUILDING PSEUDOLY...{}\x1B[0K",
@@ -117,14 +124,14 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Restore the original makefiles
     step += 1;
-    print!("[{}/{}] RESTORING MKRULES...", step, NSTEPS);
+    print!("[{}/{}] RESTORING MKFILES...", step, NSTEPS);
     stdout.flush()?;
     fs::write(&makefile_1, makerule_1)
         .context(format!("Error writing {}", makefile_1.display()))?;
     fs::write(&makefile_2, makerule_2)
         .context(format!("Error writing {}", makefile_2.display()))?;
     println!(
-        "\r[{}/{}] RESTORING MKRULES({}&{} RESTORED)...{}\x1B[0K",
+        "\r[{}/{}] RESTORING MKFILES({}&{} RESTORED)...{}\x1B[0K",
         step,
         NSTEPS,
         makefile_1.display(),
