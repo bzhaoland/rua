@@ -4,10 +4,9 @@ mod utils;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use anstyle::AnsiColor;
+use anstyle::{Ansi256Color, Color, Style};
 use clap::builder::styling;
 use clap::{Parser, Subcommand};
-use crossterm::style::Stylize;
 
 use crate::submods::clean;
 use crate::submods::compdb;
@@ -17,10 +16,21 @@ use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
 
-const CLAP_COLOR_HEADER: anstyle::Style = AnsiColor::Yellow.on_default().bold();
-const CLAP_COLOR_USAGE: anstyle::Style = AnsiColor::Yellow.on_default().bold();
-const CLAP_COLOR_LITERAL: anstyle::Style = AnsiColor::Green.on_default();
-const CLAP_COLOR_PLACEHOLDER: anstyle::Style = AnsiColor::Cyan.on_default();
+const CLAP_COLOR_HEADER: Style = Style::new()
+    .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
+    .bold();
+const CLAP_COLOR_USAGE: Style = Style::new()
+    .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
+    .bold();
+const CLAP_COLOR_LITERAL: Style = Style::new()
+    .fg_color(Some(Color::Ansi256(Ansi256Color(2))))
+    .bold();
+const CLAP_COLOR_PLACEHOLDER: Style = Style::new()
+    .fg_color(Some(Color::Ansi256(Ansi256Color(6))))
+    .bold();
+const CLAP_COLOR_CAUTION: Style = Style::new()
+    .fg_color(Some(Color::Ansi256(Ansi256Color(1))))
+    .bold();
 const STYLES: styling::Styles = styling::Styles::styled()
     .header(CLAP_COLOR_HEADER)
     .usage(CLAP_COLOR_USAGE)
@@ -48,17 +58,15 @@ enum Comm {
     Clean,
 
     /// Generate JSON Compilation Database for a specific target, such as a-dnv/a-dnv-ipv6
-    #[command(after_help = format!(
-r#"{}
+    #[command(after_help = format!(r#"{CLAP_COLOR_HEADER}Examples:{CLAP_COLOR_HEADER:#}
   rua compdb products/ngfw_as a-dnv       # For A1000/A1100/A2000...
   rua compdb products/ngfw_as a-dnv-ipv6  # For A1000/A1100/A2000... with IPv6 enabled
   rua compdb products/ngfw_as kunlun-ipv6 # For X20803/X20812... with IPv6 enabled
 
-{}
-  This command may modify two files named "scripts/last-rules.mk" and "scripts/rules.mk"
-  respectively. You may have to restore them manually by executing `svn revert ...` if the
-  process is interrupted unexpectedly while running."#,
-  "Examples:".dark_yellow().bold(), "Caution:".dark_red().bold()))]
+{CLAP_COLOR_CAUTION}Caution:{CLAP_COLOR_CAUTION:#}
+  This command would modify two files named "scripts/last-rules.mk" and "scripts/rules.mk"
+  respectively while running. Hence, you may have to restore them manually by executing
+  `svn revert ...` or other operations if it is interrupted unexpectedly."#))]
     Compdb {
         #[arg(
             value_name = "PATH",
@@ -70,12 +78,10 @@ r#"{}
     },
 
     /// Get all matched makeinfos for product
-    #[command(after_help = format!(r#"{}
+    #[command(after_help = format!(r#"{CLAP_COLOR_HEADER}Examples:{CLAP_COLOR_HEADER:#}
   rua mkinfo A1000    # With only IPv4 enabled
   rua mkinfo -6 A1000 # With both IPv4 and IPv6 enabled
-  rua mkinfo X20803
-  rua mkinfo 'X\d+'   # Regex pattern for all X-series available supported by this branch"#,
-  "Examples:".dark_yellow().bold()))]
+  rua mkinfo 'A\d+'   # Regex pattern for X-platform"#))]
     Mkinfo {
         #[arg(
             short = '4',
