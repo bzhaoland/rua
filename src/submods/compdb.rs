@@ -147,7 +147,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Parse the build log
     step += 1;
-    print!("[{}/{}] ANALYSING BUILDLOG...", step, NSTEPS);
+    print!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
     stdout.flush()?;
     let output_str = String::from_utf8(output.stdout).context("Error creating string")?;
     let pattern_hackrule = Regex::new(
@@ -165,7 +165,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         });
     }
     println!(
-        "\r[{}/{}] ANALYSING BUILDLOG...{}\x1B[0K",
+        "\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K",
         step,
         NSTEPS,
         "DONE".dark_green()
