@@ -17,7 +17,7 @@ pub fn clean_build() -> anyhow::Result<()> {
     // Must run under the project root
     if env::current_dir()?.as_path() != proj_root {
         anyhow::bail!(
-            r#"Error location! Please run this command under the project root, i.e. "{}"."#,
+            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
             proj_root.display()
         );
     }

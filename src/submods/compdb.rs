@@ -38,17 +38,17 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     if env::current_dir()? != proj_root {
         bail!(
-            r#"Error location! Please run this command under the project root, i.e. "{}"."#,
+            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
             proj_root.display()
         );
     }
 
-    let makefile_1 = proj_root.join("scripts/last-rules.mk");
+    let makefile_1 = Path::new("scripts/last-rules.mk");
     if !makefile_1.is_file() {
         bail!(r#"Makefile "{}" not found"#, makefile_1.display());
     }
 
-    let makefile_2 = proj_root.join("scripts/rules.mk");
+    let makefile_2 = Path::new("scripts/rules.mk");
     if !makefile_2.is_file() {
         bail!(r#"Makefile "{}" not found"#, makefile_2.display());
     }
@@ -59,7 +59,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Inject hackrule
     print!(
-        "[{}/{}] INJECTING MKFILES...(MODIFYING {}&{})",
+        "[{}/{}] INJECTING MKFILES...({}&{})",
         step,
         NSTEPS,
         makefile_1.display(),
@@ -68,7 +68,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     stdout.flush()?;
     let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context(format!("Error building regex pattern for C compile command"))?;
-    let makerule_1 = fs::read_to_string(makefile_1.as_path())?;
+    let makerule_1 = fs::read_to_string(makefile_1)?;
     let captures = pattern_c
         .captures(&makerule_1)
         .context("Error capturing pattern_c")?;
@@ -83,12 +83,12 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     let makerule_2_hacked = pattern_cc.replace_all(&makerule_2, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
     fs::write(&makefile_2, makerule_2_hacked)?;
     println!(
-        "\r[{}/{}] INJECTING MKFILES...{}({}&{} MODIFIED)\x1B[0K",
+        "\r[{}/{}] INJECTING MKFILES...{}({} & {} MODIFIED)\x1B[0K",
         step,
         NSTEPS,
+        "DONE".dark_green(),
         makefile_1.display(),
-        makefile_2.display(),
-        "DONE".dark_green()
+        makefile_2.display()
     );
 
     // Build the target (pseudo)
@@ -110,10 +110,10 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
             "IMG_NAME=RUAIHA",
         ])
         .output()
-        .context("Dry-run command `hsdocker7 make ...` failed")?;
+        .context("Command `hsdocker7 make ...` failed")?;
     let status = output.status;
     if !status.success() {
-        bail!("Error building pseudoly: {:?}", status.code());
+        bail!("Error pseudoly building: {:?}", status.code());
     }
     println!(
         "\r[{}/{}] BUILDING PSEUDOLY...{}\x1B[0K",
@@ -124,24 +124,30 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Restore the original makefiles
     step += 1;
-    print!("[{}/{}] RESTORING MKFILES...", step, NSTEPS);
+    print!(
+        "[{}/{}] RESTORING MKFILES...({} & {})",
+        step,
+        NSTEPS,
+        makefile_1.display(),
+        makefile_2.display()
+    );
     stdout.flush()?;
     fs::write(&makefile_1, makerule_1)
         .context(format!("Error writing {}", makefile_1.display()))?;
     fs::write(&makefile_2, makerule_2)
         .context(format!("Error writing {}", makefile_2.display()))?;
     println!(
-        "\r[{}/{}] RESTORING MKFILES({}&{} RESTORED)...{}\x1B[0K",
+        "\r[{}/{}] RESTORING MKFILES...{}({} & {} RESTORED)\x1B[0K",
         step,
         NSTEPS,
+        "DONE".dark_green(),
         makefile_1.display(),
-        makefile_2.display(),
-        "DONE".dark_green()
+        makefile_2.display()
     );
 
     // Parse the build log
     step += 1;
-    print!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
+    print!("[{}/{}] ANALYSING BUILDLOG...", step, NSTEPS);
     stdout.flush()?;
     let output_str = String::from_utf8(output.stdout).context("Error creating string")?;
     let pattern_hackrule = Regex::new(
@@ -159,7 +165,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         });
     }
     println!(
-        "\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K",
+        "\r[{}/{}] ANALYSING BUILDLOG...{}\x1B[0K",
         step,
         NSTEPS,
         "DONE".dark_green()

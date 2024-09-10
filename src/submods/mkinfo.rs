@@ -116,7 +116,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
     let proj_root = svninfo.working_copy_root_path();
     if env::current_dir()?.as_path() != proj_root {
         bail!(
-            r#"Error location! Please run this command under the project root, i.e. "{}"."#,
+            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
             proj_root.display()
         );
     }
