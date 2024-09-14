@@ -108,6 +108,8 @@ impl fmt::Display for CompileInfo {
 
 const COLOR_ANSI_GRN: anstyle::Style =
     anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
+const COLOR_ANSI_YLW: anstyle::Style =
+    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow)));
 
 /// Generate the make information for the given platform.
 /// This function must run under the project root which is a valid svn repo.
@@ -392,8 +394,10 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
 
     writeln!(
         stdout_lock,
-        r#"Run the make command under the project root, i.e. "{}""#,
-        utils::SvnInfo::new()?.working_copy_root_path().display()
+        r#"{}Run make command under the project root, i.e. "{}"{:#}"#,
+        COLOR_ANSI_YLW,
+        utils::SvnInfo::new()?.working_copy_root_path().display(),
+        COLOR_ANSI_YLW
     )?;
     stdout_lock.flush()?;
 
