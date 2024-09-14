@@ -6,8 +6,7 @@ use std::io::{self, BufRead, BufReader, Write};
 use anyhow::{self, bail, Context};
 use bitflags::bitflags;
 use clap::ValueEnum;
-use crossterm::{style::Stylize, terminal};
-use regex::Regex;
+use crossterm::terminal;
 use serde_json::{json, Value};
 
 use crate::utils;
@@ -107,6 +106,9 @@ impl fmt::Display for CompileInfo {
     }
 }
 
+const COLOR_ANSI_GRN: anstyle::Style =
+    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
+
 /// Generate the make information for the given platform.
 /// This function must run under the project root which is a valid svn repo.
 pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<CompileInfo>> {
@@ -137,7 +139,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
         match repo_branch.chars().take(7).collect::<String>().as_str() {
             "MX_MAIN" if repo_revision >= 293968 => true,
             "HAWAII_" => {
-                let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
+                let hawaii_release_ver = regex::Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
                     .context("Error building pattern for release version")?
                     .captures(repo_branch)
                     .context("Error capturing release version from branch name")?
@@ -157,7 +159,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
         product_info_path.display()
     ))?;
     let mut product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
-    let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}"#, nickname)).context("Error building regex pattern of product info")?;
+    let product_info_pattern = regex::Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}"#, nickname)).context("Error building regex pattern of product info")?;
     let mut product_info_list: Vec<ProductInfo> = Vec::with_capacity(128);
     let mut line = String::with_capacity(512);
     while product_info_reader.read_line(&mut line)? != 0 {
@@ -186,7 +188,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
     ))?;
     let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
     let makeinfo_pattern =
-        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
+        regex::Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
             .context("Error building regex pattern for makeinfo")?;
     let mut mkinfos: Vec<MakeInfo> = Vec::new();
     while makeinfo_reader.read_line(&mut line)? != 0 {
@@ -205,11 +207,11 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let mut imagename_suffix = String::with_capacity(16);
 
-    let pattern_nonalnum =
-        Regex::new(r#"[^[:alnum:]]+"#).context("Error building regex pattern for nonalnum")?;
+    let pattern_nonalnum = regex::Regex::new(r#"[^[:alnum:]]+"#)
+        .context("Error building regex pattern for nonalnum")?;
 
     // Use branch name abbreviation to compose the image name
-    let nickname_pattern = Regex::new(r"HAWAII_([-[:word:]]+)")
+    let nickname_pattern = regex::Regex::new(r"HAWAII_([-[:word:]]+)")
         .context("Error building regex pattern for nickname")
         .unwrap();
     let captures = nickname_pattern.captures(repo_branch);
@@ -351,8 +353,18 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     }
 
     // Decorations
-    let outer_decor = "=".repeat(term_cols as usize).dark_green().to_string();
-    let inner_decor = "-".repeat(term_cols as usize).dark_green().to_string();
+    let outer_decor = format!(
+        "{}{}{:#}",
+        COLOR_ANSI_GRN,
+        "=".repeat(term_cols as usize),
+        COLOR_ANSI_GRN
+    );
+    let inner_decor = format!(
+        "{}{}{:#}",
+        COLOR_ANSI_GRN,
+        "-".repeat(term_cols as usize),
+        COLOR_ANSI_GRN
+    );
 
     let mut stdout_lock = io::stdout().lock();
     writeln!(

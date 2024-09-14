@@ -1,14 +1,16 @@
 use std::io::{self, Write};
-use std::path::Path;
+use std::path;
 use std::process::Command;
 use std::{env, fs};
 
 use anyhow::{bail, Context};
-use crossterm::style::Stylize;
-use regex::Regex;
-use walkdir::WalkDir;
 
 use crate::utils::SvnInfo;
+
+const COLOR_ANSI_YLW: anstyle::Style =
+    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow)));
+const COLOR_ANSI_GRN: anstyle::Style =
+    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
 
 pub fn clean_build() -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
@@ -22,7 +24,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         );
     }
 
-    let nsteps: usize = if Path::new(svninfo.branch_name()).is_dir() {
+    let nsteps: usize = if path::Path::new(svninfo.branch_name()).is_dir() {
         3
     } else {
         2
@@ -35,39 +37,46 @@ pub fn clean_build() -> anyhow::Result<()> {
     write!(stderr_lock, "[{}/{}] LISTING TARGET OBJS...", step, nsteps)?;
     stderr_lock.flush()?;
 
-    let target_dir = Path::new("target");
+    let target_dir = path::Path::new("target");
     if target_dir.is_dir() {
-        let num_entries = WalkDir::new(target_dir)
+        let num_entries = walkdir::WalkDir::new(target_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
             .map(|(i, _)| -> anyhow::Result<()> {
                 write!(
                     stderr_lock,
-                    "\r[{}/{}] LISTING TARGET OBJS...{}\x1B[0K",
+                    "\r[{}/{}] LISTING TARGET OBJS...{}{}{:#}\x1B[0K",
                     step,
                     nsteps,
-                    (i + 1).to_string().dark_yellow()
+                    COLOR_ANSI_YLW,
+                    i + 1,
+                    COLOR_ANSI_YLW
                 )?;
                 stderr_lock.flush()?;
                 Ok(())
             })
             .count();
-        let num_entries_suffix_str = num_entries.to_string().dark_yellow();
+        let num_entries_suffix_str =
+            format!("{}{}{:#}", num_entries, COLOR_ANSI_YLW, COLOR_ANSI_YLW);
 
         // Remove the whole target directory
-        WalkDir::new("target")
+        walkdir::WalkDir::new("target")
             .contents_first(true)
             .into_iter()
             .enumerate()
             .map(|(i, v)| -> anyhow::Result<()> {
                 write!(
                     stderr_lock,
-                    "\r[{}/{}] CLEANING TARGET OBJS...{}/{}\x1B[0K",
+                    "\r[{}/{}] CLEANING TARGET OBJS...{}{}{:#}/{}{}{:#}\x1B[0K",
                     step,
                     nsteps,
-                    i.to_string().dark_green(),
-                    num_entries_suffix_str
+                    COLOR_ANSI_GRN,
+                    i,
+                    COLOR_ANSI_GRN,
+                    COLOR_ANSI_YLW,
+                    num_entries_suffix_str,
+                    COLOR_ANSI_YLW,
                 )?;
                 stderr_lock.flush()?;
                 let entry = v?;
@@ -85,10 +94,8 @@ pub fn clean_build() -> anyhow::Result<()> {
     }
     writeln!(
         stderr_lock,
-        "\r[{}/{}] CLEANING TARGET OBJS...{}\x1B[0K",
-        step,
-        nsteps,
-        "DONE".dark_green()
+        "\r[{}/{}] CLEANING TARGET OBJS...{}{}{:#}\x1B[0K",
+        step, nsteps, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
     )?;
 
     // Clean unversioned entries
@@ -104,7 +111,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         bail!("Error invoking `svn status src bin lib`");
     }
 
-    let pattern_file = Regex::new(r#"(?m)^\?[[:blank:]]+(\S+)[[:space:]]*$"#)
+    let pattern_file = regex::Regex::new(r#"(?m)^\?[[:blank:]]+(\S+)[[:space:]]*$"#)
         .context("Error creating regex pattern")?;
     let output_str = String::from_utf8(output.stdout)
         .context(anyhow::anyhow!("Error converting to `String` type"))?;
@@ -119,14 +126,18 @@ pub fn clean_build() -> anyhow::Result<()> {
         .map(|(idx, item)| -> anyhow::Result<()> {
             write!(
                 stderr_lock,
-                "\r[{}/{}] CLEANING UNVERSIONEDS...{}/{}\x1B[0K",
+                "\r[{}/{}] CLEANING UNVERSIONEDS...{}{}{:#}/{}{}{:#}\x1B[0K",
                 step,
                 nsteps,
-                idx.to_string().dark_green(),
-                filelist.len().to_string().dark_yellow()
+                COLOR_ANSI_GRN,
+                idx,
+                COLOR_ANSI_GRN,
+                COLOR_ANSI_YLW,
+                filelist.len(),
+                COLOR_ANSI_YLW
             )?;
             stderr.flush()?;
-            let path_ = Path::new(item);
+            let path_ = path::Path::new(item);
             if path_.is_file() || path_.is_symlink() {
                 fs::remove_file(path_)
                     .context(format!("Error removing file {}", path_.display()))?;
@@ -139,14 +150,12 @@ pub fn clean_build() -> anyhow::Result<()> {
         .count();
     writeln!(
         stderr_lock,
-        "\r[{}/{}] CLEANING UNVERSIONEDS...{}\x1B[0K",
-        step,
-        nsteps,
-        "DONE".dark_green()
+        "\r[{}/{}] CLEANING UNVERSIONEDS...{}{}{:#}\x1B[0K",
+        step, nsteps, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN,
     )?;
 
     // Clean UI files
-    let ui_dir = Path::new(svninfo.branch_name()); // UI directory name is the same as the branch name
+    let ui_dir = path::Path::new(svninfo.branch_name()); // UI directory name is the same as the branch name
     if ui_dir.is_dir() {
         step += 1;
 
@@ -154,7 +163,7 @@ pub fn clean_build() -> anyhow::Result<()> {
         stderr.flush()?;
 
         let mut num_entries = 0;
-        for (idx, _) in WalkDir::new(ui_dir)
+        for (idx, _) in walkdir::WalkDir::new(ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
@@ -162,28 +171,34 @@ pub fn clean_build() -> anyhow::Result<()> {
             num_entries += 1;
             write!(
                 stderr_lock,
-                "\r[{}/{}] LISTING UI OBJS...{}\x1B[0K",
+                "\r[{}/{}] LISTING UI OBJS...{}{}{}\x1B[0K",
                 step,
                 nsteps,
-                (idx + 1).to_string().dark_yellow()
+                COLOR_ANSI_YLW,
+                idx + 1,
+                COLOR_ANSI_YLW
             )?;
             stderr.flush()?;
         }
 
         // Cleaning UI files
         stderr.flush()?;
-        for (idx, entry) in WalkDir::new(ui_dir)
+        for (idx, entry) in walkdir::WalkDir::new(ui_dir)
             .contents_first(true)
             .into_iter()
             .enumerate()
         {
             write!(
                 stderr_lock,
-                "\r[{}/{}] CLEANING UI OBJS...{}/{}\x1B[0K",
+                "\r[{}/{}] CLEANING UI OBJS...{}{}{:#}/{}{}{:#}\x1B[0K",
                 step,
                 nsteps,
-                idx.to_string().dark_green(),
-                num_entries.to_string().dark_yellow()
+                COLOR_ANSI_GRN,
+                idx,
+                COLOR_ANSI_GRN,
+                COLOR_ANSI_YLW,
+                num_entries,
+                COLOR_ANSI_YLW
             )?;
             stderr.flush()?;
             let entry = entry?;
@@ -199,10 +214,8 @@ pub fn clean_build() -> anyhow::Result<()> {
 
         writeln!(
             stderr_lock,
-            "\r[{}/{}] CLEANING UI OBJS...{}\x1B[0K",
-            step,
-            nsteps,
-            "DONE".dark_green()
+            "\r[{}/{}] CLEANING UI OBJS...{}{}{:#}\x1B[0K",
+            step, nsteps, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
         )?;
     }
 

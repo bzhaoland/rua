@@ -2,16 +2,14 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
-use std::path::Path;
-use std::process::Command;
+use std::path;
+use std::process;
 
 use anyhow::{bail, Context};
-use crossterm::style::Stylize;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 
-use crate::utils::SvnInfo;
+use crate::utils;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CompDBRecord {
@@ -32,8 +30,11 @@ impl fmt::Display for CompDBRecord {
 
 pub type CompDB = Vec<CompDBRecord>;
 
+const COLOR_ANSI_GRN: anstyle::Style =
+    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
+
 pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
-    let svninfo = SvnInfo::new()?;
+    let svninfo = utils::SvnInfo::new()?;
     let proj_root = svninfo.working_copy_root_path();
 
     if env::current_dir()? != proj_root {
@@ -43,12 +44,12 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         );
     }
 
-    let makefile_1 = Path::new("scripts/last-rules.mk");
+    let makefile_1 = path::Path::new("scripts/last-rules.mk");
     if !makefile_1.is_file() {
         bail!(r#"Makefile "{}" not found"#, makefile_1.display());
     }
 
-    let makefile_2 = Path::new("scripts/rules.mk");
+    let makefile_2 = path::Path::new("scripts/rules.mk");
     if !makefile_2.is_file() {
         bail!(r#"Makefile "{}" not found"#, makefile_2.display());
     }
@@ -66,7 +67,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         makefile_2.display()
     );
     stdout.flush()?;
-    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
+    let pattern_c = regex::Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context(format!("Error building regex pattern for C compile command"))?;
     let makerule_1 = fs::read_to_string(makefile_1)?;
     let captures = pattern_c
@@ -76,17 +77,19 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     let makerule_1_hacked = pattern_c.replace_all(&makerule_1, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compile_command_c)).to_string();
     fs::write(&makefile_1, makerule_1_hacked)
         .context(format!(r#"Error writing file "{}""#, makefile_1.display()))?;
-    let pattern_cc = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
+    let pattern_cc = regex::Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
         .context("Error building regex pattern for C++ compile command")?;
     let makerule_2 = fs::read_to_string(&makefile_2)
         .context(format!(r#"Error reading file "{}""#, makefile_2.display()))?;
     let makerule_2_hacked = pattern_cc.replace_all(&makerule_2, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
     fs::write(&makefile_2, makerule_2_hacked)?;
     println!(
-        "\r[{}/{}] INJECTING MKFILES...{}({} & {} MODIFIED)\x1B[0K",
+        "\r[{}/{}] INJECTING MKFILES...{}{}{:#}({} & {} MODIFIED)\x1B[0K",
         step,
         NSTEPS,
-        "DONE".dark_green(),
+        COLOR_ANSI_GRN,
+        "DONE",
+        COLOR_ANSI_GRN,
         makefile_1.display(),
         makefile_2.display()
     );
@@ -95,7 +98,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     step += 1;
     print!("[{}/{}] BUILDING PSEUDOLY...", step, NSTEPS);
     stdout.flush()?;
-    let output = Command::new("hsdocker7")
+    let output = process::Command::new("hsdocker7")
         .args([
             "make",
             "-C",
@@ -116,10 +119,8 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         bail!("Error pseudoly building: {:?}", status.code());
     }
     println!(
-        "\r[{}/{}] BUILDING PSEUDOLY...{}\x1B[0K",
-        step,
-        NSTEPS,
-        "DONE".dark_green()
+        "\r[{}/{}] BUILDING PSEUDOLY...{}{}{:#}\x1B[0K",
+        step, NSTEPS, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
     );
 
     // Restore the original makefiles
@@ -137,10 +138,12 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     fs::write(&makefile_2, makerule_2)
         .context(format!("Error writing {}", makefile_2.display()))?;
     println!(
-        "\r[{}/{}] RESTORING MKFILES...{}({} & {} RESTORED)\x1B[0K",
+        "\r[{}/{}] RESTORING MKFILES...{}{}{:#}({} & {} RESTORED)\x1B[0K",
         step,
         NSTEPS,
-        "DONE".dark_green(),
+        COLOR_ANSI_GRN,
+        "DONE",
+        COLOR_ANSI_GRN,
         makefile_1.display(),
         makefile_2.display()
     );
@@ -150,7 +153,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     print!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
     stdout.flush()?;
     let output_str = String::from_utf8(output.stdout).context("Error creating string")?;
-    let pattern_hackrule = Regex::new(
+    let pattern_hackrule = regex::Regex::new(
         r#"(?m)^##JCDB##[[:blank:]]+>>:directory:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:command:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:file:>>[[:blank:]]+(.+)[[:blank:]]*$"#,
     ).context("Error building hackrule pattern")?;
     let mut records: Vec<CompDBRecord> = Vec::new();
@@ -161,14 +164,15 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         records.push(CompDBRecord {
             directory: dirc.to_string(),
             command: comm.to_string(),
-            file: Path::new(&dirc).join(file).to_string_lossy().to_string(),
+            file: path::Path::new(&dirc)
+                .join(file)
+                .to_string_lossy()
+                .to_string(),
         });
     }
     println!(
-        "\r[{}/{}] PARSING BUILDLOG...{}\x1B[0K",
-        step,
-        NSTEPS,
-        "DONE".dark_green()
+        "\r[{}/{}] PARSING BUILDLOG...{}{}{:#}\x1B[0K",
+        step, NSTEPS, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
     );
 
     // Generate JCDB
@@ -188,10 +192,8 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         serde_json::to_string_pretty(&jcdb)?,
     )?;
     println!(
-        "\r[{}/{}] GENERATING JCDB...{}\x1B[0K",
-        step,
-        NSTEPS,
-        "DONE".dark_green()
+        "\r[{}/{}] GENERATING JCDB...{}{}{:#}\x1B[0K",
+        step, NSTEPS, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
     );
 
     Ok(())

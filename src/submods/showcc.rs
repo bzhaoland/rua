@@ -2,9 +2,14 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use crossterm::{style::Stylize, terminal};
+use crossterm::terminal;
 
 use crate::submods::compdb::{CompDB, CompDBRecord};
+
+const COLOR_ANSI_GRN: anstyle::Style =
+    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
+const COLOR_ANSI_YLW: anstyle::Style =
+    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow)));
 
 /// Fetch the corresponding compile command from compilation database for the given filename.
 pub fn fetch_compile_command(filename: &str, compdb: &Path) -> Result<Vec<CompDBRecord>> {
@@ -36,8 +41,18 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
     }
 
     let width = terminal::window_size()?.columns;
-    let head_decor = "=".repeat(width as usize);
-    let data_decor = "-".repeat(width as usize);
+    let head_decor = format!(
+        "{}{}{:#}",
+        COLOR_ANSI_GRN,
+        "=".repeat(width as usize),
+        COLOR_ANSI_GRN
+    );
+    let data_decor = format!(
+        "{}{}{:#}",
+        COLOR_ANSI_GRN,
+        "-".repeat(width as usize),
+        COLOR_ANSI_GRN
+    );
 
     let mut out = String::new();
     out.push_str(&format!(
@@ -46,7 +61,7 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
         if records.len() > 1 { "s" } else { "" }
     ));
 
-    out.push_str(&format!("{}\n", head_decor.as_str().dark_green()));
+    out.push_str(&head_decor);
 
     for (idx, item) in records.iter().enumerate() {
         out.push_str(&format!(
@@ -55,15 +70,17 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
         ));
 
         if idx < records.len() - 1 {
-            out.push_str(&format!("{}\n", data_decor.as_str().dark_green()));
+            out.push_str(&data_decor);
         }
     }
 
-    out.push_str(&format!("{}\n", head_decor.as_str().dark_green()));
+    out.push_str(&head_decor);
 
     out.push_str(&format!(
-        "{}",
-        "Run the compile command under the corresponding directory.".dark_yellow()
+        "{}{}{:#}",
+        COLOR_ANSI_YLW,
+        "Run the compile command under the corresponding directory.",
+        COLOR_ANSI_YLW
     ));
 
     println!("{}", out);

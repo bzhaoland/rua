@@ -5,8 +5,9 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use crossterm::style::Stylize;
-use walkdir::WalkDir;
+
+const COLOR_ANSI_GRN: anstyle::Style =
+    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
 
 /// Generate filelist for SourceInsight editor.
 ///
@@ -40,7 +41,7 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
 
     // Search over src directory
     println!(r#"\x1B[1A\x1B[2K\rGENERATING FILELIST..."#);
-    for entry in WalkDir::new("src") {
+    for entry in walkdir::WalkDir::new("src") {
         if entry.is_err() {
             continue;
         }
@@ -74,14 +75,16 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
         print!(
-            r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{} FILES FOUND"#,
-            files.len().to_string().dark_yellow(),
+            r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{}{}{:#} FILES FOUND"#,
+            COLOR_ANSI_GRN,
+            files.len(),
+            COLOR_ANSI_GRN
         );
         stdout.flush()?;
     }
 
     // Search over gshare directory
-    for entry in WalkDir::new("gshare") {
+    for entry in walkdir::WalkDir::new("gshare") {
         if entry.is_err() {
             continue;
         }
@@ -115,8 +118,10 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
         print!(
-            r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{} FILES FOUND"#,
-            files.len().to_string().dark_yellow()
+            r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{}{}{:#} FILES FOUND"#,
+            COLOR_ANSI_GRN,
+            files.len(),
+            COLOR_ANSI_GRN
         );
         stdout.flush()?;
     }
@@ -124,8 +129,8 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
     let filelist = files.join("\r\n");
     fs::write("filelist.txt", filelist)?;
     println!(
-        r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{}"#,
-        "DONE".dark_green()
+        r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{}{}{:#}"#,
+        COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
     );
 
     Ok(())
