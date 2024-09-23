@@ -1,9 +1,9 @@
 [package]
 name = "rua"
-version = "0.11.2"
+version = "0.12.0"
 edition = "2021"
 authors = ["bzhao@hillstonenet.com"]
-description = "A dev box for StoneOS project."
+description = "Dev box for StoneOS project."
 keywords = ["CLI"]
 categories = ["command-line-utilities"]
 
@@ -28,7 +28,7 @@ walkdir = "2.5.0"
 
 [profile.release]
 lto = true
-opt-level = 3
+opt-level = 2
 panic = "abort"
 strip = true
 codegen-units = 1

@@ -41,7 +41,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.11.2",
+    version = "0.12.0",
     styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
