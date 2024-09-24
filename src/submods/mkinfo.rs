@@ -51,8 +51,8 @@ struct ProductInfo {
     name_id: usize,
     oem_id: String,
     family: String,
-    shortname: String,
-    longname: String,
+    short_name: String,
+    long_name: String,
     snmp_descr: String,
     snmp_oid: String,
     icon_path: Option<String>,
@@ -62,7 +62,7 @@ struct ProductInfo {
 pub struct MakeInfo {
     platform_model: String,
     product_family: Option<String>,
-    make_target: String,
+    make_goal: String,
     make_directory: String,
 }
 
@@ -72,7 +72,7 @@ pub struct CompileInfo {
     product_model: String,
     product_family: String,
     platform_model: String,
-    make_target: String,
+    make_goal: String,
     make_directory: String,
     make_command: String,
 }
@@ -83,10 +83,10 @@ impl fmt::Display for MakeInfo {
             f,
             r#"MakeInfo {{
   platform_model: "{}",
-  make_target: "{}",
+  make_goal: "{}",
   make_directory: "{}",
 }}"#,
-            self.platform_model, self.make_target, self.make_directory,
+            self.platform_model, self.make_goal, self.make_directory,
         )
     }
 }
@@ -97,11 +97,11 @@ impl fmt::Display for CompileInfo {
             f,
             r#"CompileInfo {{
   platform_model: "{}",
-  make_target: "{}",
+  make_gial: "{}",
   make_directory: "{}",
   make_command: "{}"
 }}"#,
-            self.platform_model, self.make_target, self.make_directory, self.make_command,
+            self.platform_model, self.make_goal, self.make_directory, self.make_command,
         )
     }
 }
@@ -125,7 +125,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
         );
     }
 
-    // Check file existence
+    // Check file
     let product_info_path = proj_root.join("src/libplatform/hs_platform.c");
     if !product_info_path.is_file() {
         bail!(r#"File "{}" not available"#, product_info_path.display());
@@ -172,8 +172,8 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
                 name_id: captures.get(3).unwrap().as_str().parse::<usize>()?,
                 oem_id: captures.get(4).unwrap().as_str().to_string(),
                 family: captures.get(5).unwrap().as_str().to_string(),
-                shortname: captures.get(6).unwrap().as_str().to_string(),
-                longname: captures.get(7).unwrap().as_str().to_string(),
+                short_name: captures.get(6).unwrap().as_str().to_string(),
+                long_name: captures.get(7).unwrap().as_str().to_string(),
                 snmp_descr: captures.get(8).unwrap().as_str().to_string(),
                 snmp_oid: captures.get(9).unwrap().as_str().to_string(),
                 icon_path: captures.get(10).map(|x| x.as_str().to_string()),
@@ -198,7 +198,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
             mkinfos.push(MakeInfo {
                 platform_model: captures.get(1).unwrap().as_str().to_string(),
                 product_family: captures.get(4).map(|v| v.as_str().to_string()),
-                make_target: captures.get(2).unwrap().as_str().to_string(),
+                make_goal: captures.get(2).unwrap().as_str().to_string(),
                 make_directory: captures.get(3).unwrap().as_str().to_string(),
             })
         }
@@ -251,7 +251,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
 
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for product in product_info_list.iter() {
-        let imagename_prodname = pattern_nonalnum.replace_all(&product.shortname, "");
+        let imagename_prodname = pattern_nonalnum.replace_all(&product.short_name, "");
         for mkinfo in mkinfos
             .iter()
             .filter(|x| x.platform_model == product.platform_code)
@@ -261,13 +261,13 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
                         && x.product_family.as_ref().unwrap() == &product.family)
             })
         {
-            let mut make_goal = mkinfo.make_target.clone();
+            let mut make_goal = mkinfo.make_goal.clone();
             if makeflag.contains(MakeFlag::INET_V6) {
                 make_goal.push_str("-ipv6");
             }
 
             let imagename_makegoal = pattern_nonalnum
-                .replace_all(&mkinfo.make_target, "")
+                .replace_all(&mkinfo.make_goal, "")
                 .to_uppercase();
             let imagename = format!(
                 "{}-{}-{}-{}",
@@ -283,11 +283,11 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
                 imagename,
             );
             compile_infos.push(CompileInfo {
-                product_name: product.longname.clone(),
+                product_name: product.long_name.clone(),
                 product_model: product.model.clone(),
                 product_family: product.family.clone(),
                 platform_model: mkinfo.platform_model.clone(),
-                make_target: make_goal,
+                make_goal,
                 make_directory: mkinfo.make_directory.clone(),
                 make_command: make_comm,
             });
@@ -306,7 +306,7 @@ fn dump_csv(infos: &[CompileInfo]) -> anyhow::Result<()> {
         "ProductModel",
         "ProductFamily",
         "PlatformModel",
-        "MakeTarget",
+        "MakeGoal",
         "MakeDirectory",
         "MakeCommand",
     ])?;
@@ -316,7 +316,7 @@ fn dump_csv(infos: &[CompileInfo]) -> anyhow::Result<()> {
             &info.product_model,
             &info.product_family,
             &info.platform_model,
-            &info.make_target,
+            &info.make_goal,
             &info.make_directory,
             &info.make_command,
         ])?;
@@ -335,7 +335,7 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
             "ProductModel": item.product_name,
             "ProductFamily": item.product_family,
             "Platform": item.platform_model,
-            "MakeTarget": item.make_target,
+            "MakeGoal": item.make_goal,
             "MakePath": item.make_directory,
             "MakeCommand": item.make_command,
         }));
@@ -382,7 +382,7 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
         writeln!(stdout_lock, "ProductModel  : {}", item.product_model)?;
         writeln!(stdout_lock, "ProductFamily : {}", item.product_family)?;
         writeln!(stdout_lock, "Platform      : {}", item.platform_model)?;
-        writeln!(stdout_lock, "MakeTarget    : {}", item.make_target)?;
+        writeln!(stdout_lock, "MakeGoal      : {}", item.make_goal)?;
         writeln!(stdout_lock, "MakeDirectory : {}", item.make_directory)?;
         writeln!(stdout_lock, "MakeCommand   : {}", item.make_command)?;
 
@@ -415,7 +415,7 @@ fn dump_tsv(infos: &[CompileInfo]) -> anyhow::Result<()> {
         "ProductModel",
         "ProductFamily",
         "Platform",
-        "MakeTarget",
+        "MakeGoal",
         "MakeDirectory",
         "MakeCommand",
     ])?;
@@ -425,7 +425,7 @@ fn dump_tsv(infos: &[CompileInfo]) -> anyhow::Result<()> {
             &info.product_model,
             &info.product_family,
             &info.platform_model,
-            &info.make_target,
+            &info.make_goal,
             &info.make_directory,
             &info.make_command,
         ])?;
