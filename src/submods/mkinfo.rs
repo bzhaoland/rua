@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::fs;
@@ -192,22 +193,30 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
     let makeinfo_pattern =
         regex::Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
             .context("Error building regex pattern for makeinfo")?;
-    let mut mkinfos: Vec<MakeInfo> = Vec::new();
+    let mut mkinfos: HashMap<String, Vec<MakeInfo>> = HashMap::with_capacity(256);
     while makeinfo_reader.read_line(&mut line)? != 0 {
         if let Some(captures) = makeinfo_pattern.captures(&line) {
-            mkinfos.push(MakeInfo {
+            let makeinfo_item = MakeInfo {
                 platform_model: captures.get(1).unwrap().as_str().to_string(),
                 product_family: captures.get(4).map(|v| v.as_str().to_string()),
                 make_goal: captures.get(2).unwrap().as_str().to_string(),
                 make_directory: captures.get(3).unwrap().as_str().to_string(),
-            })
+            };
+
+            if !mkinfos.contains_key(&makeinfo_item.platform_model) {
+                mkinfos.insert(makeinfo_item.platform_model.clone(), Vec::with_capacity(1));
+            }
+
+            let v = mkinfos.get_mut(&makeinfo_item.platform_model).unwrap();
+            v.push(makeinfo_item);
         }
+
         line.clear()
     }
     mkinfos.shrink_to_fit();
 
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
-    let mut imagename_suffix = String::with_capacity(16);
+    let mut imagename_suffix = String::with_capacity(32);
 
     let pattern_nonalnum = regex::Regex::new(r#"[^[:alnum:]]+"#)
         .context("Error building regex pattern for nonalnum")?;
@@ -252,15 +261,17 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for product in product_info_list.iter() {
         let imagename_prodname = pattern_nonalnum.replace_all(&product.short_name, "");
-        for mkinfo in mkinfos
-            .iter()
-            .filter(|x| x.platform_model == product.platform_code)
-            .filter(|x| {
-                !has_family_field_in_plattable
-                    || (x.product_family.is_some()
-                        && x.product_family.as_ref().unwrap() == &product.family)
-            })
-        {
+        let mkinfo_arr = mkinfos.get(&product.platform_code);
+        if mkinfo_arr.is_none() {
+            continue;
+        }
+        let mkinfo_set = mkinfo_arr.unwrap();
+
+        for mkinfo in mkinfo_set.iter().filter(|x| {
+            !has_family_field_in_plattable
+                || (x.product_family.is_some()
+                    && x.product_family.as_ref().unwrap() == &product.family)
+        }) {
             let mut make_goal = mkinfo.make_goal.clone();
             if makeflag.contains(MakeFlag::INET_V6) {
                 make_goal.push_str("-ipv6");
