@@ -98,7 +98,7 @@ impl fmt::Display for CompileInfo {
             f,
             r#"CompileInfo {{
   platform_model: "{}",
-  make_gial: "{}",
+  make_goal: "{}",
   make_directory: "{}",
   make_command: "{}"
 }}"#,
