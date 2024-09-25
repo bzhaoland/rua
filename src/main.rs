@@ -66,7 +66,7 @@ enum Comm {
 {CLAP_COLOR_CAUTION}Caution:{CLAP_COLOR_CAUTION:#}
   This command would modify two files named "scripts/last-rules.mk" and "scripts/rules.mk"
   respectively temporarily while running. You may have to confirm that they are restored
-  correctly if this command was interrupted unexpectedly. When it is not, you can execute 
+  correctly if this command was interrupted unexpectedly. When the are not, you can execute 
   `svn revert ...` or perform other operations to restore them mannualy."#))]
     Compdb {
         #[arg(
