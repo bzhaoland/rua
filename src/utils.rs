@@ -73,6 +73,7 @@ pub struct SvnInfo {
 }
 
 impl SvnInfo {
+    /// Return an empty template of SvnInfo
     pub fn new() -> anyhow::Result<Self> {
         let mut instance = SvnInfo {
             working_copy_root_path: String::new(),
@@ -92,6 +93,7 @@ impl SvnInfo {
         Ok(instance)
     }
 
+    /// Clear the contents inside
     #[allow(dead_code)]
     pub fn reset(&mut self) {
         self.working_copy_root_path.clear();
@@ -138,61 +140,61 @@ Last Changed Date: ([^\n]+)"#,
         let captures = pattern.captures(&info).context("Error matching svn info")?;
         self.working_copy_root_path = captures
             .get(1)
-            .context("Error capturing the working copy root path from the svn info")?
+            .context("Error capturing the working copy root path")?
             .as_str()
             .to_string();
         self.url = captures
             .get(2)
-            .context("Error capturing the url from the svn info")?
+            .context("Error capturing the url")?
             .as_str()
             .to_string();
         self.relative_url = captures
             .get(3)
-            .context("Error capturing the relative url from the svn info")?
+            .context("Error capturing the relative url")?
             .as_str()
             .to_string();
         self.repository_root = captures
             .get(4)
-            .context("Error capturing the repository root from the svn info")?
+            .context("Error capturing the repository root")?
             .as_str()
             .to_string();
         self.repository_uuid = captures
             .get(5)
-            .context("Error capturing the repository uuid from the svn info")?
+            .context("Error capturing the repository uuid")?
             .as_str()
             .to_string();
         self.revision = captures
             .get(6)
-            .context("Error capturing the revision from the svn info")?
+            .context("Error capturing the revision")?
             .as_str()
             .to_string()
             .parse()
-            .context("Error parsing the revision as an integer")?;
+            .context("Error parsing the revision part into an integer")?;
         self.node_kind = captures
             .get(7)
-            .context("Error capturing the node kind from the svn info")?
+            .context("Error capturing the node kind")?
             .as_str()
             .to_string();
         self.schedule = captures
             .get(8)
-            .context("Error capturing the schedule from the svn info")?
+            .context("Error capturing the schedule")?
             .as_str()
             .to_string();
         self.last_changed_author = captures
             .get(9)
-            .context("Error capturing the last changed author from the svn info")?
+            .context("Error capturing the last changed author")?
             .as_str()
             .to_string();
         self.last_changed_revision = captures
             .get(10)
-            .context("Error capturing the last changed revision from the svn info")?
+            .context("Error capturing the last changed revision")?
             .as_str()
             .to_string()
             .parse()
-            .context("Error parsing the last changed revision as an integer")?;
+            .context("Error parsing the last changed revision part into an integer")?;
         self.last_changed_date = captures
             .get(11)
-            .context("Error capturing the last changed date from the svn info")?
+            .context("Error capturing the last changed date")?
             .as_str()
             .to_string();
 

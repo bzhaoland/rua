@@ -16,11 +16,11 @@ bitflags! {
     #[repr(transparent)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct MakeFlag: u8 {
-        const R_BUILD  = 0b00000001;  // Release build
-        const INET_V6  = 0b00000010;  // Internet v6
-        const WITH_UI  = 0b00000100;  // With WebUI
-        const WITH_PW  = 0b00001000;  // With password
-        const COVERITY = 0b00010000;
+        const BUILD_MODE        = 0b00000001;
+        const WITH_IPV6_SUPPORT = 0b00000010;
+        const WITH_UNIWEBUI     = 0b00000100;
+        const WITH_PASSWORD     = 0b00001000;
+        const WITH_COVERITY     = 0b00010000;
     }
 }
 
@@ -239,12 +239,12 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
         .to_string();
 
     // IPv6 check
-    if makeflag.contains(MakeFlag::INET_V6) {
+    if makeflag.contains(MakeFlag::WITH_IPV6_SUPPORT) {
         imagename_suffix.push_str("V6-");
     }
 
     // Building mode
-    imagename_suffix.push(if makeflag.contains(MakeFlag::R_BUILD) {
+    imagename_suffix.push(if makeflag.contains(MakeFlag::BUILD_MODE) {
         'r'
     } else {
         'd'
@@ -273,7 +273,7 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
                     && x.product_family.as_ref().unwrap() == &product.family)
         }) {
             let mut make_goal = mkinfo.make_goal.clone();
-            if makeflag.contains(MakeFlag::INET_V6) {
+            if makeflag.contains(MakeFlag::WITH_IPV6_SUPPORT) {
                 make_goal.push_str("-ipv6");
             }
 
@@ -287,10 +287,10 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
             let make_comm = format!(
                 "hsdocker7 make -C {} -j16 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
                 mkinfo.make_directory, make_goal,
-                if makeflag.contains(MakeFlag::COVERITY) { 1 } else { 0 },
-                if makeflag.contains(MakeFlag::R_BUILD) { 1 } else { 0 },
-                if makeflag.contains(MakeFlag::WITH_UI) { 1 } else { 0 },
-                if makeflag.contains(MakeFlag::WITH_PW) { 1 } else { 0 },
+                if makeflag.contains(MakeFlag::WITH_COVERITY) { 1 } else { 0 },
+                if makeflag.contains(MakeFlag::BUILD_MODE) { 1 } else { 0 },
+                if makeflag.contains(MakeFlag::WITH_UNIWEBUI) { 1 } else { 0 },
+                if makeflag.contains(MakeFlag::WITH_PASSWORD) { 1 } else { 0 },
                 imagename,
             );
             compile_infos.push(CompileInfo {

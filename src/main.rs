@@ -288,19 +288,19 @@ async fn main() -> anyhow::Result<()> {
         } => {
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
-                makeflag |= MakeFlag::R_BUILD;
+                makeflag |= MakeFlag::BUILD_MODE;
             };
             if ipv6 {
-                makeflag |= MakeFlag::INET_V6;
+                makeflag |= MakeFlag::WITH_IPV6_SUPPORT;
             }
             if webui {
-                makeflag |= MakeFlag::WITH_UI;
+                makeflag |= MakeFlag::WITH_UNIWEBUI;
             }
             if password {
-                makeflag |= MakeFlag::WITH_PW;
+                makeflag |= MakeFlag::WITH_PASSWORD;
             }
             if coverity {
-                makeflag |= MakeFlag::COVERITY;
+                makeflag |= MakeFlag::WITH_COVERITY;
             }
 
             let printinfos = mkinfo::gen_mkinfo(&prodname, makeflag)?;
