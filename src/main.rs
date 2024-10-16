@@ -126,6 +126,10 @@ enum Comm {
         #[arg(short = 'w', long = "webui")]
         webui: bool,
 
+        /// Server to upload the output image to
+        #[arg(short = 's', long = "image-server")]
+        image_server: Option<String>,
+
         /// Product name, such as 'A1000'. Regex is also supported, e.g. 'X\d+80'
         #[arg(value_name = "PRODUCT-NAME")]
         prodname: String,
@@ -284,6 +288,7 @@ async fn main() -> anyhow::Result<()> {
             prodname,
             debug,
             webui,
+            image_server,
             outfmt,
         } => {
             let mut makeflag = mkinfo::MakeFlag::empty();
@@ -303,7 +308,7 @@ async fn main() -> anyhow::Result<()> {
                 makeflag |= MakeFlag::WITH_COVERITY;
             }
 
-            let printinfos = mkinfo::gen_mkinfo(&prodname, makeflag)?;
+            let printinfos = mkinfo::gen_mkinfo(&prodname, makeflag, image_server.as_deref())?;
 
             mkinfo::dump_mkinfo(&printinfos, outfmt)
         }

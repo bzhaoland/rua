@@ -114,7 +114,11 @@ const COLOR_ANSI_YLW: anstyle::Style =
 
 /// Generate the make information for the given platform.
 /// This function must run under the project root which is a valid svn repo.
-pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<CompileInfo>> {
+pub fn gen_mkinfo(
+    nickname: &str,
+    makeflag: MakeFlag,
+    imageserver: Option<&str>,
+) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
     // Check location
@@ -285,12 +289,13 @@ pub fn gen_mkinfo(nickname: &str, makeflag: MakeFlag) -> anyhow::Result<Vec<Comp
                 imagename_prodname, branch_nickname, imagename_makegoal, imagename_suffix
             );
             let make_comm = format!(
-                "hsdocker7 make -C {} -j16 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={} IMG_NAME={} &> build.log",
+                "hsdocker7 make -C {} -j16 {} HS_BUILD_COVERITY={} ISBUILDRELEASE={} HS_BUILD_UNIWEBUI={} HS_SHELL_PASSWORD={}{} IMG_NAME={} &> build.log",
                 mkinfo.make_directory, make_goal,
                 if makeflag.contains(MakeFlag::WITH_COVERITY) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::BUILD_MODE) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_UNIWEBUI) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_PASSWORD) { 1 } else { 0 },
+                &imageserver.map_or_else(|| "".to_owned(), |v| format!(" OS_IMAGE_FTP_IP={}", v)),
                 imagename,
             );
             compile_infos.push(CompileInfo {
