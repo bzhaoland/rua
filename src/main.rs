@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 
 use crate::submods::clean;
 use crate::submods::compdb;
-use crate::submods::mkinfo::{self, MakeFlag};
+use crate::submods::mkinfo;
 use crate::submods::perfan;
 use crate::submods::review;
 use crate::submods::showcc;
@@ -127,8 +127,8 @@ enum Comm {
         webui: bool,
 
         /// Server to upload the output image to
-        #[arg(short = 's', long = "image-server")]
-        image_server: Option<String>,
+        #[arg(short = 's', long = "image-server", value_name = "IMAGE-SERVER")]
+        image_server: Option<mkinfo::ImageServer>,
 
         /// Product name, such as 'A1000'. Regex is also supported, e.g. 'X\d+80'
         #[arg(value_name = "PRODUCT-NAME")]
@@ -293,22 +293,22 @@ async fn main() -> anyhow::Result<()> {
         } => {
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
-                makeflag |= MakeFlag::BUILD_MODE;
+                makeflag |= mkinfo::MakeFlag::BUILD_MODE;
             };
             if ipv6 {
-                makeflag |= MakeFlag::WITH_IPV6_SUPPORT;
+                makeflag |= mkinfo::MakeFlag::WITH_IPV6_SUPPORT;
             }
             if webui {
-                makeflag |= MakeFlag::WITH_UNIWEBUI;
+                makeflag |= mkinfo::MakeFlag::WITH_UNIWEBUI;
             }
             if password {
-                makeflag |= MakeFlag::WITH_PASSWORD;
+                makeflag |= mkinfo::MakeFlag::WITH_PASSWORD;
             }
             if coverity {
-                makeflag |= MakeFlag::WITH_COVERITY;
+                makeflag |= mkinfo::MakeFlag::WITH_COVERITY;
             }
 
-            let printinfos = mkinfo::gen_mkinfo(&prodname, makeflag, image_server.as_deref())?;
+            let printinfos = mkinfo::gen_mkinfo(&prodname, makeflag, image_server)?;
 
             mkinfo::dump_mkinfo(&printinfos, outfmt)
         }
