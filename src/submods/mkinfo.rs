@@ -311,8 +311,8 @@ pub fn gen_mkinfo(
                 if makeflag.contains(MakeFlag::WITH_UNIWEBUI) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_PASSWORD) { 1 } else { 0 },
                 imageserver.map_or("", |v| match v {
-                    ImageServer::Beijing => "10.100.6.10",
-                    ImageServer::Suzhou => "10.200.6.10",
+                    ImageServer::Beijing => " OS_IMAGE_FTP_IP=10.100.6.10",
+                    ImageServer::Suzhou => " OS_IMAGE_FTP_IP=10.200.6.10",
                 }),
                 imagename,
             );
