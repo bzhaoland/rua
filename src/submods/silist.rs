@@ -129,8 +129,8 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
     let filelist = files.join("\r\n");
     fs::write("filelist.txt", filelist)?;
     println!(
-        r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{}{}{:#}"#,
-        COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
+        r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{}DONE{:#}"#,
+        COLOR_ANSI_GRN, COLOR_ANSI_GRN
     );
 
     Ok(())

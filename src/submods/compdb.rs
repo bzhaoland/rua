@@ -68,27 +68,26 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     );
     stdout.flush()?;
     let pattern_c = regex::Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
-        .context(format!("Error building regex pattern for C compile command"))?;
+        .context("Error building regex pattern for matching the C compilation recipes")?;
     let makerule_1 = fs::read_to_string(makefile_1)?;
     let captures = pattern_c
         .captures(&makerule_1)
         .context("Error capturing pattern_c")?;
     let compile_command_c = captures.get(1).unwrap().as_str();
     let makerule_1_hacked = pattern_c.replace_all(&makerule_1, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compile_command_c)).to_string();
-    fs::write(&makefile_1, makerule_1_hacked)
+    fs::write(makefile_1, makerule_1_hacked)
         .context(format!(r#"Error writing file "{}""#, makefile_1.display()))?;
     let pattern_cc = regex::Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
         .context("Error building regex pattern for C++ compile command")?;
-    let makerule_2 = fs::read_to_string(&makefile_2)
+    let makerule_2 = fs::read_to_string(makefile_2)
         .context(format!(r#"Error reading file "{}""#, makefile_2.display()))?;
     let makerule_2_hacked = pattern_cc.replace_all(&makerule_2, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
-    fs::write(&makefile_2, makerule_2_hacked)?;
+    fs::write(makefile_2, makerule_2_hacked)?;
     println!(
-        "\r[{}/{}] INJECTING MKFILES...{}{}{:#}({} & {} MODIFIED)\x1B[0K",
+        "\r[{}/{}] INJECTING MKFILES...{}DONE{:#}({} & {} MODIFIED)\x1B[0K",
         step,
         NSTEPS,
         COLOR_ANSI_GRN,
-        "DONE",
         COLOR_ANSI_GRN,
         makefile_1.display(),
         makefile_2.display()
@@ -119,8 +118,8 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         bail!("Error pseudoly building: {:?}", status.code());
     }
     println!(
-        "\r[{}/{}] BUILDING PSEUDOLY...{}{}{:#}\x1B[0K",
-        step, NSTEPS, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
+        "\r[{}/{}] BUILDING PSEUDOLY...{}DONE{:#}\x1B[0K",
+        step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
     );
 
     // Restore the original makefiles
@@ -133,16 +132,13 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         makefile_2.display()
     );
     stdout.flush()?;
-    fs::write(&makefile_1, makerule_1)
-        .context(format!("Error writing {}", makefile_1.display()))?;
-    fs::write(&makefile_2, makerule_2)
-        .context(format!("Error writing {}", makefile_2.display()))?;
+    fs::write(makefile_1, makerule_1).context(format!("Error writing {}", makefile_1.display()))?;
+    fs::write(makefile_2, makerule_2).context(format!("Error writing {}", makefile_2.display()))?;
     println!(
-        "\r[{}/{}] RESTORING MKFILES...{}{}{:#}({} & {} RESTORED)\x1B[0K",
+        "\r[{}/{}] RESTORING MKFILES...{}DONE{:#}({} & {} RESTORED)\x1B[0K",
         step,
         NSTEPS,
         COLOR_ANSI_GRN,
-        "DONE",
         COLOR_ANSI_GRN,
         makefile_1.display(),
         makefile_2.display()
@@ -171,8 +167,8 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         });
     }
     println!(
-        "\r[{}/{}] PARSING BUILDLOG...{}{}{:#}\x1B[0K",
-        step, NSTEPS, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
+        "\r[{}/{}] PARSING BUILDLOG...{}DONE{:#}\x1B[0K",
+        step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
     );
 
     // Generate JCDB
@@ -192,8 +188,8 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         serde_json::to_string_pretty(&jcdb)?,
     )?;
     println!(
-        "\r[{}/{}] GENERATING JCDB...{}{}{:#}\x1B[0K",
-        step, NSTEPS, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
+        "\r[{}/{}] GENERATING JCDB...{}DONE{:#}\x1B[0K",
+        step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
     );
 
     Ok(())

@@ -94,8 +94,8 @@ pub fn clean_build() -> anyhow::Result<()> {
     }
     writeln!(
         stderr_lock,
-        "\r[{}/{}] CLEANING TARGET OBJS...{}{}{:#}\x1B[0K",
-        step, nsteps, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
+        "\r[{}/{}] CLEANING TARGET OBJS...{}DONE{:#}\x1B[0K",
+        step, nsteps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
     )?;
 
     // Clean unversioned entries
@@ -150,8 +150,8 @@ pub fn clean_build() -> anyhow::Result<()> {
         .count();
     writeln!(
         stderr_lock,
-        "\r[{}/{}] CLEANING UNVERSIONEDS...{}{}{:#}\x1B[0K",
-        step, nsteps, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN,
+        "\r[{}/{}] CLEANING UNVERSIONEDS...{}DONE{:#}\x1B[0K",
+        step, nsteps, COLOR_ANSI_GRN, COLOR_ANSI_GRN,
     )?;
 
     // Clean UI files
@@ -214,8 +214,8 @@ pub fn clean_build() -> anyhow::Result<()> {
 
         writeln!(
             stderr_lock,
-            "\r[{}/{}] CLEANING UI OBJS...{}{}{:#}\x1B[0K",
-            step, nsteps, COLOR_ANSI_GRN, "DONE", COLOR_ANSI_GRN
+            "\r[{}/{}] CLEANING UI OBJS...{}DONE{:#}\x1B[0K",
+            step, nsteps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
         )?;
     }
 
