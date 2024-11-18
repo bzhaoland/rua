@@ -189,7 +189,7 @@ enum Comm {
             value_name = "FILES",
             short = 'f',
             long = "files",
-            help = "Files to be reviewed",
+            help = "List of files seperated by commas to be reviewed",
             value_delimiter = ','
         )]
         files: Option<Vec<String>>,
@@ -348,7 +348,6 @@ async fn main() -> anyhow::Result<()> {
             repo_name,
             revisions,
         } => {
-            println!("{:?}", files.as_deref().unwrap());
             let options = review::ReviewOptions {
                 bug_id,
                 review_id,
