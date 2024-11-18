@@ -25,21 +25,6 @@ bitflags! {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum ImageServer {
-    Beijing,
-    Suzhou,
-}
-
-impl fmt::Display for ImageServer {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ImageServer::Beijing => write!(f, "Beijing"),
-            ImageServer::Suzhou => write!(f, "Suzhou"),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum DumpFormat {
     Csv,
     Json,
@@ -132,7 +117,7 @@ const COLOR_ANSI_YLW: anstyle::Style =
 pub fn gen_mkinfo(
     nickname: &str,
     makeflag: MakeFlag,
-    imageserver: Option<ImageServer>,
+    imageserver: Option<&str>,
 ) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
@@ -310,10 +295,7 @@ pub fn gen_mkinfo(
                 if makeflag.contains(MakeFlag::BUILD_MODE) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_UNIWEBUI) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::WITH_PASSWORD) { 1 } else { 0 },
-                imageserver.map_or("", |v| match v {
-                    ImageServer::Beijing => " OS_IMAGE_FTP_IP=10.100.6.10",
-                    ImageServer::Suzhou => " OS_IMAGE_FTP_IP=10.200.6.10",
-                }),
+                imageserver.map_or(String::new(), |v| format!(" OS_IMAGE_FTP_IP={}", v)),
                 imagename,
             );
             compile_infos.push(CompileInfo {

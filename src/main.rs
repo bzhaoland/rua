@@ -7,6 +7,7 @@ use std::str::FromStr;
 use anstyle::{Ansi256Color, Color, Style};
 use clap::builder::styling;
 use clap::{Parser, Subcommand};
+use url::Url;
 
 use crate::submods::clean;
 use crate::submods::compdb;
@@ -127,8 +128,8 @@ enum Comm {
         webui: bool,
 
         /// Server to upload the output image to
-        #[arg(short = 's', long = "image-server", value_name = "IMAGE-SERVER")]
-        image_server: Option<mkinfo::ImageServer>,
+        #[arg(short = 's', long = "image-server", value_name = "IMAGE-SERVER-IP")]
+        image_server: Option<String>,
 
         /// Product name, such as 'A1000'. Regex is also supported, e.g. 'X\d+80'
         #[arg(value_name = "PRODUCT-NAME")]
@@ -166,27 +167,33 @@ enum Comm {
         bin: PathBuf,
     },
 
-    /// Initiate a new review request or refresh an existing one
+    /// Launch a new review request if not given <bug-id> or flush the existing one
     Review {
         #[arg(
-            value_name = "BUG ID",
+            short = 'n',
+            long = "bug-id",
+            value_name = "BUG-ID",
             help = "The bug id used for this review request"
         )]
         bug_id: u32,
+
         #[arg(
-            value_name = "REVIEW ID",
+            value_name = "REVIEW-ID",
             short = 'r',
             long = "review-id",
             help = "The review id of an existing review request"
         )]
         review_id: Option<u32>,
+
         #[arg(
             value_name = "FILES",
             short = 'f',
             long = "files",
-            help = "Files to be reviewed"
+            help = "Files to be reviewed",
+            value_delimiter = ','
         )]
         files: Option<Vec<String>>,
+
         #[arg(
             value_name = "DIFF FILE",
             short = 'd',
@@ -194,6 +201,7 @@ enum Comm {
             help = "Diff files to be uploaded"
         )]
         diff_file: Option<String>,
+
         #[arg(
             value_name = "REVIEWERS",
             short = 'u',
@@ -201,6 +209,7 @@ enum Comm {
             help = "Reviewers"
         )]
         reviewers: Option<Vec<String>>,
+
         #[arg(
             value_name = "BRANCH",
             short = 'b',
@@ -208,6 +217,7 @@ enum Comm {
             help = "Branch name for this commit"
         )]
         branch_name: Option<String>,
+
         #[arg(
             value_name = "REPOSITORY NAME",
             short = 'p',
@@ -215,6 +225,7 @@ enum Comm {
             help = "Repository name"
         )]
         repo_name: Option<String>,
+
         #[arg(
             value_name = "REVISION",
             short = 's',
@@ -307,8 +318,14 @@ async fn main() -> anyhow::Result<()> {
             if coverity {
                 makeflag |= mkinfo::MakeFlag::WITH_COVERITY;
             }
-
-            let printinfos = mkinfo::gen_mkinfo(&prodname, makeflag, image_server)?;
+            if image_server.is_some() {
+                let url_str = image_server.as_deref().unwrap();
+                assert!(
+                    Url::parse(url_str).is_ok(),
+                    "Invalid URL specified as image server"
+                );
+            }
+            let printinfos = mkinfo::gen_mkinfo(&prodname, makeflag, image_server.as_deref())?;
 
             mkinfo::dump_mkinfo(&printinfos, outfmt)
         }
@@ -331,6 +348,7 @@ async fn main() -> anyhow::Result<()> {
             repo_name,
             revisions,
         } => {
+            println!("{:?}", files.as_deref().unwrap());
             let options = review::ReviewOptions {
                 bug_id,
                 review_id,

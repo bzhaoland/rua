@@ -68,17 +68,18 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     );
     stdout.flush()?;
     let pattern_c = regex::Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
-        .context("Error building regex pattern for matching the C compilation recipes")?;
+        .context("Error building regex pattern for C-oriented compile command")?;
     let makerule_1 = fs::read_to_string(makefile_1)?;
     let captures = pattern_c
         .captures(&makerule_1)
         .context("Error capturing pattern_c")?;
+    let makerule_c = captures.get(0).unwrap().as_str();
     let compile_command_c = captures.get(1).unwrap().as_str();
-    let makerule_1_hacked = pattern_c.replace_all(&makerule_1, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compile_command_c)).to_string();
+    let makerule_1_hacked = pattern_c.replace_all(&makerule_1, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", makerule_c, compile_command_c)).to_string();
     fs::write(makefile_1, makerule_1_hacked)
         .context(format!(r#"Error writing file "{}""#, makefile_1.display()))?;
     let pattern_cc = regex::Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
-        .context("Error building regex pattern for C++ compile command")?;
+        .context("Error building regex pattern for C++-oriented compile command")?;
     let makerule_2 = fs::read_to_string(makefile_2)
         .context(format!(r#"Error reading file "{}""#, makefile_2.display()))?;
     let makerule_2_hacked = pattern_cc.replace_all(&makerule_2, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
