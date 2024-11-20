@@ -98,22 +98,23 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     step += 1;
     print!("[{}/{}] BUILDING PSEUDOLY...", step, NSTEPS);
     stdout.flush()?;
-    let output = process::Command::new("hsdocker7")
-        .args([
-            "make",
-            "-C",
-            make_directory,
-            make_target,
-            "-j8",
-            "-iknwB", // For pseudo building forcefully
-            "HS_BUILD_COVERITY=0",
-            "ISBUILDRELEASE=1",
-            "HS_BUILD_UNIWEBUI=0",
-            "HS_SHELL_PASSWORD=0",
-            "IMG_NAME=RUAIHA",
-        ])
+    let mut prog = process::Command::new("hsdocker7");
+    let cmd = &mut prog.args([
+        "make",
+        "-C",
+        make_directory,
+        make_target,
+        "-j8",
+        "-iknwB", // pseudo building
+        "HS_BUILD_COVERITY=0",
+        "ISBUILDRELEASE=1",
+        "HS_BUILD_UNIWEBUI=0",
+        "HS_SHELL_PASSWORD=0",
+        "IMG_NAME=RUA.DUMMY",
+    ]);
+    let output = cmd
         .output()
-        .context("Command `hsdocker7 make ...` failed")?;
+        .context("Failed to perform `hsdocker7 make ...`")?;
     let status = output.status;
     if !status.success() {
         bail!("Error pseudoly building: {:?}", status.code());

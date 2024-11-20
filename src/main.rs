@@ -1,6 +1,7 @@
 mod submods;
 mod utils;
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -51,18 +52,39 @@ const STYLES: styling::Styles = styling::Styles::styled()
 struct Cli {
     #[command(subcommand)]
     command: Comm,
+
+    #[arg(short = 'd', long = "debug", help = "Enable debug option")]
+    debug: bool,
 }
 
 #[derive(Subcommand)]
 enum Comm {
     /// Clean build files (run under project root)
-    Clean,
+    #[command(after_help = format!("{CLAP_COLOR_HEADER}Examples:{CLAP_COLOR_HEADER:#}
+  rua clean  # Clean the entire project"))]
+    Clean {
+        #[arg(
+            short = 't',
+            long = "dirs",
+            value_name = "DIRECTORIES",
+            help = "List of directories seperated by commas to be cleaned ('target' is always included even if not specified)"
+        )]
+        dirs: Option<Vec<OsString>>,
+
+        #[arg(
+            short = 'n',
+            long = "ignores",
+            value_name = "IGNORES",
+            help = "List files and directories seperated by commas to be ignored"
+        )]
+        ignores: Option<Vec<OsString>>,
+    },
 
     /// Generate JSON Compilation Database for a specific target, such as a-dnv/a-dnv-ipv6
     #[command(after_help = format!(r#"{CLAP_COLOR_HEADER}Examples:{CLAP_COLOR_HEADER:#}
-  rua compdb products/ngfw_as a-dnv       # For A1000/A1100/A2000...
-  rua compdb products/ngfw_as a-dnv-ipv6  # For A1000/A1100/A2000... with IPv6 enabled
-  rua compdb products/ngfw_as kunlun-ipv6 # For X20803/X20812... with IPv6 enabled
+  rua compdb products/ngfw_as a-dnv        # For A1000/A1100/A2000...
+  rua compdb products/ngfw_as a-dnv-ipv6   # For A1000/A1100/A2000... with IPv6 enabled
+  rua compdb products/ngfw_as kunlun-ipv6  # For X20803/X20812... with IPv6 enabled
 
 {CLAP_COLOR_CAUTION}Caution:{CLAP_COLOR_CAUTION:#}
   This command would modify two files named "scripts/last-rules.mk" and "scripts/rules.mk"
@@ -81,9 +103,9 @@ enum Comm {
 
     /// Get all matched makeinfos for product
     #[command(after_help = format!(r#"{CLAP_COLOR_HEADER}Examples:{CLAP_COLOR_HEADER:#}
-  rua mkinfo A1000    # With only IPv4 enabled
-  rua mkinfo -6 A1000 # With both IPv4 and IPv6 enabled
-  rua mkinfo 'A\d+'   # Regex pattern for X-platform"#))]
+  rua mkinfo A1000     # With only IPv4 enabled
+  rua mkinfo -6 A1000  # With both IPv4 and IPv6 enabled
+  rua mkinfo 'A\d+'    # Regex pattern for X-products"#))]
     Mkinfo {
         #[arg(
             short = '4',
@@ -195,7 +217,7 @@ enum Comm {
         files: Option<Vec<String>>,
 
         #[arg(
-            value_name = "DIFF FILE",
+            value_name = "DIFF-FILE",
             short = 'd',
             long = "diff-file",
             help = "Diff files to be uploaded"
@@ -219,7 +241,7 @@ enum Comm {
         branch_name: Option<String>,
 
         #[arg(
-            value_name = "REPOSITORY NAME",
+            value_name = "REPO-NAME",
             short = 'p',
             long = "repo-name",
             help = "Repository name"
@@ -238,7 +260,7 @@ enum Comm {
     /// Show all possible compile commands for filename (based on compilation database)
     Showcc {
         #[arg(
-            value_name = "SOURCE-FILE-NAME",
+            value_name = "SOURCE-FILE",
             help = "Source file name for which to fetch all the available compile commands"
         )]
         compilation_unit: String,
@@ -272,7 +294,7 @@ async fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Comm::Clean => clean::clean_build(),
+        Comm::Clean { dirs, ignores } => clean::clean_build(dirs, ignores, args.debug),
         Comm::Compdb {
             product_dir,
             make_target,
