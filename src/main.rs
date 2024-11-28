@@ -47,7 +47,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
     styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
-    after_help = r#"Contact bzhao when encountering bugs. "#
+    after_help = r#"Contact bzhao@hillstonenet.com when encountered bugs. "#
 )]
 struct Cli {
     #[command(subcommand)]
@@ -87,12 +87,11 @@ enum Comm {
   rua compdb products/ngfw_as kunlun-ipv6  # For X20803/X20812... with IPv6 enabled
 
 {CLAP_COLOR_CAUTION}Caution:{CLAP_COLOR_CAUTION:#}
-  Two files named "scripts/last-rules.mk" and "scripts/rules.mk" will be hacked while
-  while running. When the command succedded, those two files will be automatically
-  restored. But when the process aborted unexpectedly, the two files may left as was
-  modified. Therefore, you have to check them to ensure that they were correctly restored.
-  If they were not, you can perform `svn revert scripts/last-rules.mk scripts/rules.mk`
-  to manually restore them."#))]
+  Two files (scripts/last-rules.mk and scripts/rules.mk) will be hacked while running.
+  If the command succedded, they would be automatically restored. However, if it aborted
+  unexpectedly, these two files would be left as they were modified. So, you have to
+  them to ensure that they are correctly restored. To manually restore them, you can
+  execute command `svn revert scripts/last-rules.mk scripts/rules.mk`."#))]
     Compdb {
         #[arg(
             value_name = "PATH",
