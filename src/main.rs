@@ -44,7 +44,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.14.0",
+    version = "0.15.0",
     styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
@@ -65,10 +65,8 @@ enum Comm {
   rua clean  # Clean the entire project"))]
     Clean {
         #[arg(
-            short = 't',
-            long = "dirs",
             value_name = "DIRECTORIES",
-            help = "List of directories seperated by commas to be cleaned ('target' is always included even if not specified)"
+            help = "List of directories to clean ('target' is always included even if not specified)"
         )]
         dirs: Option<Vec<OsString>>,
 
