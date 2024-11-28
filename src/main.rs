@@ -18,26 +18,27 @@ use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
 
-const CLAP_COLOR_HEADER: Style = Style::new()
+const CLAP_STYLE_HEADER: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
-const CLAP_COLOR_USAGE: Style = Style::new()
+const CLAP_STYLE_USAGE: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
-const CLAP_COLOR_LITERAL: Style = Style::new()
+const CLAP_STYLE_LITERAL: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(2))))
     .bold();
-const CLAP_COLOR_PLACEHOLDER: Style = Style::new()
+const CLAP_STYLE_PLACEHOLDER: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(6))))
     .bold();
-const CLAP_COLOR_CAUTION: Style = Style::new()
+const CLAP_STYLE_CAUTION: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(1))))
     .bold();
+const CLAP_STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 const STYLES: styling::Styles = styling::Styles::styled()
-    .header(CLAP_COLOR_HEADER)
-    .usage(CLAP_COLOR_USAGE)
-    .literal(CLAP_COLOR_LITERAL)
-    .placeholder(CLAP_COLOR_PLACEHOLDER);
+    .header(CLAP_STYLE_HEADER)
+    .usage(CLAP_STYLE_USAGE)
+    .literal(CLAP_STYLE_LITERAL)
+    .placeholder(CLAP_STYLE_PLACEHOLDER);
 
 #[derive(Parser)]
 #[command(
@@ -47,7 +48,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
     styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
-    after_help = r#"Contact bzhao@hillstonenet.com when encountered bugs. "#
+    after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs. "#
 )]
 struct Cli {
     #[command(subcommand)]
@@ -60,7 +61,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Comm {
     /// Clean build files (run under project root)
-    #[command(after_help = format!("{CLAP_COLOR_HEADER}Examples:{CLAP_COLOR_HEADER:#}
+    #[command(after_help = format!("{CLAP_STYLE_HEADER}Examples:{CLAP_STYLE_HEADER:#}
   rua clean  # Clean the entire project"))]
     Clean {
         #[arg(
@@ -81,17 +82,17 @@ enum Comm {
     },
 
     /// Generate JSON Compilation Database for a specific target, such as a-dnv/a-dnv-ipv6
-    #[command(after_help = format!(r#"{CLAP_COLOR_HEADER}Examples:{CLAP_COLOR_HEADER:#}
+    #[command(after_help = format!(r#"{CLAP_STYLE_HEADER}Examples:{CLAP_STYLE_HEADER:#}
   rua compdb products/ngfw_as a-dnv        # For A1000/A1100/A2000...
   rua compdb products/ngfw_as a-dnv-ipv6   # For A1000/A1100/A2000... with IPv6 enabled
   rua compdb products/ngfw_as kunlun-ipv6  # For X20803/X20812... with IPv6 enabled
 
-{CLAP_COLOR_CAUTION}Caution:{CLAP_COLOR_CAUTION:#}
+{CLAP_STYLE_CAUTION}Caution:{CLAP_STYLE_CAUTION:#}
   Two files (scripts/last-rules.mk and scripts/rules.mk) will be hacked while running.
   If the command succedded, they would be automatically restored. However, if it aborted
-  unexpectedly, these two files would be left as they were modified. So, you have to
-  them to ensure that they are correctly restored. To manually restore them, you can
-  execute command `svn revert scripts/last-rules.mk scripts/rules.mk`."#))]
+  unexpectedly, they would be left modified. So, you have to them to ensure that they are
+  correctly restored. To manually restore them, you can execute the following command:
+  {CLAP_STYLE_YELLOW}svn revert scripts/last-rules.mk scripts/rules.mk{CLAP_STYLE_YELLOW:#}"#))]
     Compdb {
         #[arg(
             value_name = "PATH",
@@ -103,7 +104,7 @@ enum Comm {
     },
 
     /// Get all matched makeinfos for product
-    #[command(after_help = format!(r#"{CLAP_COLOR_HEADER}Examples:{CLAP_COLOR_HEADER:#}
+    #[command(after_help = format!(r#"{CLAP_STYLE_HEADER}Examples:{CLAP_STYLE_HEADER:#}
   rua mkinfo A1000     # With only IPv4 enabled
   rua mkinfo -6 A1000  # With both IPv4 and IPv6 enabled
   rua mkinfo 'A\d+'    # Regex pattern for X-products"#))]
@@ -159,7 +160,7 @@ enum Comm {
         prodname: String,
     },
 
-    /// Extensively map instructions to file&locations (inline expanded)
+    /// Extensively map instructions to file locations (inline expanded)
     Perfan {
         #[arg(help = "File to process (perf annotate output)", value_name = "FILE")]
         file: PathBuf,
