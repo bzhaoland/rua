@@ -67,22 +67,34 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         makefile_2.display()
     );
     stdout.flush()?;
+
     let pattern_c = regex::Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
-        .context("Error building regex pattern for C-oriented compile command")?;
-    let makerule_1 = fs::read_to_string(makefile_1)?;
+        .context("Failed to build regex pattern for C-oriented compile command")?;
+    let maketext_1 = fs::read_to_string(makefile_1)?;
     let captures = pattern_c
-        .captures(&makerule_1)
-        .context("Error capturing pattern_c")?;
-    let makerule_c = captures.get(0).unwrap().as_str();
-    let compile_command_c = captures.get(1).unwrap().as_str();
-    let makerule_1_hacked = pattern_c.replace_all(&makerule_1, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", makerule_c, compile_command_c)).to_string();
-    fs::write(makefile_1, makerule_1_hacked)
-        .context(format!(r#"Error writing file "{}""#, makefile_1.display()))?;
-    let pattern_cc = regex::Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
-        .context("Error building regex pattern for C++-oriented compile command")?;
-    let makerule_2 = fs::read_to_string(makefile_2)
-        .context(format!(r#"Error reading file "{}""#, makefile_2.display()))?;
-    let makerule_2_hacked = pattern_cc.replace_all(&makerule_2, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
+        .captures(&maketext_1)
+        .context(format!("Failed to capture pattern {}", pattern_c.as_str()))?;
+    let compline_c = captures.get(0).unwrap().as_str();
+    let compcomm_c = captures.get(1).unwrap().as_str();
+    let makerule_1_hacked = pattern_c.replace_all(&maketext_1, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_c, compcomm_c)).to_string();
+    fs::write(makefile_1, makerule_1_hacked).context(format!(
+        r#"Writing to file "{}" failed"#,
+        makefile_1.display()
+    ))?;
+
+    let pattern_cc =
+        regex::Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(COMPILE_CXX_CP_E\))[[:blank:]]*$"#)
+            .context("Building regex pattern for C++ compile command failed")?;
+    let maketext_2 = fs::read_to_string(makefile_2)
+        .context(format!(r#"Reading file "{}" failed"#, makefile_2.display()))?;
+    let captures = pattern_cc.captures(&maketext_2).context(format!(
+        r#"Capturing pattern "{}" failed"#,
+        pattern_cc.as_str()
+    ))?;
+    let compline_cxx = captures.get(0).unwrap().as_str();
+    let compcomm_cxx = captures.get(1).unwrap().as_str();
+    let makerule_2_hacked = pattern_cc.replace_all(&maketext_2, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_cxx, compcomm_cxx)).to_string();
+
     fs::write(makefile_2, makerule_2_hacked)?;
     println!(
         "\r[{}/{}] INJECTING MKFILES...{}DONE{:#}({} & {} MODIFIED)\x1B[0K",
@@ -94,7 +106,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         makefile_2.display()
     );
 
-    // Build the target (pseudo)
+    // Build the target (pseudoly)
     step += 1;
     print!("[{}/{}] BUILDING PSEUDOLY...", step, NSTEPS);
     stdout.flush()?;
@@ -117,7 +129,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         .context("Failed to perform `hsdocker7 make ...`")?;
     let status = output.status;
     if !status.success() {
-        bail!("Error pseudoly building: {:?}", status.code());
+        bail!("Pseudo building failed: {:?}", status.code());
     }
     println!(
         "\r[{}/{}] BUILDING PSEUDOLY...{}DONE{:#}\x1B[0K",
@@ -134,8 +146,10 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         makefile_2.display()
     );
     stdout.flush()?;
-    fs::write(makefile_1, makerule_1).context(format!("Error writing {}", makefile_1.display()))?;
-    fs::write(makefile_2, makerule_2).context(format!("Error writing {}", makefile_2.display()))?;
+    fs::write(makefile_1, maketext_1)
+        .context(format!(r#"Restoring "{}" failed"#, makefile_1.display()))?;
+    fs::write(makefile_2, maketext_2)
+        .context(format!(r#"Restoring "{}" failed"#, makefile_2.display()))?;
     println!(
         "\r[{}/{}] RESTORING MKFILES...{}DONE{:#}({} & {} RESTORED)\x1B[0K",
         step,

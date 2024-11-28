@@ -114,6 +114,7 @@ pub fn clean_build(
     step += 1;
     eprint!("[{}/{}] LISTING UNVERSIONEDS...", step, nsteps);
     io::stderr().flush()?;
+
     let dirs: Vec<OsString> = dirs.unwrap_or_default();
     let output = Command::new("svn")
         .arg("status")

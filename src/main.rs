@@ -87,10 +87,12 @@ enum Comm {
   rua compdb products/ngfw_as kunlun-ipv6  # For X20803/X20812... with IPv6 enabled
 
 {CLAP_COLOR_CAUTION}Caution:{CLAP_COLOR_CAUTION:#}
-  This command would modify two files named "scripts/last-rules.mk" and "scripts/rules.mk"
-  respectively temporarily while running. You may have to confirm that they are restored
-  correctly if this command was interrupted unexpectedly. When the are not, you can execute 
-  `svn revert ...` or perform other operations to restore them mannualy."#))]
+  Two files named "scripts/last-rules.mk" and "scripts/rules.mk" will be hacked while
+  while running. When the command succedded, those two files will be automatically
+  restored. But when the process aborted unexpectedly, the two files may left as was
+  modified. Therefore, you have to check them to ensure that they were correctly restored.
+  If they were not, you can perform `svn revert scripts/last-rules.mk scripts/rules.mk`
+  to manually restore them."#))]
     Compdb {
         #[arg(
             value_name = "PATH",
@@ -207,13 +209,7 @@ enum Comm {
         )]
         review_id: Option<u32>,
 
-        #[arg(
-            value_name = "FILES",
-            short = 'f',
-            long = "files",
-            help = "List of files seperated by commas to be reviewed",
-            value_delimiter = ','
-        )]
+        #[arg(value_name = "FILES", help = "List of files be reviewed")]
         files: Option<Vec<String>>,
 
         #[arg(
@@ -241,9 +237,9 @@ enum Comm {
         branch_name: Option<String>,
 
         #[arg(
-            value_name = "REPO-NAME",
+            value_name = "REPO",
             short = 'p',
-            long = "repo-name",
+            long = "repo",
             help = "Repository name"
         )]
         repo_name: Option<String>,
