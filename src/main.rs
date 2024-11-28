@@ -74,7 +74,7 @@ enum Comm {
             short = 'n',
             long = "ignores",
             value_name = "IGNORES",
-            help = "List files and directories seperated by commas to be ignored"
+            help = "List of files and directories seperated by commas to be ignored"
         )]
         ignores: Option<Vec<OsString>>,
     },
