@@ -33,7 +33,7 @@ const CLAP_STYLE_PLACEHOLDER: Style = Style::new()
 const CLAP_STYLE_CAUTION: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(1))))
     .bold();
-const CLAP_STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
+const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 const STYLES: styling::Styles = styling::Styles::styled()
     .header(CLAP_STYLE_HEADER)
     .usage(CLAP_STYLE_USAGE)
@@ -80,17 +80,24 @@ enum Comm {
     },
 
     /// Generate JSON Compilation Database for a specific target, such as a-dnv/a-dnv-ipv6
-    #[command(after_help = format!(r#"{CLAP_STYLE_HEADER}Examples:{CLAP_STYLE_HEADER:#}
+    #[command(after_help = format!(
+        r#"{}Examples:{:#}
   rua compdb products/ngfw_as a-dnv        # For A1000/A1100/A2000...
   rua compdb products/ngfw_as a-dnv-ipv6   # For A1000/A1100/A2000... with IPv6 enabled
   rua compdb products/ngfw_as kunlun-ipv6  # For X20803/X20812... with IPv6 enabled
 
-{CLAP_STYLE_CAUTION}Caution:{CLAP_STYLE_CAUTION:#}
-  Two files (scripts/last-rules.mk and scripts/rules.mk) will be hacked while running.
-  If the command succedded, they would be automatically restored. However, if it aborted
-  unexpectedly, they would be left modified. So, you have to them to ensure that they are
-  correctly restored. To manually restore them, you can execute the following command:
-  {CLAP_STYLE_YELLOW}svn revert scripts/last-rules.mk scripts/rules.mk{CLAP_STYLE_YELLOW:#}"#))]
+{}Caution:{:#}
+  Two files (scripts/last-rules.mk and scripts/rules.mk) will be hacked for
+  running. They will be automatically restored if the command succeeded.
+  Otherwise, they will be left hacked. You may use the following command to
+  manually restore them:
+  {}svn revert scripts/last-rules.mk scripts/rules.mk{:#}"#,
+      CLAP_STYLE_HEADER,
+      CLAP_STYLE_HEADER,
+      CLAP_STYLE_CAUTION,
+      CLAP_STYLE_CAUTION,
+      STYLE_YELLOW,
+      STYLE_YELLOW))]
     Compdb {
         #[arg(
             value_name = "PATH",
@@ -139,7 +146,7 @@ enum Comm {
 
         /// Output format
         #[arg(long = "outfmt", default_value = "list", value_name = "OUTPUT-FORMAT")]
-        outfmt: mkinfo::DumpFormat,
+        output_format: mkinfo::DumpFormat,
 
         /// Build with password
         #[arg(short = 'p', long = "password", default_value_t = false)]
@@ -154,8 +161,8 @@ enum Comm {
         image_server: Option<String>,
 
         /// Product name, such as 'A1000'. Regex is also supported, e.g. 'X\d+80'
-        #[arg(value_name = "PRODUCT-NAME")]
-        prodname: String,
+        #[arg(value_name = "PRODUCT")]
+        product_name: String,
     },
 
     /// Extensively map instructions to file locations (inline expanded)
@@ -312,11 +319,11 @@ async fn main() -> anyhow::Result<()> {
             ipv4: _,
             ipv6,
             password,
-            prodname,
+            product_name,
             debug,
             webui,
             image_server,
-            outfmt,
+            output_format,
         } => {
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
@@ -341,9 +348,9 @@ async fn main() -> anyhow::Result<()> {
                     "Invalid URL specified as image server"
                 );
             }
-            let printinfos = mkinfo::gen_mkinfo(&prodname, makeflag, image_server.as_deref())?;
+            let printinfos = mkinfo::gen_mkinfo(&product_name, makeflag, image_server.as_deref())?;
 
-            mkinfo::dump_mkinfo(&printinfos, outfmt)
+            mkinfo::dump_mkinfo(&printinfos, output_format)
         }
         Comm::Perfan {
             file,

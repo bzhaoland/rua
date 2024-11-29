@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::fs;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 
 use anyhow::{self, bail, Context};
 use bitflags::bitflags;
@@ -318,13 +318,13 @@ fn dump_csv(infos: &[CompileInfo]) -> anyhow::Result<()> {
     let mut writer = csv::Writer::from_writer(std::io::stdout());
 
     writer.write_record([
-        "ProductName",
-        "ProductModel",
-        "ProductFamily",
-        "PlatformModel",
-        "MakeGoal",
-        "MakeDirectory",
-        "MakeCommand",
+        "Product",
+        "Model",
+        "Family",
+        "Platform",
+        "Goal",
+        "Directory",
+        "Command",
     ])?;
     for info in infos.iter() {
         writer.write_record([
@@ -347,13 +347,13 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     let mut output: Value = json!([]);
     for item in compile_infos.iter() {
         output.as_array_mut().unwrap().push(json!({
-            "ProductName": item.product_name,
-            "ProductModel": item.product_name,
-            "ProductFamily": item.product_family,
+            "Product": item.product_name,
+            "Model": item.product_name,
+            "Family": item.product_family,
             "Platform": item.platform_model,
-            "MakeGoal": item.make_goal,
-            "MakePath": item.make_directory,
-            "MakeCommand": item.make_command,
+            "Goal": item.make_goal,
+            "Directory": item.make_directory,
+            "Command": item.make_command,
         }));
     }
     println!("{}", serde_json::to_string_pretty(&output)?);
@@ -363,7 +363,7 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
 
 fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     // Style control
-    let term_cols = terminal::window_size()?.columns;
+    let decor_width = terminal::window_size()?.columns;
 
     if compile_infos.is_empty() {
         println!("No matched info.");
@@ -374,48 +374,44 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     let outer_decor = format!(
         "{}{}{:#}",
         COLOR_ANSI_GRN,
-        "=".repeat(term_cols as usize),
+        "=".repeat(decor_width as usize),
         COLOR_ANSI_GRN
     );
     let inner_decor = format!(
         "{}{}{:#}",
         COLOR_ANSI_GRN,
-        "-".repeat(term_cols as usize),
+        "-".repeat(decor_width as usize),
         COLOR_ANSI_GRN
     );
 
-    let mut stdout_lock = io::stdout().lock();
-    writeln!(
-        stdout_lock,
+    println!(
         "{} matched info{}:",
         compile_infos.len(),
         if compile_infos.len() > 1 { "s" } else { "" }
-    )?;
+    );
 
-    writeln!(stdout_lock, "{}", outer_decor)?;
+    println!("{}", outer_decor);
     for (idx, item) in compile_infos.iter().enumerate() {
-        writeln!(stdout_lock, "ProductName   : {}", item.product_name)?;
-        writeln!(stdout_lock, "ProductModel  : {}", item.product_model)?;
-        writeln!(stdout_lock, "ProductFamily : {}", item.product_family)?;
-        writeln!(stdout_lock, "Platform      : {}", item.platform_model)?;
-        writeln!(stdout_lock, "MakeGoal      : {}", item.make_goal)?;
-        writeln!(stdout_lock, "MakeDirectory : {}", item.make_directory)?;
-        writeln!(stdout_lock, "MakeCommand   : {}", item.make_command)?;
+        println!("Product   : {}", item.product_name);
+        println!("Model     : {}", item.product_model);
+        println!("Family    : {}", item.product_family);
+        println!("Platform  : {}", item.platform_model);
+        println!("Goal      : {}", item.make_goal);
+        println!("Directory : {}", item.make_directory);
+        println!("Command   : {}", item.make_command);
 
         if idx < compile_infos.len() - 1 {
-            writeln!(stdout_lock, "{}", inner_decor)?;
+            println!("{}", inner_decor);
         }
     }
-    writeln!(stdout_lock, "{}", outer_decor)?;
+    println!("{}", outer_decor);
 
-    writeln!(
-        stdout_lock,
+    println!(
         r#"{}Run make command under the project root, i.e. "{}"{:#}"#,
         COLOR_ANSI_YLW,
         utils::SvnInfo::new()?.working_copy_root_path().display(),
         COLOR_ANSI_YLW
-    )?;
-    stdout_lock.flush()?;
+    );
 
     anyhow::Ok(())
 }
@@ -427,13 +423,13 @@ fn dump_tsv(infos: &[CompileInfo]) -> anyhow::Result<()> {
         .from_writer(std::io::stdout());
 
     writer.write_record([
-        "ProductName",
-        "ProductModel",
-        "ProductFamily",
+        "Product",
+        "Model",
+        "Family",
         "Platform",
-        "MakeGoal",
-        "MakeDirectory",
-        "MakeCommand",
+        "Goal",
+        "Directory",
+        "Command",
     ])?;
     for info in infos.iter() {
         writer.write_record([
