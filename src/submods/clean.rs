@@ -1,89 +1,85 @@
 use std::ffi::OsString;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 use std::{env, fs};
 
-use anyhow::{bail, Context};
+use anstyle::{AnsiColor, Color, Style};
+use anyhow::{anyhow, bail, Context};
 use std::time::Instant;
 
 use crate::utils::SvnInfo;
 
-const COLOR_ANSI_YLW: anstyle::Style =
-    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow)));
-const COLOR_ANSI_GRN: anstyle::Style =
-    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
+const COLOR_ANSI_YLW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
+const COLOR_ANSI_GRN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
+
+fn trucate_string(s: &str, l: usize) -> String {
+    s.chars().rev().take(l).collect()
+}
 
 pub fn clean_build(
     dirs: Option<Vec<OsString>>,
-    ignores: Option<Vec<OsString>>,
+    ignores: Option<&Vec<OsString>>,
     debug: bool,
 ) -> anyhow::Result<()> {
-    let svninfo = SvnInfo::new()?;
-    let proj_root = svninfo.working_copy_root_path();
-    let current_dir = env::current_dir()?;
+    let svn_info = SvnInfo::new()?;
+    let proj_dir = svn_info.working_copy_root_path();
+    let curr_dir = env::current_dir()?;
 
     // Must run under the project root
-    if current_dir.as_path() != proj_root {
-        anyhow::bail!(
-            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
-            proj_root.display()
+    if curr_dir.as_path() != proj_dir {
+        bail!(
+            r#"Location error! Please run this command under the project root, i.e. "{}"."#,
+            proj_dir.display()
         );
     }
 
-    let ignores: Vec<PathBuf> = ignores
-        .as_deref()
-        .unwrap_or(&Vec::new())
-        .iter()
-        .filter_map(|x| {
-            let entry = Path::new(x);
-            fs::canonicalize(entry).ok()
+    let ignores = ignores
+        .map(|x| {
+            x.iter()
+                .filter_map(|p| fs::canonicalize(p).ok())
+                .collect::<Vec<PathBuf>>()
         })
-        .collect();
+        .unwrap_or_default();
 
-    let nsteps: usize = if Path::new(svninfo.branch_name()).is_dir() {
-        3
-    } else {
-        2
-    };
-    let mut step: usize = 1;
+    let num_steps = 3;
+    let mut step: usize = 0;
+    const REFRESH_INTERVAL: u128 = 50; // In milliseconds
 
     // Cleaning the objects generated in building process
-    eprint!("[{}/{}] CLEANING TARGET OBJS...", step, nsteps);
+    step += 1;
+    eprint!("[{}/{}] CLEANING TARGET OBJS...", step, num_steps);
     io::stderr().flush()?;
 
     let mut prev_time = Instant::now();
-    let target_dir = Path::new("target");
-    if target_dir.is_dir() {
-        for (i, x) in walkdir::WalkDir::new(target_dir)
-            .contents_first(true)
-            .into_iter()
-            .filter(|x| {
-                if x.is_err() {
-                    return false;
-                }
-                let x = x.as_ref().unwrap();
-                let entry = x.path();
-                !ignores.iter().any(|x| x.as_path() == entry)
-            })
-            .enumerate()
-        {
-            let path_ = x.as_ref().unwrap().path();
-
-            if debug {
-                eprintln!("REMOVING {}", path_.display());
+    let target_dir = fs::canonicalize("target")?;
+    for (i, x) in walkdir::WalkDir::new(target_dir)
+        .contents_first(true)
+        .into_iter()
+        .filter(|x| {
+            if x.is_err() {
+                return false;
             }
+            let x = x.as_ref().unwrap();
+            let entry = x.path();
 
+            ignores.iter().all(|x| x.as_path() != entry)
+        })
+        .enumerate()
+    {
+        let entry = x?;
+        let path_ = entry.path();
+
+        if debug {
+            eprintln!("REMOVING {}", path_.display());
+        } else {
             let curr_time = Instant::now();
-            let delta = curr_time - prev_time;
-            prev_time = curr_time;
-            if delta.as_millis() >= 200 {
-                let mut file_indicator = path_.to_string_lossy().to_string();
-                file_indicator.truncate(32);
+            if debug || (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
+                let file_indicator = trucate_string(&path_.to_string_lossy(), 32);
                 eprint!(
                     "\r[{}/{}] CLEANING TARGET OBJS...{}{}{:#}: {}{}...{:#}...\x1B[0K",
                     step,
-                    nsteps,
+                    num_steps,
                     COLOR_ANSI_YLW,
                     i + 1,
                     COLOR_ANSI_YLW,
@@ -91,28 +87,26 @@ pub fn clean_build(
                     file_indicator,
                     COLOR_ANSI_GRN
                 );
-                io::stderr().flush().unwrap();
+                io::stderr().flush()?;
+                prev_time = curr_time;
             }
+        }
 
-            if path_.is_file() || path_.is_symlink() {
-                fs::remove_file(path_)
-                    .context(format!("Error removing file {}", path_.display()))
-                    .unwrap();
-            } else if path_.is_dir() {
-                fs::remove_dir_all(path_)
-                    .context(format!("Error removing directory {}", path_.display()))
-                    .unwrap();
-            }
+        if path_.is_file() || path_.is_symlink() {
+            fs::remove_file(path_).context(format!("Error removing file {}", path_.display()))?;
+        } else if path_.is_dir() {
+            fs::remove_dir_all(path_)
+                .context(format!("Error removing directory {}", path_.display()))?;
         }
     }
     eprintln!(
         "\r[{}/{}] CLEANING TARGET OBJS...{}DONE{:#}\x1B[0K",
-        step, nsteps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
+        step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
     );
 
     // Clean unversioned entries
     step += 1;
-    eprint!("[{}/{}] LISTING UNVERSIONEDS...", step, nsteps);
+    eprint!("[{}/{}] LISTING UNVERSIONEDS...", step, num_steps);
     io::stderr().flush()?;
 
     let dirs: Vec<OsString> = dirs.unwrap_or_default();
@@ -132,43 +126,99 @@ pub fn clean_build(
         );
     }
 
-    let pattern_file = regex::Regex::new(r#"(?m)^\?[[:blank:]]+(.+?)[[:space:]]*$"#)
-        .context("Error creating regex pattern")?;
-    let output_str = String::from_utf8(output.stdout)
-        .context(anyhow::anyhow!("Error converting to `String` type"))?;
-    let mut filelist = Vec::new();
-    for (_, [file]) in pattern_file.captures_iter(&output_str).map(|c| c.extract()) {
-        filelist.push(file.to_string());
-    }
+    let pattern_for_unversioneds =
+        regex::Regex::new(r#"(?m)^\?[[:blank:]]+([^[:blank:]].*?)[[:space:]]*$"#)
+            .context("Error creating regex pattern")?; // Pattern for out-of-control files
+    let output_str =
+        String::from_utf8(output.stdout).context(anyhow!("Error converting to `String` type"))?;
+    let unversioned_files = pattern_for_unversioneds
+        .captures_iter(&output_str)
+        .filter_map(|c| fs::canonicalize((c.extract::<1>().1)[0]).ok())
+        .filter(|x| ignores.iter().all(|i| x != i))
+        .collect::<Vec<PathBuf>>();
 
     let mut prev_time = Instant::now();
-    for (idx, item) in filelist.iter().enumerate() {
-        let curr_time = Instant::now();
-        let delta = curr_time - prev_time;
-        prev_time = curr_time;
-
-        if delta.as_millis() >= 200 {
-            eprint!(
-                "\r[{}/{}] CLEANING UNVERSIONEDS...{}{}{:#}/{}{}{:#}: {}{}{:#}\x1B[0K",
-                step,
-                nsteps,
-                COLOR_ANSI_GRN,
-                idx,
-                COLOR_ANSI_GRN,
-                COLOR_ANSI_YLW,
-                filelist.len(),
-                COLOR_ANSI_YLW,
-                COLOR_ANSI_GRN,
-                item,
-                COLOR_ANSI_GRN
-            );
-            io::stderr().flush()?;
+    for (idx, item) in unversioned_files.iter().enumerate() {
+        if debug {
+            eprintln!("REMOVING {}", item.display());
+        } else {
+            let curr_time = Instant::now();
+            if (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
+                eprint!(
+                    "\r[{}/{}] CLEANING UNVERSIONEDS...{}{}{:#}/{}{}{:#}: {}{}{:#}\x1B[0K",
+                    step,
+                    num_steps,
+                    COLOR_ANSI_GRN,
+                    idx,
+                    COLOR_ANSI_GRN,
+                    COLOR_ANSI_YLW,
+                    unversioned_files.len(),
+                    COLOR_ANSI_YLW,
+                    COLOR_ANSI_GRN,
+                    trucate_string(&item.to_string_lossy(), 32),
+                    COLOR_ANSI_GRN
+                );
+                io::stderr().flush()?;
+                prev_time = curr_time;
+            }
         }
 
-        let path_ = Path::new(item);
+        if item.is_file() || item.is_symlink() {
+            fs::remove_file(item).context(format!("Error removing file {}", item.display()))?;
+        } else if item.is_dir() {
+            fs::remove_dir_all(item)
+                .context(format!("Error removing directory {}", item.display()))?;
+        }
+    }
+    eprintln!(
+        "\r[{}/{}] CLEANING UNVERSIONEDS...{}DONE{:#}\x1B[0K",
+        step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN,
+    );
+
+    // Clean UI files
+    step += 1;
+    eprint!("[{}/{}] CLEANING WEBUI OBJS...", step, num_steps);
+    io::stderr().flush()?;
+
+    let webui_dir = fs::canonicalize(svn_info.branch_name())?; // UI directory name is the same as the branch name
+    let mut prev_time = Instant::now();
+    for (idx, x) in walkdir::WalkDir::new(webui_dir)
+        .contents_first(true)
+        .into_iter()
+        .filter(|x| {
+            if x.is_err() {
+                return false;
+            }
+
+            let x = x.as_ref().unwrap();
+            let entry = x.path();
+
+            ignores.iter().all(|x| x.as_path() != entry)
+        })
+        .enumerate()
+    {
+        let entry = x?;
+        let path_ = entry.path();
 
         if debug {
             eprintln!("REMOVING {}", path_.display());
+        } else {
+            let curr_time = Instant::now();
+            if (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
+                eprint!(
+                    "\r[{}/{}] CLEANING WEBUI OBJS...{}{}{:#}: {}{}{:#}\x1B[0K",
+                    step,
+                    num_steps,
+                    COLOR_ANSI_YLW,
+                    idx + 1,
+                    COLOR_ANSI_YLW,
+                    COLOR_ANSI_GRN,
+                    path_.display(),
+                    COLOR_ANSI_GRN
+                );
+                io::stderr().flush()?;
+                prev_time = curr_time;
+            }
         }
 
         if path_.is_file() || path_.is_symlink() {
@@ -178,64 +228,11 @@ pub fn clean_build(
                 .context(format!("Error removing directory {}", path_.display()))?;
         }
     }
+
     eprintln!(
-        "\r[{}/{}] CLEANING UNVERSIONEDS...{}DONE{:#}\x1B[0K",
-        step, nsteps, COLOR_ANSI_GRN, COLOR_ANSI_GRN,
+        "\r[{}/{}] CLEANING UI OBJS...{}DONE{:#}\x1B[0K",
+        step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
     );
-
-    // Clean UI files
-    let ui_dir = Path::new(svninfo.branch_name()); // UI directory name is the same as the branch name
-    if ui_dir.is_dir() {
-        step += 1;
-
-        eprint!("[{}/{}] CLEANING WEBUI OBJS...", step, nsteps);
-        io::stderr().flush()?;
-
-        let mut prev_time = Instant::now();
-        for (idx, x) in walkdir::WalkDir::new(ui_dir)
-            .contents_first(true)
-            .into_iter()
-            .enumerate()
-        {
-            let entry = x?;
-            let path_ = entry.path();
-
-            if debug {
-                eprintln!("REMOVING {}", path_.display());
-            }
-
-            let curr_time = Instant::now();
-            let delta = curr_time - prev_time;
-            prev_time = curr_time;
-            if delta.as_millis() >= 200 {
-                eprint!(
-                    "\r[{}/{}] CLEANING WEBUI OBJS...{}{}{:#}: {}{}{:#}\x1B[0K",
-                    step,
-                    nsteps,
-                    COLOR_ANSI_YLW,
-                    idx + 1,
-                    COLOR_ANSI_YLW,
-                    COLOR_ANSI_GRN,
-                    path_.display(),
-                    COLOR_ANSI_GRN
-                );
-                io::stderr().flush()?;
-            }
-
-            if path_.is_file() || path_.is_symlink() {
-                fs::remove_file(path_)
-                    .context(format!("Error removing file {}", path_.display()))?;
-            } else if path_.is_dir() {
-                fs::remove_dir_all(path_)
-                    .context(format!("Error removing directory {}", path_.display()))?;
-            }
-        }
-
-        eprintln!(
-            "\r[{}/{}] CLEANING UI OBJS...{}DONE{:#}\x1B[0K",
-            step, nsteps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
-        );
-    }
 
     Ok(())
 }

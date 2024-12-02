@@ -65,8 +65,8 @@ enum Comm {
   rua clean  # Clean the entire project"))]
     Clean {
         #[arg(
-            value_name = "DIRECTORIES",
-            help = "List of directories to clean ('target' is always included even if not specified)"
+            value_name = "ENTRY",
+            help = "Files or directories to be cleaned ('target' is always included even if not specified)"
         )]
         dirs: Option<Vec<OsString>>,
 
@@ -295,7 +295,7 @@ async fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Comm::Clean { dirs, ignores } => clean::clean_build(dirs, ignores, args.debug),
+        Comm::Clean { dirs, ignores } => clean::clean_build(dirs, ignores.as_ref(), args.debug),
         Comm::Compdb {
             product_dir,
             make_target,
