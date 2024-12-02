@@ -214,7 +214,7 @@ enum Comm {
         )]
         review_id: Option<u32>,
 
-        #[arg(value_name = "FILES", help = "List of files be reviewed")]
+        #[arg(value_name = "FILE", help = "Files to be reviewed")]
         files: Option<Vec<String>>,
 
         #[arg(
