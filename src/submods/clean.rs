@@ -14,7 +14,7 @@ const COLOR_ANSI_YLW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::
 const COLOR_ANSI_GRN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
 
 fn trucate_string(s: &str, l: usize) -> String {
-    s.chars().rev().take(l).collect()
+    s.chars().skip(s.chars().count() - l).collect()
 }
 
 pub fn clean_build(
@@ -45,60 +45,65 @@ pub fn clean_build(
     let num_steps = 3;
     let mut step: usize = 0;
     const REFRESH_INTERVAL: u128 = 50; // In milliseconds
+    const DISPLAY_PATH_LEN: usize = 32;
 
     // Cleaning the objects generated in building process
     step += 1;
     eprint!("[{}/{}] CLEANING TARGET OBJS...", step, num_steps);
     io::stderr().flush()?;
 
-    let mut prev_time = Instant::now();
-    let target_dir = fs::canonicalize("target")?;
-    for (i, x) in walkdir::WalkDir::new(target_dir)
-        .contents_first(true)
-        .into_iter()
-        .filter(|x| {
-            if x.is_err() {
-                return false;
+    let target_dir = fs::canonicalize("target");
+    if target_dir.is_ok() {
+        let mut prev_time = Instant::now();
+        for (i, x) in walkdir::WalkDir::new(target_dir.unwrap())
+            .contents_first(true)
+            .into_iter()
+            .filter(|x| {
+                if x.is_err() {
+                    return false;
+                }
+                let x = x.as_ref().unwrap();
+                let entry = x.path();
+
+                ignores.iter().all(|x| x.as_path() != entry)
+            })
+            .enumerate()
+        {
+            let entry = x?;
+            let path_ = entry.path();
+
+            if debug {
+                eprintln!("REMOVING {}", path_.display());
+            } else {
+                let curr_time = Instant::now();
+                if debug || (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
+                    let file_indicator = trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN);
+                    eprint!(
+                        "\r[{}/{}] CLEANING TARGET OBJS...{}{}{:#}: {}...{}{:#}\x1B[0K",
+                        step,
+                        num_steps,
+                        COLOR_ANSI_YLW,
+                        i + 1,
+                        COLOR_ANSI_YLW,
+                        COLOR_ANSI_GRN,
+                        file_indicator,
+                        COLOR_ANSI_GRN
+                    );
+                    io::stderr().flush()?;
+                    prev_time = curr_time;
+                }
             }
-            let x = x.as_ref().unwrap();
-            let entry = x.path();
 
-            ignores.iter().all(|x| x.as_path() != entry)
-        })
-        .enumerate()
-    {
-        let entry = x?;
-        let path_ = entry.path();
-
-        if debug {
-            eprintln!("REMOVING {}", path_.display());
-        } else {
-            let curr_time = Instant::now();
-            if debug || (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
-                let file_indicator = trucate_string(&path_.to_string_lossy(), 32);
-                eprint!(
-                    "\r[{}/{}] CLEANING TARGET OBJS...{}{}{:#}: {}{}...{:#}...\x1B[0K",
-                    step,
-                    num_steps,
-                    COLOR_ANSI_YLW,
-                    i + 1,
-                    COLOR_ANSI_YLW,
-                    COLOR_ANSI_GRN,
-                    file_indicator,
-                    COLOR_ANSI_GRN
-                );
-                io::stderr().flush()?;
-                prev_time = curr_time;
+            if path_.is_file() || path_.is_symlink() {
+                fs::remove_file(path_)
+                    .context(format!("Error removing file {}", path_.display()))?;
+            } else if path_.is_dir() {
+                fs::remove_dir_all(path_)
+                    .context(format!("Error removing directory {}", path_.display()))?;
             }
-        }
-
-        if path_.is_file() || path_.is_symlink() {
-            fs::remove_file(path_).context(format!("Error removing file {}", path_.display()))?;
-        } else if path_.is_dir() {
-            fs::remove_dir_all(path_)
-                .context(format!("Error removing directory {}", path_.display()))?;
         }
     }
+
     eprintln!(
         "\r[{}/{}] CLEANING TARGET OBJS...{}DONE{:#}\x1B[0K",
         step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
@@ -145,7 +150,7 @@ pub fn clean_build(
             let curr_time = Instant::now();
             if (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
                 eprint!(
-                    "\r[{}/{}] CLEANING UNVERSIONEDS...{}{}{:#}/{}{}{:#}: {}{}{:#}\x1B[0K",
+                    "\r[{}/{}] CLEANING UNVERSIONEDS...{}{}{:#}/{}{}{:#}: {}...{}{:#}\x1B[0K",
                     step,
                     num_steps,
                     COLOR_ANSI_GRN,
@@ -155,7 +160,7 @@ pub fn clean_build(
                     unversioned_files.len(),
                     COLOR_ANSI_YLW,
                     COLOR_ANSI_GRN,
-                    trucate_string(&item.to_string_lossy(), 32),
+                    trucate_string(&item.to_string_lossy(), DISPLAY_PATH_LEN),
                     COLOR_ANSI_GRN
                 );
                 io::stderr().flush()?;
@@ -170,6 +175,7 @@ pub fn clean_build(
                 .context(format!("Error removing directory {}", item.display()))?;
         }
     }
+
     eprintln!(
         "\r[{}/{}] CLEANING UNVERSIONEDS...{}DONE{:#}\x1B[0K",
         step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN,
@@ -180,52 +186,55 @@ pub fn clean_build(
     eprint!("[{}/{}] CLEANING WEBUI OBJS...", step, num_steps);
     io::stderr().flush()?;
 
-    let webui_dir = fs::canonicalize(svn_info.branch_name())?; // UI directory name is the same as the branch name
-    let mut prev_time = Instant::now();
-    for (idx, x) in walkdir::WalkDir::new(webui_dir)
-        .contents_first(true)
-        .into_iter()
-        .filter(|x| {
-            if x.is_err() {
-                return false;
+    let webui_dir = fs::canonicalize(svn_info.branch_name()); // UI directory name is the same as the branch name
+    if webui_dir.is_ok() {
+        let mut prev_time = Instant::now();
+        for (idx, x) in walkdir::WalkDir::new(webui_dir.unwrap())
+            .contents_first(true)
+            .into_iter()
+            .filter(|x| {
+                if x.is_err() {
+                    return false;
+                }
+
+                let x = x.as_ref().unwrap();
+                let entry = x.path();
+
+                ignores.iter().all(|x| x.as_path() != entry)
+            })
+            .enumerate()
+        {
+            let entry = x?;
+            let path_ = entry.path();
+
+            if debug {
+                eprintln!("REMOVING {}", path_.display());
+            } else {
+                let curr_time = Instant::now();
+                if (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
+                    eprint!(
+                        "\r[{}/{}] CLEANING WEBUI OBJS...{}{}{:#}: {}...{}{:#}\x1B[0K",
+                        step,
+                        num_steps,
+                        COLOR_ANSI_YLW,
+                        idx + 1,
+                        COLOR_ANSI_YLW,
+                        COLOR_ANSI_GRN,
+                        trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN),
+                        COLOR_ANSI_GRN
+                    );
+                    io::stderr().flush()?;
+                    prev_time = curr_time;
+                }
             }
 
-            let x = x.as_ref().unwrap();
-            let entry = x.path();
-
-            ignores.iter().all(|x| x.as_path() != entry)
-        })
-        .enumerate()
-    {
-        let entry = x?;
-        let path_ = entry.path();
-
-        if debug {
-            eprintln!("REMOVING {}", path_.display());
-        } else {
-            let curr_time = Instant::now();
-            if (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
-                eprint!(
-                    "\r[{}/{}] CLEANING WEBUI OBJS...{}{}{:#}: {}{}{:#}\x1B[0K",
-                    step,
-                    num_steps,
-                    COLOR_ANSI_YLW,
-                    idx + 1,
-                    COLOR_ANSI_YLW,
-                    COLOR_ANSI_GRN,
-                    path_.display(),
-                    COLOR_ANSI_GRN
-                );
-                io::stderr().flush()?;
-                prev_time = curr_time;
+            if path_.is_file() || path_.is_symlink() {
+                fs::remove_file(path_)
+                    .context(format!("Error removing file {}", path_.display()))?;
+            } else if path_.is_dir() {
+                fs::remove_dir_all(path_)
+                    .context(format!("Error removing directory {}", path_.display()))?;
             }
-        }
-
-        if path_.is_file() || path_.is_symlink() {
-            fs::remove_file(path_).context(format!("Error removing file {}", path_.display()))?;
-        } else if path_.is_dir() {
-            fs::remove_dir_all(path_)
-                .context(format!("Error removing directory {}", path_.display()))?;
         }
     }
 
