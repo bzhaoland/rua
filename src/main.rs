@@ -196,21 +196,21 @@ enum Comm {
         bin: PathBuf,
     },
 
-    /// Launch a new review request if not given <bug-id> or flush the existing one
+    /// Start a new review request or refresh the existing one if review-id provided
     Review {
         #[arg(
             short = 'n',
-            long = "bug-id",
-            value_name = "BUG-ID",
-            help = "The bug id used for this review request"
+            long = "bug",
+            value_name = "BUG",
+            help = "Bug id for this review request"
         )]
         bug_id: u32,
 
         #[arg(
-            value_name = "REVIEW-ID",
+            value_name = "REVIEW",
             short = 'r',
-            long = "review-id",
-            help = "The review id of an existing review request"
+            long = "review",
+            help = "Existing review id"
         )]
         review_id: Option<u32>,
 
@@ -221,7 +221,7 @@ enum Comm {
             value_name = "DIFF-FILE",
             short = 'd',
             long = "diff-file",
-            help = "Diff files to be uploaded"
+            help = "Diff file to be used"
         )]
         diff_file: Option<String>,
 
