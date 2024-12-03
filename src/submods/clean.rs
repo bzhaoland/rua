@@ -42,10 +42,11 @@ pub fn clean_build(
         })
         .unwrap_or_default();
 
+    const REFRESH_INTERVAL: u128 = 200; // In milliseconds
+    const DISPLAY_PATH_LEN: usize = 32;
+
     let num_steps = 3;
     let mut step: usize = 0;
-    const REFRESH_INTERVAL: u128 = 50; // In milliseconds
-    const DISPLAY_PATH_LEN: usize = 32;
 
     // Cleaning the objects generated in building process
     step += 1;
