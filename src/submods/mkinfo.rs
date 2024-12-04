@@ -8,6 +8,7 @@ use anyhow::{self, bail, Context};
 use bitflags::bitflags;
 use clap::ValueEnum;
 use crossterm::terminal;
+use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::utils;
@@ -146,7 +147,7 @@ pub fn gen_mkinfo(
         match repo_branch.chars().take(7).collect::<String>().as_str() {
             "MX_MAIN" if repo_revision >= 293968 => true,
             "HAWAII_" => {
-                let hawaii_release_ver = regex::Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
+                let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
                     .context("Error building pattern for release version")?
                     .captures(repo_branch)
                     .context("Error capturing release version from branch name")?
@@ -166,7 +167,7 @@ pub fn gen_mkinfo(
         product_info_path.display()
     ))?;
     let mut product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
-    let product_info_pattern = regex::Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}"#, nickname)).context("Error building regex pattern of product info")?;
+    let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}"#, nickname)).context("Error building regex pattern of product info")?;
     let mut product_info_list: Vec<ProductInfo> = Vec::with_capacity(128);
     let mut line = String::with_capacity(512);
     while product_info_reader.read_line(&mut line)? != 0 {
@@ -195,7 +196,7 @@ pub fn gen_mkinfo(
     ))?;
     let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
     let makeinfo_pattern =
-        regex::Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
+        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
             .context("Error building regex pattern for makeinfo")?;
     let mut mkinfos: HashMap<String, Vec<MakeInfo>> = HashMap::with_capacity(256);
     while makeinfo_reader.read_line(&mut line)? != 0 {
@@ -222,11 +223,11 @@ pub fn gen_mkinfo(
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let mut imagename_suffix = String::with_capacity(32);
 
-    let pattern_nonalnum = regex::Regex::new(r#"[^[:alnum:]]+"#)
-        .context("Error building regex pattern for nonalnum")?;
+    let pattern_nonalnum =
+        Regex::new(r#"[^[:alnum:]]+"#).context("Error building regex pattern for nonalnum")?;
 
     // Use branch name abbreviation to compose the image name
-    let nickname_pattern = regex::Regex::new(r"HAWAII_([-[:word:]]+)")
+    let nickname_pattern = Regex::new(r"HAWAII_([-[:word:]]+)")
         .context("Error building regex pattern for nickname")
         .unwrap();
     let captures = nickname_pattern.captures(repo_branch);

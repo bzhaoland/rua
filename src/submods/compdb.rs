@@ -2,7 +2,7 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
-use std::path;
+use std::path::Path;
 use std::process;
 
 use anyhow::{bail, Context};
@@ -45,17 +45,17 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         );
     }
 
-    let makefile_1 = path::Path::new("scripts/last-rules.mk");
+    let makefile_1 = Path::new("scripts/last-rules.mk");
     if !makefile_1.is_file() {
         bail!(r#"File not found: "{}""#, makefile_1.display());
     }
 
-    let makefile_2 = path::Path::new("scripts/rules.mk");
+    let makefile_2 = Path::new("scripts/rules.mk");
     if !makefile_2.is_file() {
         bail!(r#"File not found: "{}""#, makefile_2.display());
     }
 
-    let makefile_top = path::Path::new("Makefile");
+    let makefile_top = Path::new("Makefile");
     if !makefile_top.is_file() {
         bail!(r#"File not found: "{}""#, makefile_2.display());
     }
@@ -75,7 +75,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     stdout.flush()?;
 
     // Hacking for c files
-    let pattern_c = regex::Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
+    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context("Failed to build regex pattern for C-oriented compile command")?;
     let maketext_1 = fs::read_to_string(makefile_1)
         .context(format!(r#"Can't read file "{}""#, makefile_1.display()))?;
@@ -91,9 +91,8 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     ))?;
 
     // Hacking for cxx files
-    let pattern_cc =
-        regex::Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(COMPILE_CXX_CP_E\))[[:blank:]]*$"#)
-            .context("Building regex pattern for C++ compile command failed")?;
+    let pattern_cc = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(COMPILE_CXX_CP_E\))[[:blank:]]*$"#)
+        .context("Building regex pattern for C++ compile command failed")?;
     let maketext_2 = fs::read_to_string(makefile_2)
         .context(format!(r#"Can't read file "{}""#, makefile_2.display()))?;
     let captures = pattern_cc.captures(&maketext_2).context(format!(
@@ -205,7 +204,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     print!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
     stdout.flush()?;
     let output_str = String::from_utf8(output.stdout).context("Error creating string")?;
-    let pattern_hackrule = regex::Regex::new(
+    let pattern_hackrule = Regex::new(
         r#"(?m)^##JCDB##[[:blank:]]+>>:directory:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:command:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:file:>>[[:blank:]]+(.+)[[:blank:]]*$"#,
     ).context("Error building hackrule pattern")?;
     let mut records: Vec<CompDBRecord> = Vec::new();
@@ -216,10 +215,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         records.push(CompDBRecord {
             directory: dirc.to_string(),
             command: comm.to_string(),
-            file: path::Path::new(&dirc)
-                .join(file)
-                .to_string_lossy()
-                .to_string(),
+            file: Path::new(&dirc).join(file).to_string_lossy().to_string(),
         });
     }
     println!(
