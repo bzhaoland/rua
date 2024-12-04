@@ -6,6 +6,7 @@ use std::path;
 use std::process;
 
 use anyhow::{bail, Context};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 
@@ -39,19 +40,24 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     if env::current_dir()? != proj_root {
         bail!(
-            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
+            r#"Location error! Please run this command under the project root, i.e. "{}"."#,
             proj_root.display()
         );
     }
 
     let makefile_1 = path::Path::new("scripts/last-rules.mk");
     if !makefile_1.is_file() {
-        bail!(r#"Makefile "{}" not found"#, makefile_1.display());
+        bail!(r#"File not found: "{}""#, makefile_1.display());
     }
 
     let makefile_2 = path::Path::new("scripts/rules.mk");
     if !makefile_2.is_file() {
-        bail!(r#"Makefile "{}" not found"#, makefile_2.display());
+        bail!(r#"File not found: "{}""#, makefile_2.display());
+    }
+
+    let makefile_top = path::Path::new("Makefile");
+    if !makefile_top.is_file() {
+        bail!(r#"File not found: "{}""#, makefile_2.display());
     }
 
     const NSTEPS: usize = 5;
@@ -68,34 +74,65 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     );
     stdout.flush()?;
 
+    // Hacking for c files
     let pattern_c = regex::Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context("Failed to build regex pattern for C-oriented compile command")?;
-    let maketext_1 = fs::read_to_string(makefile_1)?;
+    let maketext_1 = fs::read_to_string(makefile_1)
+        .context(format!(r#"Can't read file "{}""#, makefile_1.display()))?;
     let captures = pattern_c
         .captures(&maketext_1)
         .context(format!("Failed to capture pattern {}", pattern_c.as_str()))?;
     let compline_c = captures.get(0).unwrap().as_str();
     let compcomm_c = captures.get(1).unwrap().as_str();
-    let makerule_1_hacked = pattern_c.replace_all(&maketext_1, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_c, compcomm_c)).to_string();
-    fs::write(makefile_1, makerule_1_hacked).context(format!(
+    let maketext_1_hacked = pattern_c.replace_all(&maketext_1, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_c, compcomm_c)).to_string();
+    fs::write(makefile_1, &maketext_1_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
         makefile_1.display()
     ))?;
 
+    // Hacking for cxx files
     let pattern_cc =
         regex::Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(COMPILE_CXX_CP_E\))[[:blank:]]*$"#)
             .context("Building regex pattern for C++ compile command failed")?;
     let maketext_2 = fs::read_to_string(makefile_2)
-        .context(format!(r#"Reading file "{}" failed"#, makefile_2.display()))?;
+        .context(format!(r#"Can't read file "{}""#, makefile_2.display()))?;
     let captures = pattern_cc.captures(&maketext_2).context(format!(
         r#"Capturing pattern "{}" failed"#,
         pattern_cc.as_str()
     ))?;
     let compline_cxx = captures.get(0).unwrap().as_str();
     let compcomm_cxx = captures.get(1).unwrap().as_str();
-    let makerule_2_hacked = pattern_cc.replace_all(&maketext_2, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_cxx, compcomm_cxx)).to_string();
+    let maketext_2_hacked = pattern_cc.replace_all(&maketext_2, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_cxx, compcomm_cxx)).to_string();
+    fs::write(makefile_2, &maketext_2_hacked).context(format!(
+        r#"Writing to file "{}" failed"#,
+        makefile_2.display()
+    ))?;
 
-    fs::write(makefile_2, makerule_2_hacked)?;
+    // Hacking for make target
+    let pattern_make = Regex::new(r#"(?m)^( *)stoneos-image:(.*)$"#)
+        .context("Building regex pattern for make target failed")?;
+    let maketext_top = fs::read_to_string(makefile_top)
+        .context(format!(r#"Can't read file "{}"""#, makefile_top.display()))?;
+    let captures = pattern_make.captures(&maketext_top).context(format!(
+        "Can't capture pattern '{}' from '{}'",
+        pattern_make.as_str(),
+        makefile_top.display()
+    ))?;
+    let prefix = captures.get(1).unwrap();
+    let suffix = captures.get(2).unwrap();
+    let maketext_top_hacked = pattern_make
+        .replace(
+            &maketext_top,
+            format!(
+                "stoneos-image: make_sub\n\n{}stoneos-image.bak:{}",
+                prefix.as_str(),
+                suffix.as_str()
+            ),
+        )
+        .to_string();
+    fs::write(makefile_top, &maketext_top_hacked)
+        .context(format!("Can't write file: '{}'", makefile_top.display()))?;
+
     println!(
         "\r[{}/{}] INJECTING MKFILES...{}DONE{:#}({} & {} MODIFIED)\x1B[0K",
         step,
@@ -115,14 +152,13 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         "make",
         "-C",
         make_directory,
-        make_target,
+        make_target, // special target for submodules
         "-j8",
-        "-iknwB", // pseudo building
+        "-iknB", // pseudo building
         "HS_BUILD_COVERITY=0",
         "ISBUILDRELEASE=1",
         "HS_BUILD_UNIWEBUI=0",
         "HS_SHELL_PASSWORD=0",
-        "IMG_NAME=RUA.DUMMY",
     ]);
     let output = cmd
         .output()
@@ -146,10 +182,12 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         makefile_2.display()
     );
     stdout.flush()?;
-    fs::write(makefile_1, maketext_1)
+    fs::write(makefile_1, &maketext_1)
         .context(format!(r#"Restoring "{}" failed"#, makefile_1.display()))?;
-    fs::write(makefile_2, maketext_2)
+    fs::write(makefile_2, &maketext_2)
         .context(format!(r#"Restoring "{}" failed"#, makefile_2.display()))?;
+    fs::write(makefile_top, &maketext_top)
+        .context(format!(r#"Restoring "{}" failed"#, makefile_top.display()))?;
     println!(
         "\r[{}/{}] RESTORING MKFILES...{}DONE{:#}({} & {} RESTORED)\x1B[0K",
         step,

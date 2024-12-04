@@ -284,8 +284,7 @@ enum Comm {
     },
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     // Suppress the following error info:
     // failed printing to stdout: Broken pipe
     unsafe {
@@ -381,7 +380,7 @@ async fn main() -> anyhow::Result<()> {
                 repo_name,
                 revisions,
             };
-            review::review(&options).await
+            tokio::runtime::Runtime::new()?.block_on(review::review(&options))
         }
     }
 }
