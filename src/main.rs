@@ -79,7 +79,7 @@ enum Comm {
         ignores: Option<Vec<OsString>>,
     },
 
-    /// Generate JSON Compilation Database for a specific target, such as a-dnv/a-dnv-ipv6
+    /// Generate JSON compilation database (JCDB) for a specific target
     #[command(after_help = format!(
         r#"{}Examples:{:#}
   rua compdb products/ngfw_as a-dnv        # For A1000/A1100/A2000...
@@ -87,11 +87,11 @@ enum Comm {
   rua compdb products/ngfw_as kunlun-ipv6  # For X20803/X20812... with IPv6 enabled
 
 {}Caution:{:#}
-  Two files (scripts/last-rules.mk and scripts/rules.mk) will be hacked for
-  running. They will be automatically restored if the command succeeded.
-  Otherwise, they will be left hacked. You may use the following command to
-  manually restore them:
-  {}svn revert scripts/last-rules.mk scripts/rules.mk{:#}"#,
+  Three files are hacked while running. They are "scripts/last-rules.mk",
+  "scripts/rules.mk" and "Makefile" respectively. They will be automatically
+  restored if command succeeded. Otherwise, they will be left hacked. You
+  can manually restore them with the following command:
+  {}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{:#}"#,
       CLAP_STYLE_HEADER,
       CLAP_STYLE_HEADER,
       CLAP_STYLE_CAUTION,

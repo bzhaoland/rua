@@ -134,13 +134,14 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         .context(format!("Can't write file: '{}'", makefile_top.display()))?;
 
     println!(
-        "\r[{}/{}] INJECTING MKFILES...{}DONE{:#}({} & {} MODIFIED)\x1B[0K",
+        "\r[{}/{}] INJECTING MKFILES...{}DONE{:#}({} & {} & {} MODIFIED)\x1B[0K",
         step,
         NSTEPS,
         COLOR_ANSI_GRN,
         COLOR_ANSI_GRN,
         makefile_1.display(),
-        makefile_2.display()
+        makefile_2.display(),
+        makefile_top.display(),
     );
 
     // Build the target (pseudoly)
@@ -189,13 +190,14 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     fs::write(makefile_top, &maketext_top)
         .context(format!(r#"Restoring "{}" failed"#, makefile_top.display()))?;
     println!(
-        "\r[{}/{}] RESTORING MKFILES...{}DONE{:#}({} & {} RESTORED)\x1B[0K",
+        "\r[{}/{}] RESTORING MKFILES...{}DONE{:#}({} & {} & {} RESTORED)\x1B[0K",
         step,
         NSTEPS,
         COLOR_ANSI_GRN,
         COLOR_ANSI_GRN,
         makefile_1.display(),
-        makefile_2.display()
+        makefile_2.display(),
+        makefile_top.display(),
     );
 
     // Parse the build log
