@@ -87,10 +87,9 @@ enum Comm {
   rua compdb products/ngfw_as kunlun-ipv6  # For X20803/X20812... with IPv6 enabled
 
 {}Caution:{:#}
-  Three files are hacked while running. They are "scripts/last-rules.mk",
-  "scripts/rules.mk" and "Makefile" respectively. They will be automatically
-  restored if command succeeded. Otherwise, they will be left hacked. You
-  can manually restore them with the following command:
+  Three files ("scripts/last-rules.mk", "scripts/rules.mk" and "Makefile") are
+  hacked while running, and would be left in hacked state if the command aborts
+  unexpectedly. Use the following command to manually restore them:
   {}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{:#}"#,
       CLAP_STYLE_HEADER,
       CLAP_STYLE_HEADER,
