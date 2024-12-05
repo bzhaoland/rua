@@ -326,19 +326,19 @@ fn main() -> anyhow::Result<()> {
         } => {
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
-                makeflag |= mkinfo::MakeFlag::BUILD_MODE;
+                makeflag |= mkinfo::MakeFlag::RELEASE_BUILD;
             };
             if ipv6 {
-                makeflag |= mkinfo::MakeFlag::WITH_IPV6_SUPPORT;
+                makeflag |= mkinfo::MakeFlag::ENABLE_IPV6;
             }
             if webui {
-                makeflag |= mkinfo::MakeFlag::WITH_UNIWEBUI;
+                makeflag |= mkinfo::MakeFlag::PLEASE_WEBUI;
             }
             if password {
-                makeflag |= mkinfo::MakeFlag::WITH_PASSWORD;
+                makeflag |= mkinfo::MakeFlag::ENABLE_SHELL_PASSWORD;
             }
             if coverity {
-                makeflag |= mkinfo::MakeFlag::WITH_COVERITY;
+                makeflag |= mkinfo::MakeFlag::ENABLE_COVERITY;
             }
             if image_server.is_some() {
                 let url_str = image_server.as_deref().unwrap();

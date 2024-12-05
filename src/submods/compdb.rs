@@ -66,11 +66,12 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Inject hackrule
     print!(
-        "[{}/{}] INJECTING MKFILES...({}&{})",
+        "[{}/{}] INJECTING MKFILES...({} & {} & {})",
         step,
         NSTEPS,
         makefile_1.display(),
-        makefile_2.display()
+        makefile_2.display(),
+        makefile_top.display(),
     );
     stdout.flush()?;
 
@@ -123,7 +124,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         .replace(
             &maketext_top,
             format!(
-                "stoneos-image: make_sub\n\n{}stoneos-image.bak:{}",
+                "stoneos-image: make_sub\n\n{}stoneos-image.orig:{}",
                 prefix.as_str(),
                 suffix.as_str()
             ),
@@ -155,10 +156,10 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         make_target, // special target for submodules
         "-j8",
         "-iknB", // pseudo building
-        "HS_BUILD_COVERITY=0",
         "ISBUILDRELEASE=1",
-        "HS_BUILD_UNIWEBUI=0",
+        "NOTBUILDUNIWEBUI=1",
         "HS_SHELL_PASSWORD=0",
+        "HS_BUILD_COVERITY=0",
     ]);
     let output = cmd
         .output()
@@ -175,11 +176,12 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     // Restore the original makefiles
     step += 1;
     print!(
-        "[{}/{}] RESTORING MKFILES...({} & {})",
+        "[{}/{}] RESTORING MKFILES...({} & {} & {})",
         step,
         NSTEPS,
         makefile_1.display(),
-        makefile_2.display()
+        makefile_2.display(),
+        makefile_top.display(),
     );
     stdout.flush()?;
     fs::write(makefile_1, &maketext_1)
@@ -203,7 +205,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     step += 1;
     print!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
     stdout.flush()?;
-    let output_str = String::from_utf8(output.stdout).context("Error creating string")?;
+    let output_str = String::from_utf8(output.stdout)?;
     let pattern_hackrule = Regex::new(
         r#"(?m)^##JCDB##[[:blank:]]+>>:directory:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:command:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:file:>>[[:blank:]]+(.+)[[:blank:]]*$"#,
     ).context("Error building hackrule pattern")?;
