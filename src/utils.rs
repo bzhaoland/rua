@@ -6,29 +6,6 @@ use std::process::Command;
 use anyhow::{anyhow, bail, Context};
 use regex::Regex;
 
-/// Get current machine's hostname
-#[allow(dead_code)]
-pub fn get_hostname() -> anyhow::Result<OsString> {
-    let hostname_bufsize = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) } as usize;
-    let mut hostname_buf = vec![0; hostname_bufsize + 1];
-    let retcode = unsafe {
-        libc::gethostname(
-            hostname_buf.as_mut_ptr() as *mut libc::c_char,
-            hostname_buf.len(),
-        )
-    };
-    if retcode != 0 {
-        anyhow::bail!("Get hostname failed");
-    }
-
-    let end = hostname_buf
-        .iter()
-        .position(|&b| b == 0)
-        .unwrap_or(hostname_buf.len());
-    hostname_buf.truncate(end);
-    Ok(OsString::from_vec(hostname_buf))
-}
-
 /// Get current username using `id -un`.
 /// Unfortunately, neither `whoami` or `users` work correctly under company's
 /// environment, they got nothing when trying to get current username.
