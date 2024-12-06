@@ -32,7 +32,7 @@ pub fn proc_perfanno<P: AsRef<Path>>(
     daemon_name: &str,
 ) -> anyhow::Result<Value> {
     let text = fs::read_to_string(&data_file).context(anyhow::anyhow!(
-        "Error reading {}",
+        "Can't read file: {}",
         data_file.as_ref().display()
     ))?;
     let headline_pattern = Regex::new(
