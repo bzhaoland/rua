@@ -239,7 +239,7 @@ pub fn gen_mkinfo(
             }
 
             let make_comm = format!(
-                "hsdocker7 make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERITY={}{} &> build.log",
+                "hsdocker7 make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERITY={}{}",
                 mkinfo.make_directory, make_goal,
                 if makeflag.contains(MakeFlag::ENABLE_COVERITY) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::RELEASE_BUILD) { 1 } else { 0 },

@@ -3,9 +3,14 @@ use std::fmt;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use std::process;
+use std::process::Command;
+use std::thread;
+use std::time;
+use std::time::Duration;
 
 use anyhow::{bail, Context};
+use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
@@ -62,10 +67,9 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     const NSTEPS: usize = 5;
     let mut step: usize = 1;
-    let mut stdout = io::stdout();
 
     // Inject hackrule
-    print!(
+    eprint!(
         "[{}/{}] INJECTING MKFILES...({} & {} & {})",
         step,
         NSTEPS,
@@ -73,7 +77,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         makefile_2.display(),
         makefile_top.display(),
     );
-    stdout.flush()?;
+    io::stderr().flush()?;
 
     // Hacking for c files
     let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
@@ -133,7 +137,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     fs::write(makefile_top, &maketext_top_hacked)
         .context(format!("Can't write file: '{}'", makefile_top.display()))?;
 
-    println!(
+    eprintln!(
         "\r[{}/{}] INJECTING MKFILES...{}DONE{:#}({} & {} & {} MODIFIED)\x1B[0K",
         step,
         NSTEPS,
@@ -146,36 +150,56 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Build the target (pseudoly)
     step += 1;
-    print!("[{}/{}] BUILDING PSEUDOLY...", step, NSTEPS);
-    stdout.flush()?;
-    let mut prog = process::Command::new("hsdocker7");
-    let cmd = &mut prog.args([
-        "make",
-        "-C",
-        make_directory,
-        make_target, // special target for submodules
-        "-j8",
-        "-iknB", // pseudo building
-        "ISBUILDRELEASE=1",
-        "NOTBUILDUNIWEBUI=1",
-        "HS_SHELL_PASSWORD=0",
-        "HS_BUILD_COVERITY=0",
-    ]);
-    let output = cmd
-        .output()
-        .context("Failed to perform `hsdocker7 make ...`")?;
-    let status = output.status;
+    const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
+
+    let pb = ProgressBar::new_spinner();
+    pb.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] BUILDING PSEUDOLY...{{spinner:.green}} [{{elapsed_precise}}]",
+        step, NSTEPS
+    ))?);
+    pb.enable_steady_tick(Duration::from_millis(200));
+
+    let mut command = Command::new("hsdocker7");
+    let mut child = command
+        .args([
+            "make",
+            "-C",
+            make_directory,
+            make_target, // special target for submodules
+            "-j8",
+            "-iknB", // pseudo building
+            "ISBUILDRELEASE=1",
+            "NOTBUILDUNIWEBUI=1",
+            "HS_SHELL_PASSWORD=0",
+            "HS_BUILD_COVERITY=0",
+            &format!(">{}", BUILDLOG_PATH), // This redirection will be treated as arg here, because it is not executed under shell context
+            "2>&1", // This redirection will be treated as arg here, because it is not executed under shell context
+        ])
+        .spawn()
+        .context("error attempting to execute hsdocker7")?;
+
+    let status = loop {
+        if let Some(status) = child
+            .try_wait()
+            .context("error attempt to wait: pseudo building")?
+        {
+            break status;
+        }
+        thread::sleep(Duration::from_millis(200));
+    };
+
     if !status.success() {
         bail!("Pseudo building failed: {:?}", status.code());
     }
-    println!(
+    pb.set_style(ProgressStyle::with_template(&format!(
         "\r[{}/{}] BUILDING PSEUDOLY...{}DONE{:#}\x1B[0K",
         step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
-    );
+    ))?);
+    pb.finish_using_style();
 
     // Restore the original makefiles
     step += 1;
-    print!(
+    eprint!(
         "[{}/{}] RESTORING MKFILES...({} & {} & {})",
         step,
         NSTEPS,
@@ -183,14 +207,14 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         makefile_2.display(),
         makefile_top.display(),
     );
-    stdout.flush()?;
+    io::stderr().flush()?;
     fs::write(makefile_1, &maketext_1)
         .context(format!(r#"Restoring "{}" failed"#, makefile_1.display()))?;
     fs::write(makefile_2, &maketext_2)
         .context(format!(r#"Restoring "{}" failed"#, makefile_2.display()))?;
     fs::write(makefile_top, &maketext_top)
         .context(format!(r#"Restoring "{}" failed"#, makefile_top.display()))?;
-    println!(
+    eprintln!(
         "\r[{}/{}] RESTORING MKFILES...{}DONE{:#}({} & {} & {} RESTORED)\x1B[0K",
         step,
         NSTEPS,
@@ -203,9 +227,10 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Parse the build log
     step += 1;
-    print!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
-    stdout.flush()?;
-    let output_str = String::from_utf8(output.stdout)?;
+    eprint!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
+    io::stderr().flush()?;
+    let output_str = fs::read_to_string(BUILDLOG_PATH)?;
+    fs::remove_file(BUILDLOG_PATH)?;
     let pattern_hackrule = Regex::new(
         r#"(?m)^##JCDB##[[:blank:]]+>>:directory:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:command:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:file:>>[[:blank:]]+(.+)[[:blank:]]*$"#,
     ).context("Error building hackrule pattern")?;
@@ -220,15 +245,15 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
             file: Path::new(&dirc).join(file).to_string_lossy().to_string(),
         });
     }
-    println!(
+    eprintln!(
         "\r[{}/{}] PARSING BUILDLOG...{}DONE{:#}\x1B[0K",
         step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
     );
 
     // Generate JCDB
     step += 1;
-    print!("[{}/{}] GENERATING JCDB...", step, NSTEPS);
-    stdout.flush()?;
+    eprint!("[{}/{}] GENERATING JCDB...", step, NSTEPS);
+    io::stderr().flush()?;
     let mut jcdb = json!([]);
     for item in records.iter() {
         jcdb.as_array_mut().unwrap().push(json!({
@@ -241,7 +266,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         "compile_commands.json",
         serde_json::to_string_pretty(&jcdb)?,
     )?;
-    println!(
+    eprintln!(
         "\r[{}/{}] GENERATING JCDB...{}DONE{:#}\x1B[0K",
         step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
     );
