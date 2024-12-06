@@ -1,20 +1,23 @@
 use std::ffi::OsString;
-use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::Command;
-use std::{env, fs};
+use std::{env, fs, thread};
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, bail, Context};
-use std::time::Instant;
+use indicatif::{ProgressBar, ProgressStyle};
+use std::time::Duration;
 
 use crate::utils::SvnInfo;
 
-const COLOR_ANSI_YLW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
 const COLOR_ANSI_GRN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
 
 fn trucate_string(s: &str, l: usize) -> String {
-    s.chars().skip(s.chars().count() - l).collect()
+    if s.chars().count() <= l {
+        s.to_owned()
+    } else {
+        s.chars().skip(s.chars().count() - l).collect()
+    }
 }
 
 pub fn clean_build(
@@ -22,15 +25,12 @@ pub fn clean_build(
     ignores: Option<&Vec<OsString>>,
     debug: bool,
 ) -> anyhow::Result<()> {
+    // Check directory
     let svn_info = SvnInfo::new()?;
-    let proj_dir = svn_info.working_copy_root_path();
-    let curr_dir = env::current_dir()?;
-
-    // Must run under the project root
-    if curr_dir.as_path() != proj_dir {
+    if env::current_dir()?.as_path() != svn_info.working_copy_root_path() {
         bail!(
             r#"Location error! Please run this command under the project root, i.e. "{}"."#,
-            proj_dir.display()
+            svn_info.working_copy_root_path().display()
         );
     }
 
@@ -42,7 +42,7 @@ pub fn clean_build(
         })
         .unwrap_or_default();
 
-    const REFRESH_INTERVAL: u128 = 200; // In milliseconds
+    const REFRESH_INTERVAL: u64 = 200; // In milliseconds
     const DISPLAY_PATH_LEN: usize = 32;
 
     let num_steps = 3;
@@ -50,13 +50,13 @@ pub fn clean_build(
 
     // Cleaning the objects generated in building process
     step += 1;
-    eprint!("[{}/{}] CLEANING TARGET OBJS...", step, num_steps);
-    io::stderr().flush()?;
-
-    let target_dir = fs::canonicalize("target");
+    let pb1 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] CLEANING TARGET OBJS: {{msg:.green}}",
+        step, num_steps
+    ))?);
+    let target_dir = fs::canonicalize("targetii");
     if target_dir.is_ok() {
-        let mut prev_time = Instant::now();
-        for (i, x) in walkdir::WalkDir::new(target_dir.unwrap())
+        for x in walkdir::WalkDir::new(target_dir.unwrap())
             .contents_first(true)
             .into_iter()
             .filter(|x| {
@@ -68,7 +68,6 @@ pub fn clean_build(
 
                 ignores.iter().all(|x| x.as_path() != entry)
             })
-            .enumerate()
         {
             let entry = x?;
             let path_ = entry.path();
@@ -76,23 +75,9 @@ pub fn clean_build(
             if debug {
                 eprintln!("REMOVING {}", path_.display());
             } else {
-                let curr_time = Instant::now();
-                if debug || (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
-                    let file_indicator = trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN);
-                    eprint!(
-                        "\r[{}/{}] CLEANING TARGET OBJS...{}{}{:#}: {}...{}{:#}\x1B[0K",
-                        step,
-                        num_steps,
-                        COLOR_ANSI_YLW,
-                        i + 1,
-                        COLOR_ANSI_YLW,
-                        COLOR_ANSI_GRN,
-                        file_indicator,
-                        COLOR_ANSI_GRN
-                    );
-                    io::stderr().flush()?;
-                    prev_time = curr_time;
-                }
+                let file_indicator = trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN);
+                pb1.set_message(file_indicator);
+                thread::sleep(Duration::from_millis(20));
             }
 
             if path_.is_file() || path_.is_symlink() {
@@ -104,24 +89,25 @@ pub fn clean_build(
             }
         }
     }
-
-    eprintln!(
-        "\r[{}/{}] CLEANING TARGET OBJS...{}DONE{:#}\x1B[0K",
+    pb1.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] CLEANING TARGET OBJS...{}OK{:#}",
         step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
-    );
+    ))?);
+    pb1.finish();
 
     // Clean unversioned entries
     step += 1;
-    eprint!("[{}/{}] LISTING UNVERSIONEDS...", step, num_steps);
-    io::stderr().flush()?;
-
+    let pb2 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] LISTING UNVERSIONEDS {{spinner:.green}}",
+        step, num_steps
+    ))?);
+    pb2.enable_steady_tick(Duration::from_millis(REFRESH_INTERVAL));
     let dirs: Vec<OsString> = dirs.unwrap_or_default();
     let output = Command::new("svn")
         .arg("status")
         .args(dirs.iter())
         .output()
         .context(format!("Command `svn status {:?}` failed", dirs))?;
-
     if !output.status.success() {
         bail!(
             "Error invoking `svn status {:?}`",
@@ -131,7 +117,6 @@ pub fn clean_build(
                 .join(" ")
         );
     }
-
     let pattern_for_unversioneds =
         regex::Regex::new(r#"(?m)^\?[[:blank:]]+([^[:blank:]].*?)[[:space:]]*$"#)
             .context("Error creating regex pattern")?; // Pattern for out-of-control files
@@ -142,31 +127,17 @@ pub fn clean_build(
         .filter_map(|c| fs::canonicalize((c.extract::<1>().1)[0]).ok())
         .filter(|x| ignores.iter().all(|i| x != i))
         .collect::<Vec<PathBuf>>();
-
-    let mut prev_time = Instant::now();
-    for (idx, item) in unversioned_files.iter().enumerate() {
+    pb2.disable_steady_tick();
+    pb2.set_length(unversioned_files.len() as u64);
+    pb2.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] CLEANING UNVERSIONEDS: {{msg:.green}}",
+        step, num_steps,
+    ))?);
+    for item in unversioned_files.iter() {
         if debug {
             eprintln!("REMOVING {}", item.display());
         } else {
-            let curr_time = Instant::now();
-            if (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
-                eprint!(
-                    "\r[{}/{}] CLEANING UNVERSIONEDS...{}{}{:#}/{}{}{:#}: {}...{}{:#}\x1B[0K",
-                    step,
-                    num_steps,
-                    COLOR_ANSI_GRN,
-                    idx,
-                    COLOR_ANSI_GRN,
-                    COLOR_ANSI_YLW,
-                    unversioned_files.len(),
-                    COLOR_ANSI_YLW,
-                    COLOR_ANSI_GRN,
-                    trucate_string(&item.to_string_lossy(), DISPLAY_PATH_LEN),
-                    COLOR_ANSI_GRN
-                );
-                io::stderr().flush()?;
-                prev_time = curr_time;
-            }
+            pb2.set_message(item.as_path().to_string_lossy().to_string());
         }
 
         if item.is_file() || item.is_symlink() {
@@ -176,21 +147,21 @@ pub fn clean_build(
                 .context(format!("Error removing directory {}", item.display()))?;
         }
     }
-
-    eprintln!(
-        "\r[{}/{}] CLEANING UNVERSIONEDS...{}DONE{:#}\x1B[0K",
+    pb2.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] CLEANING UNVERSIONEDS...{}OK{:#}",
         step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN,
-    );
+    ))?);
+    pb2.finish();
 
     // Clean UI files
     step += 1;
-    eprint!("[{}/{}] CLEANING WEBUI OBJS...", step, num_steps);
-    io::stderr().flush()?;
-
+    let pb3 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] CLEANING WEBUI OBJS: {{msg:.green}}",
+        step, num_steps
+    ))?);
     let webui_dir = fs::canonicalize(svn_info.branch_name()); // UI directory name is the same as the branch name
     if webui_dir.is_ok() {
-        let mut prev_time = Instant::now();
-        for (idx, x) in walkdir::WalkDir::new(webui_dir.unwrap())
+        for x in walkdir::WalkDir::new(webui_dir.unwrap())
             .contents_first(true)
             .into_iter()
             .filter(|x| {
@@ -203,7 +174,6 @@ pub fn clean_build(
 
                 ignores.iter().all(|x| x.as_path() != entry)
             })
-            .enumerate()
         {
             let entry = x?;
             let path_ = entry.path();
@@ -211,22 +181,7 @@ pub fn clean_build(
             if debug {
                 eprintln!("REMOVING {}", path_.display());
             } else {
-                let curr_time = Instant::now();
-                if (curr_time - prev_time).as_millis() >= REFRESH_INTERVAL {
-                    eprint!(
-                        "\r[{}/{}] CLEANING WEBUI OBJS...{}{}{:#}: {}...{}{:#}\x1B[0K",
-                        step,
-                        num_steps,
-                        COLOR_ANSI_YLW,
-                        idx + 1,
-                        COLOR_ANSI_YLW,
-                        COLOR_ANSI_GRN,
-                        trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN),
-                        COLOR_ANSI_GRN
-                    );
-                    io::stderr().flush()?;
-                    prev_time = curr_time;
-                }
+                pb2.set_message(trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN));
             }
 
             if path_.is_file() || path_.is_symlink() {
@@ -238,11 +193,11 @@ pub fn clean_build(
             }
         }
     }
-
-    eprintln!(
-        "\r[{}/{}] CLEANING UI OBJS...{}DONE{:#}\x1B[0K",
+    pb3.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] CLEANING UI OBJS...{}OK{:#}",
         step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
-    );
+    ))?);
+    pb3.finish();
 
     Ok(())
 }
