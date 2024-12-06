@@ -1,16 +1,13 @@
 use std::env;
 use std::fmt;
 use std::fs;
-use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
 use std::thread;
-use std::time;
 use std::time::Duration;
 
 use anyhow::{bail, Context};
-use indicatif::ProgressBar;
-use indicatif::ProgressStyle;
+use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
@@ -40,66 +37,72 @@ const COLOR_ANSI_GRN: anstyle::Style =
     anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
 
 pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
+    // Check if current working directory is svn repo root
     let svninfo = utils::SvnInfo::new()?;
-    let proj_root = svninfo.working_copy_root_path();
-
-    if env::current_dir()? != proj_root {
+    if env::current_dir()? != svninfo.working_copy_root_path() {
         bail!(
             r#"Location error! Please run this command under the project root, i.e. "{}"."#,
-            proj_root.display()
+            svninfo.working_copy_root_path().display()
         );
     }
 
-    let makefile_1 = Path::new("scripts/last-rules.mk");
-    if !makefile_1.is_file() {
-        bail!(r#"File not found: "{}""#, makefile_1.display());
+    const LASTRULES_MAKEFILE: &str = "scripts/last-rules.mk";
+    const RULES_MAKEFILE: &str = "scripts/rules.mk";
+    const ROOT_MAKEFILE: &str = "Makefile";
+
+    let lastrules_makefile_path = Path::new(LASTRULES_MAKEFILE);
+    if !lastrules_makefile_path.is_file() {
+        bail!(r#"File not found: "{}""#, lastrules_makefile_path.display());
     }
 
-    let makefile_2 = Path::new("scripts/rules.mk");
-    if !makefile_2.is_file() {
-        bail!(r#"File not found: "{}""#, makefile_2.display());
+    let rules_makefile_path = Path::new(RULES_MAKEFILE);
+    if !rules_makefile_path.is_file() {
+        bail!(r#"File not found: "{}""#, rules_makefile_path.display());
     }
 
-    let makefile_top = Path::new("Makefile");
-    if !makefile_top.is_file() {
-        bail!(r#"File not found: "{}""#, makefile_2.display());
+    let top_makefile_path = Path::new(ROOT_MAKEFILE);
+    if !top_makefile_path.is_file() {
+        bail!(r#"File not found: "{}""#, top_makefile_path.display());
     }
 
     const NSTEPS: usize = 5;
+    const INTERVAL: u64 = 200;
     let mut step: usize = 1;
 
-    // Inject hackrule
-    eprint!(
-        "[{}/{}] INJECTING MKFILES...({} & {} & {})",
+    // Hack makefiles
+    let pb1 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] INJECTING MKFILES ({} & {} & {}) {{spinner:.green}}",
         step,
         NSTEPS,
-        makefile_1.display(),
-        makefile_2.display(),
-        makefile_top.display(),
-    );
-    io::stderr().flush()?;
-
+        lastrules_makefile_path.display(),
+        rules_makefile_path.display(),
+        top_makefile_path.display(),
+    ))?);
+    pb1.enable_steady_tick(Duration::from_millis(INTERVAL));
     // Hacking for c files
     let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context("Failed to build regex pattern for C-oriented compile command")?;
-    let maketext_1 = fs::read_to_string(makefile_1)
-        .context(format!(r#"Can't read file "{}""#, makefile_1.display()))?;
+    let maketext_1 = fs::read_to_string(lastrules_makefile_path).context(format!(
+        r#"Can't read file "{}""#,
+        lastrules_makefile_path.display()
+    ))?;
     let captures = pattern_c
         .captures(&maketext_1)
         .context(format!("Failed to capture pattern {}", pattern_c.as_str()))?;
     let compline_c = captures.get(0).unwrap().as_str();
     let compcomm_c = captures.get(1).unwrap().as_str();
     let maketext_1_hacked = pattern_c.replace_all(&maketext_1, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_c, compcomm_c)).to_string();
-    fs::write(makefile_1, &maketext_1_hacked).context(format!(
+    fs::write(lastrules_makefile_path, &maketext_1_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
-        makefile_1.display()
+        lastrules_makefile_path.display()
     ))?;
-
     // Hacking for cxx files
     let pattern_cc = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(COMPILE_CXX_CP_E\))[[:blank:]]*$"#)
         .context("Building regex pattern for C++ compile command failed")?;
-    let maketext_2 = fs::read_to_string(makefile_2)
-        .context(format!(r#"Can't read file "{}""#, makefile_2.display()))?;
+    let maketext_2 = fs::read_to_string(rules_makefile_path).context(format!(
+        r#"Can't read file "{}""#,
+        rules_makefile_path.display()
+    ))?;
     let captures = pattern_cc.captures(&maketext_2).context(format!(
         r#"Capturing pattern "{}" failed"#,
         pattern_cc.as_str()
@@ -107,20 +110,22 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     let compline_cxx = captures.get(0).unwrap().as_str();
     let compcomm_cxx = captures.get(1).unwrap().as_str();
     let maketext_2_hacked = pattern_cc.replace_all(&maketext_2, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_cxx, compcomm_cxx)).to_string();
-    fs::write(makefile_2, &maketext_2_hacked).context(format!(
+    fs::write(rules_makefile_path, &maketext_2_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
-        makefile_2.display()
+        rules_makefile_path.display()
     ))?;
 
     // Hacking for make target
     let pattern_make = Regex::new(r#"(?m)^( *)stoneos-image:(.*)$"#)
         .context("Building regex pattern for make target failed")?;
-    let maketext_top = fs::read_to_string(makefile_top)
-        .context(format!(r#"Can't read file "{}"""#, makefile_top.display()))?;
+    let maketext_top = fs::read_to_string(top_makefile_path).context(format!(
+        r#"Can't read file "{}"""#,
+        top_makefile_path.display()
+    ))?;
     let captures = pattern_make.captures(&maketext_top).context(format!(
         "Can't capture pattern '{}' from '{}'",
         pattern_make.as_str(),
-        makefile_top.display()
+        top_makefile_path.display()
     ))?;
     let prefix = captures.get(1).unwrap();
     let suffix = captures.get(2).unwrap();
@@ -134,31 +139,30 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
             ),
         )
         .to_string();
-    fs::write(makefile_top, &maketext_top_hacked)
-        .context(format!("Can't write file: '{}'", makefile_top.display()))?;
-
-    eprintln!(
-        "\r[{}/{}] INJECTING MKFILES...{}DONE{:#}({} & {} & {} MODIFIED)\x1B[0K",
+    fs::write(top_makefile_path, &maketext_top_hacked).context(format!(
+        "Can't write file: '{}'",
+        top_makefile_path.display()
+    ))?;
+    pb1.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] INJECTING MKFILES ({} & {} & {} MODIFIED)...{}OK{:#}",
         step,
         NSTEPS,
+        lastrules_makefile_path.display(),
+        rules_makefile_path.display(),
+        top_makefile_path.display(),
         COLOR_ANSI_GRN,
         COLOR_ANSI_GRN,
-        makefile_1.display(),
-        makefile_2.display(),
-        makefile_top.display(),
-    );
+    ))?);
+    pb1.finish();
 
     // Build the target (pseudoly)
     step += 1;
     const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
-
-    let pb = ProgressBar::new_spinner();
-    pb.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] BUILDING PSEUDOLY...{{spinner:.green}} [{{elapsed_precise}}]",
+    let pb2 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] BUILDING PSEUDOLY {{spinner:.green}} [{{elapsed_precise}}]",
         step, NSTEPS
     ))?);
-    pb.enable_steady_tick(Duration::from_millis(200));
-
+    pb2.enable_steady_tick(Duration::from_millis(INTERVAL));
     let mut command = Command::new("hsdocker7");
     let mut child = command
         .args([
@@ -177,7 +181,6 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         ])
         .spawn()
         .context("error attempting to execute hsdocker7")?;
-
     let status = loop {
         if let Some(status) = child
             .try_wait()
@@ -187,48 +190,57 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         }
         thread::sleep(Duration::from_millis(200));
     };
-
     if !status.success() {
         bail!("Pseudo building failed: {:?}", status.code());
     }
-    pb.set_style(ProgressStyle::with_template(&format!(
-        "\r[{}/{}] BUILDING PSEUDOLY...{}DONE{:#}\x1B[0K",
+    pb2.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] BUILDING PSEUDOLY...{}OK{:#}",
         step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
     ))?);
-    pb.finish_using_style();
+    pb2.finish();
 
     // Restore the original makefiles
     step += 1;
-    eprint!(
-        "[{}/{}] RESTORING MKFILES...({} & {} & {})",
+    let pb3 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] RESTORING MKFILES ({} & {} & {}) {{spinner:.green}}",
         step,
         NSTEPS,
-        makefile_1.display(),
-        makefile_2.display(),
-        makefile_top.display(),
-    );
-    io::stderr().flush()?;
-    fs::write(makefile_1, &maketext_1)
-        .context(format!(r#"Restoring "{}" failed"#, makefile_1.display()))?;
-    fs::write(makefile_2, &maketext_2)
-        .context(format!(r#"Restoring "{}" failed"#, makefile_2.display()))?;
-    fs::write(makefile_top, &maketext_top)
-        .context(format!(r#"Restoring "{}" failed"#, makefile_top.display()))?;
-    eprintln!(
-        "\r[{}/{}] RESTORING MKFILES...{}DONE{:#}({} & {} & {} RESTORED)\x1B[0K",
+        lastrules_makefile_path.display(),
+        rules_makefile_path.display(),
+        top_makefile_path.display(),
+    ))?);
+    pb3.enable_steady_tick(Duration::from_millis(INTERVAL));
+    fs::write(lastrules_makefile_path, &maketext_1).context(format!(
+        r#"Restoring "{}" failed"#,
+        lastrules_makefile_path.display()
+    ))?;
+    fs::write(rules_makefile_path, &maketext_2).context(format!(
+        r#"Restoring "{}" failed"#,
+        rules_makefile_path.display()
+    ))?;
+    fs::write(top_makefile_path, &maketext_top).context(format!(
+        r#"Restoring "{}" failed"#,
+        top_makefile_path.display()
+    ))?;
+    pb3.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] RESTORING MKFILES ({} & {} & {} RESTORED)...{}OK{:#}",
         step,
         NSTEPS,
+        lastrules_makefile_path.display(),
+        rules_makefile_path.display(),
+        top_makefile_path.display(),
         COLOR_ANSI_GRN,
         COLOR_ANSI_GRN,
-        makefile_1.display(),
-        makefile_2.display(),
-        makefile_top.display(),
-    );
+    ))?);
+    pb3.finish();
 
     // Parse the build log
     step += 1;
-    eprint!("[{}/{}] PARSING BUILDLOG...", step, NSTEPS);
-    io::stderr().flush()?;
+    let pb4 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] PARSING BUILDLOG {{spinner:.green}}",
+        step, NSTEPS
+    ))?);
+    pb4.enable_steady_tick(Duration::from_millis(INTERVAL));
     let output_str = fs::read_to_string(BUILDLOG_PATH)?;
     fs::remove_file(BUILDLOG_PATH)?;
     let pattern_hackrule = Regex::new(
@@ -245,15 +257,19 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
             file: Path::new(&dirc).join(file).to_string_lossy().to_string(),
         });
     }
-    eprintln!(
-        "\r[{}/{}] PARSING BUILDLOG...{}DONE{:#}\x1B[0K",
+    pb4.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] PARSING BUILDLOG...{}OK{:#}",
         step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
-    );
+    ))?);
+    pb4.finish();
 
     // Generate JCDB
     step += 1;
-    eprint!("[{}/{}] GENERATING JCDB...", step, NSTEPS);
-    io::stderr().flush()?;
+    let pb5 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] GENERATING JCDB {{spinner:.green}}",
+        step, NSTEPS
+    ))?);
+    pb5.enable_steady_tick(Duration::from_millis(INTERVAL));
     let mut jcdb = json!([]);
     for item in records.iter() {
         jcdb.as_array_mut().unwrap().push(json!({
@@ -266,10 +282,11 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         "compile_commands.json",
         serde_json::to_string_pretty(&jcdb)?,
     )?;
-    eprintln!(
-        "\r[{}/{}] GENERATING JCDB...{}DONE{:#}\x1B[0K",
+    pb5.set_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] GENERATING JCDB...{}OK{:#}",
         step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
-    );
+    ))?);
+    pb5.finish();
 
     Ok(())
 }
