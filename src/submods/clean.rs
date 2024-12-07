@@ -53,7 +53,7 @@ pub fn clean_build(
         "[{}/{}] CLEANING TARGET OBJS: {{msg:.green}}",
         step, num_steps
     ))?);
-    let target_dir = fs::canonicalize("targetii");
+    let target_dir = fs::canonicalize("target");
     if target_dir.is_ok() {
         for x in walkdir::WalkDir::new(target_dir.unwrap())
             .contents_first(true)
