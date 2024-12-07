@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::Command;
-use std::{env, fs, thread};
+use std::{env, fs};
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, bail, Context};
@@ -22,8 +22,7 @@ fn trucate_string(s: &str, l: usize) -> String {
 
 pub fn clean_build(
     dirs: Option<Vec<OsString>>,
-    ignores: Option<&Vec<OsString>>,
-    debug: bool,
+    ignores: Option<&Vec<OsString>>
 ) -> anyhow::Result<()> {
     // Check directory
     let svn_info = SvnInfo::new()?;
@@ -71,14 +70,8 @@ pub fn clean_build(
         {
             let entry = x?;
             let path_ = entry.path();
-
-            if debug {
-                eprintln!("REMOVING {}", path_.display());
-            } else {
-                let file_indicator = trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN);
-                pb1.set_message(file_indicator);
-                thread::sleep(Duration::from_millis(20));
-            }
+            let file_indicator = trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN);
+            pb1.set_message(file_indicator);
 
             if path_.is_file() || path_.is_symlink() {
                 fs::remove_file(path_)
@@ -134,12 +127,7 @@ pub fn clean_build(
         step, num_steps,
     ))?);
     for item in unversioned_files.iter() {
-        if debug {
-            eprintln!("REMOVING {}", item.display());
-        } else {
-            pb2.set_message(item.as_path().to_string_lossy().to_string());
-        }
-
+        pb2.set_message(item.as_path().to_string_lossy().to_string());
         if item.is_file() || item.is_symlink() {
             fs::remove_file(item).context(format!("Error removing file {}", item.display()))?;
         } else if item.is_dir() {
@@ -168,22 +156,14 @@ pub fn clean_build(
                 if x.is_err() {
                     return false;
                 }
-
                 let x = x.as_ref().unwrap();
                 let entry = x.path();
-
-                ignores.iter().all(|x| x.as_path() != entry)
+                ignores.iter().all(|i| i.as_path() != entry)
             })
         {
             let entry = x?;
             let path_ = entry.path();
-
-            if debug {
-                eprintln!("REMOVING {}", path_.display());
-            } else {
-                pb2.set_message(trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN));
-            }
-
+            pb3.set_message(trucate_string(&path_.to_string_lossy(), DISPLAY_PATH_LEN));
             if path_.is_file() || path_.is_symlink() {
                 fs::remove_file(path_)
                     .context(format!("Error removing file {}", path_.display()))?;

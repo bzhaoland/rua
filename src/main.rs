@@ -293,7 +293,7 @@ fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Comm::Clean { dirs, ignores } => clean::clean_build(dirs, ignores.as_ref(), args.debug),
+        Comm::Clean { dirs, ignores } => clean::clean_build(dirs, ignores.as_ref()),
         Comm::Compdb {
             product_dir,
             make_target,
