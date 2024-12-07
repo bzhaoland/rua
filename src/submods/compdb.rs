@@ -48,25 +48,25 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     const LASTRULES_MAKEFILE: &str = "scripts/last-rules.mk";
     const RULES_MAKEFILE: &str = "scripts/rules.mk";
-    const ROOT_MAKEFILE: &str = "Makefile";
+    const TOP_MAKEFILE: &str = "Makefile";
 
-    let lastrules_makefile_path = Path::new(LASTRULES_MAKEFILE);
-    if !lastrules_makefile_path.is_file() {
-        bail!(r#"File not found: "{}""#, lastrules_makefile_path.display());
+    let lastrules_path = Path::new(LASTRULES_MAKEFILE);
+    if !lastrules_path.is_file() {
+        bail!(r#"File not found: "{}""#, lastrules_path.display());
     }
 
-    let rules_makefile_path = Path::new(RULES_MAKEFILE);
-    if !rules_makefile_path.is_file() {
-        bail!(r#"File not found: "{}""#, rules_makefile_path.display());
+    let rules_path = Path::new(RULES_MAKEFILE);
+    if !rules_path.is_file() {
+        bail!(r#"File not found: "{}""#, rules_path.display());
     }
 
-    let top_makefile_path = Path::new(ROOT_MAKEFILE);
-    if !top_makefile_path.is_file() {
-        bail!(r#"File not found: "{}""#, top_makefile_path.display());
+    let top_makefile = Path::new(TOP_MAKEFILE);
+    if !top_makefile.is_file() {
+        bail!(r#"File not found: "{}""#, top_makefile.display());
     }
 
     const NSTEPS: usize = 5;
-    const INTERVAL: u64 = 200;
+    const TICK_INTERVAL: u64 = 200;
     let mut step: usize = 1;
 
     // Hack makefiles
@@ -74,64 +74,60 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         "[{}/{}] INJECTING MKFILES ({} & {} & {}) {{spinner:.green}}",
         step,
         NSTEPS,
-        lastrules_makefile_path.display(),
-        rules_makefile_path.display(),
-        top_makefile_path.display(),
+        lastrules_path.display(),
+        rules_path.display(),
+        top_makefile.display(),
     ))?);
-    pb1.enable_steady_tick(Duration::from_millis(INTERVAL));
+    pb1.enable_steady_tick(Duration::from_millis(TICK_INTERVAL));
     // Hacking for c files
     let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context("Failed to build regex pattern for C-oriented compile command")?;
-    let maketext_1 = fs::read_to_string(lastrules_makefile_path).context(format!(
-        r#"Can't read file "{}""#,
-        lastrules_makefile_path.display()
-    ))?;
+    let lastrules_text = fs::read_to_string(lastrules_path)
+        .context(format!(r#"Can't read file "{}""#, lastrules_path.display()))?;
     let captures = pattern_c
-        .captures(&maketext_1)
+        .captures(&lastrules_text)
         .context(format!("Failed to capture pattern {}", pattern_c.as_str()))?;
     let compline_c = captures.get(0).unwrap().as_str();
     let compcomm_c = captures.get(1).unwrap().as_str();
-    let maketext_1_hacked = pattern_c.replace_all(&maketext_1, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_c, compcomm_c)).to_string();
-    fs::write(lastrules_makefile_path, &maketext_1_hacked).context(format!(
+    let lastrules_text_hacked = pattern_c.replace_all(&lastrules_text, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_c, compcomm_c)).to_string();
+    fs::write(lastrules_path, &lastrules_text_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
-        lastrules_makefile_path.display()
+        lastrules_path.display()
     ))?;
     // Hacking for cxx files
     let pattern_cc = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(COMPILE_CXX_CP_E\))[[:blank:]]*$"#)
         .context("Building regex pattern for C++ compile command failed")?;
-    let maketext_2 = fs::read_to_string(rules_makefile_path).context(format!(
-        r#"Can't read file "{}""#,
-        rules_makefile_path.display()
-    ))?;
-    let captures = pattern_cc.captures(&maketext_2).context(format!(
+    let rules_text = fs::read_to_string(rules_path)
+        .context(format!(r#"Can't read file "{}""#, rules_path.display()))?;
+    let captures = pattern_cc.captures(&rules_text).context(format!(
         r#"Capturing pattern "{}" failed"#,
         pattern_cc.as_str()
     ))?;
     let compline_cxx = captures.get(0).unwrap().as_str();
     let compcomm_cxx = captures.get(1).unwrap().as_str();
-    let maketext_2_hacked = pattern_cc.replace_all(&maketext_2, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_cxx, compcomm_cxx)).to_string();
-    fs::write(rules_makefile_path, &maketext_2_hacked).context(format!(
+    let rules_text_hacked = pattern_cc.replace_all(&rules_text, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_cxx, compcomm_cxx)).to_string();
+    fs::write(rules_path, &rules_text_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
-        rules_makefile_path.display()
+        rules_path.display()
     ))?;
 
     // Hacking for make target
-    let pattern_make = Regex::new(r#"(?m)^( *)stoneos-image:(.*)$"#)
+    let pattern_target = Regex::new(r#"(?m)^( *)stoneos-image:(.*)$"#)
         .context("Building regex pattern for make target failed")?;
-    let maketext_top = fs::read_to_string(top_makefile_path).context(format!(
-        r#"Can't read file "{}"""#,
-        top_makefile_path.display()
-    ))?;
-    let captures = pattern_make.captures(&maketext_top).context(format!(
-        "Can't capture pattern '{}' from '{}'",
-        pattern_make.as_str(),
-        top_makefile_path.display()
-    ))?;
+    let top_makefile_text = fs::read_to_string(top_makefile)
+        .context(format!(r#"Can't read file "{}"""#, top_makefile.display()))?;
+    let captures = pattern_target
+        .captures(&top_makefile_text)
+        .context(format!(
+            "Can't capture pattern '{}' from '{}'",
+            pattern_target.as_str(),
+            top_makefile.display()
+        ))?;
     let prefix = captures.get(1).unwrap();
     let suffix = captures.get(2).unwrap();
-    let maketext_top_hacked = pattern_make
+    let top_makefile_text_hacked = pattern_target
         .replace(
-            &maketext_top,
+            &top_makefile_text,
             format!(
                 "stoneos-image: make_sub\n\n{}stoneos-image.orig:{}",
                 prefix.as_str(),
@@ -139,17 +135,15 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
             ),
         )
         .to_string();
-    fs::write(top_makefile_path, &maketext_top_hacked).context(format!(
-        "Can't write file: '{}'",
-        top_makefile_path.display()
-    ))?;
+    fs::write(top_makefile, &top_makefile_text_hacked)
+        .context(format!("Can't write file: '{}'", top_makefile.display()))?;
     pb1.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] INJECTING MKFILES ({} & {} & {} MODIFIED)...{}OK{:#}",
         step,
         NSTEPS,
-        lastrules_makefile_path.display(),
-        rules_makefile_path.display(),
-        top_makefile_path.display(),
+        lastrules_path.display(),
+        rules_path.display(),
+        top_makefile.display(),
         COLOR_ANSI_GRN,
         COLOR_ANSI_GRN,
     ))?);
@@ -162,29 +156,18 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         "[{}/{}] BUILDING PSEUDOLY {{spinner:.green}} [{{elapsed_precise}}]",
         step, NSTEPS
     ))?);
-    pb2.enable_steady_tick(Duration::from_millis(INTERVAL));
+    pb2.enable_steady_tick(Duration::from_millis(TICK_INTERVAL));
     let mut command = Command::new("hsdocker7");
     let mut child = command
-        .args([
-            "make",
-            "-C",
-            make_directory,
-            make_target, // special target for submodules
-            "-j8",
-            "-iknB", // pseudo building
-            "ISBUILDRELEASE=1",
-            "NOTBUILDUNIWEBUI=1",
-            "HS_SHELL_PASSWORD=0",
-            "HS_BUILD_COVERITY=0",
-            &format!(">{}", BUILDLOG_PATH), // This redirection will be treated as arg here, because it is not executed under shell context
-            "2>&1", // This redirection will be treated as arg here, because it is not executed under shell context
-        ])
+        .arg(
+            &format!("make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_SHELL_PASSWORD=0 HS_BUILD_COVERITY=0 >{} 2>&1", make_directory, make_target, BUILDLOG_PATH), // This will be treated as a normal arg and passed into hsdocker7
+        )
         .spawn()
-        .context("error attempting to execute hsdocker7")?;
+        .context("Failed to execute hsdocker7")?;
     let status = loop {
         if let Some(status) = child
             .try_wait()
-            .context("error attempt to wait: pseudo building")?
+            .context("error attempting to wait: pseudo building")?
         {
             break status;
         }
@@ -205,30 +188,26 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         "[{}/{}] RESTORING MKFILES ({} & {} & {}) {{spinner:.green}}",
         step,
         NSTEPS,
-        lastrules_makefile_path.display(),
-        rules_makefile_path.display(),
-        top_makefile_path.display(),
+        lastrules_path.display(),
+        rules_path.display(),
+        top_makefile.display(),
     ))?);
-    pb3.enable_steady_tick(Duration::from_millis(INTERVAL));
-    fs::write(lastrules_makefile_path, &maketext_1).context(format!(
+    pb3.enable_steady_tick(Duration::from_millis(TICK_INTERVAL));
+    fs::write(lastrules_path, &lastrules_text).context(format!(
         r#"Restoring "{}" failed"#,
-        lastrules_makefile_path.display()
+        lastrules_path.display()
     ))?;
-    fs::write(rules_makefile_path, &maketext_2).context(format!(
-        r#"Restoring "{}" failed"#,
-        rules_makefile_path.display()
-    ))?;
-    fs::write(top_makefile_path, &maketext_top).context(format!(
-        r#"Restoring "{}" failed"#,
-        top_makefile_path.display()
-    ))?;
+    fs::write(rules_path, &rules_text)
+        .context(format!(r#"Restoring "{}" failed"#, rules_path.display()))?;
+    fs::write(top_makefile, &top_makefile_text)
+        .context(format!(r#"Restoring "{}" failed"#, top_makefile.display()))?;
     pb3.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] RESTORING MKFILES ({} & {} & {} RESTORED)...{}OK{:#}",
         step,
         NSTEPS,
-        lastrules_makefile_path.display(),
-        rules_makefile_path.display(),
-        top_makefile_path.display(),
+        lastrules_path.display(),
+        rules_path.display(),
+        top_makefile.display(),
         COLOR_ANSI_GRN,
         COLOR_ANSI_GRN,
     ))?);
@@ -240,7 +219,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         "[{}/{}] PARSING BUILDLOG {{spinner:.green}}",
         step, NSTEPS
     ))?);
-    pb4.enable_steady_tick(Duration::from_millis(INTERVAL));
+    pb4.enable_steady_tick(Duration::from_millis(TICK_INTERVAL));
     let output_str = fs::read_to_string(BUILDLOG_PATH)?;
     fs::remove_file(BUILDLOG_PATH)?;
     let pattern_hackrule = Regex::new(
@@ -269,7 +248,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         "[{}/{}] GENERATING JCDB {{spinner:.green}}",
         step, NSTEPS
     ))?);
-    pb5.enable_steady_tick(Duration::from_millis(INTERVAL));
+    pb5.enable_steady_tick(Duration::from_millis(TICK_INTERVAL));
     let mut jcdb = json!([]);
     for item in records.iter() {
         jcdb.as_array_mut().unwrap().push(json!({
