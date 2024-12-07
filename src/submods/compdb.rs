@@ -33,9 +33,6 @@ impl fmt::Display for CompDBRecord {
 
 pub type CompDB = Vec<CompDBRecord>;
 
-const COLOR_ANSI_GRN: anstyle::Style =
-    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
-
 pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
     // Check if current working directory is svn repo root
     let svninfo = utils::SvnInfo::new()?;
@@ -139,16 +136,14 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     fs::write(top_makefile, &top_makefile_text_hacked)
         .context(format!("Can't write file: '{}'", top_makefile.display()))?;
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] INJECTING MKFILES ({} & {} & {} MODIFIED)...{}OK{:#}",
+        "[{}/{}] INJECTING MKFILES ({} & {} & {} MODIFIED)...{{msg:.green}}",
         step,
         NSTEPS,
         lastrules_path.display(),
         rules_path.display(),
         top_makefile.display(),
-        COLOR_ANSI_GRN,
-        COLOR_ANSI_GRN,
     ))?);
-    pb1.finish();
+    pb1.finish_with_message("OK");
 
     // Build the target (pseudoly)
     step += 1;
@@ -203,16 +198,14 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     fs::write(top_makefile, &top_makefile_text)
         .context(format!(r#"Restoring "{}" failed"#, top_makefile.display()))?;
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] RESTORING MKFILES ({} & {} & {} RESTORED)...{}OK{:#}",
+        "[{}/{}] RESTORING MKFILES ({} & {} & {} RESTORED)...{{msg:.green}}",
         step,
         NSTEPS,
         lastrules_path.display(),
         rules_path.display(),
         top_makefile.display(),
-        COLOR_ANSI_GRN,
-        COLOR_ANSI_GRN,
     ))?);
-    pb3.finish();
+    pb3.finish_with_message("OK");
 
     // Parse the build log
     step += 1;
@@ -238,10 +231,10 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         });
     }
     pb4.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] PARSING BUILDLOG...{}OK{:#}",
-        step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
+        "[{}/{}] PARSING BUILDLOG...{{msg:.green}}",
+        step, NSTEPS
     ))?);
-    pb4.finish();
+    pb4.finish_with_message("OK");
 
     // Generate JCDB
     step += 1;
@@ -263,10 +256,10 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         serde_json::to_string_pretty(&jcdb)?,
     )?;
     pb5.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] GENERATING JCDB...{}OK{:#}",
-        step, NSTEPS, COLOR_ANSI_GRN, COLOR_ANSI_GRN
+        "[{}/{}] GENERATING JCDB...{{msg:.green}}",
+        step, NSTEPS
     ))?);
-    pb5.finish();
+    pb5.finish_with_message("OK");
 
     Ok(())
 }
