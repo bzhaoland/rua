@@ -41,7 +41,8 @@ pub fn clean_build(
         })
         .unwrap_or_default();
 
-    const REFRESH_INTERVAL: u64 = 200; // In milliseconds
+    const REFRESH_INTERVAL: Duration = Duration::from_millis(200);
+    const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
     const DISPLAY_PATH_LEN: usize = 32;
 
     let num_steps = 3;
@@ -83,18 +84,18 @@ pub fn clean_build(
         }
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING TARGET OBJS...{}OK{:#}",
-        step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
+        "[{}/{}] CLEANING TARGET OBJS...{{msg:.green}}",
+        step, num_steps
     ))?);
-    pb1.finish();
+    pb1.finish_with_message("OK");
 
     // Clean unversioned entries
     step += 1;
     let pb2 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
         "[{}/{}] LISTING UNVERSIONEDS {{spinner:.green}}",
         step, num_steps
-    ))?);
-    pb2.enable_steady_tick(Duration::from_millis(REFRESH_INTERVAL));
+    ))?.tick_chars(TICK_CHARS));
+    pb2.enable_steady_tick(REFRESH_INTERVAL);
     let dirs: Vec<OsString> = dirs.unwrap_or_default();
     let output = Command::new("svn")
         .arg("status")
@@ -136,10 +137,10 @@ pub fn clean_build(
         }
     }
     pb2.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING UNVERSIONEDS...{}OK{:#}",
-        step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN,
+        "[{}/{}] CLEANING UNVERSIONEDS...{{msg:.green}}",
+        step, num_steps
     ))?);
-    pb2.finish();
+    pb2.finish_with_message("OK");
 
     // Clean UI files
     step += 1;
@@ -174,10 +175,10 @@ pub fn clean_build(
         }
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING UI OBJS...{}OK{:#}",
-        step, num_steps, COLOR_ANSI_GRN, COLOR_ANSI_GRN
+        "[{}/{}] CLEANING UI OBJS...{{msg:.green}}",
+        step, num_steps
     ))?);
-    pb3.finish();
+    pb3.finish_with_message("OK");
 
     Ok(())
 }
