@@ -59,7 +59,7 @@ pub fn clean_build(
     let ignores = ignores
         .map(|x| {
             x.iter()
-                .filter_map(|p| fs::canonicalize(p).ok())
+                .map(|p| normalize_path(Path::new(p)))
                 .collect::<Vec<PathBuf>>()
         })
         .unwrap_or_default();
@@ -76,9 +76,9 @@ pub fn clean_build(
         "[{}/{}] CLEANING TARGET OBJS: {{msg:.green}}",
         step, num_steps
     ))?);
-    let target_dir = fs::canonicalize("target");
-    if target_dir.is_ok() {
-        for x in walkdir::WalkDir::new(target_dir.unwrap())
+    let target_dir = normalize_path("target");
+    if target_dir.is_dir() {
+        for x in walkdir::WalkDir::new(&target_dir)
             .contents_first(true)
             .into_iter()
             .filter(|x| {
@@ -115,9 +115,9 @@ pub fn clean_build(
         "[{}/{}] CLEANING WEBUI OBJS: {{msg:.green}}",
         step, num_steps
     ))?);
-    let webui_dir = fs::canonicalize(svn_info.branch_name()); // UI directory name is the same as the branch name
-    if webui_dir.is_ok() {
-        for x in walkdir::WalkDir::new(webui_dir.unwrap())
+    let webui_dir = normalize_path(svn_info.branch_name()); // UI directory name is the same as the branch name
+    if webui_dir.is_dir() {
+        for x in walkdir::WalkDir::new(&webui_dir)
             .contents_first(true)
             .into_iter()
             .filter(|x| {
