@@ -177,7 +177,7 @@ pub fn clean_build(
         "[{}/{}] CLEANING UNVERSIONEDS: {{msg:.green}}",
         step, num_steps,
     ))?);
-    let pattern_for_unversioneds = Regex::new(r#"^\?[[:blank:]]+([A-Za-z0-9._/\-]+)[[:space:]]*$"#)
+    let pattern_for_unversioneds = Regex::new(r#"^\?[[:blank:]]+(.+)[[:blank:]]*$"#)
         .context("Failed to construct pattern for unversioned files")?; // Pattern for out-of-control files
     let output_str =
         String::from_utf8(output.stdout).context(anyhow!("Error converting to `String` type"))?;

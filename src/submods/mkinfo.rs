@@ -19,7 +19,7 @@ bitflags! {
     pub struct MakeFlag: u8 {
         const RELEASE_BUILD         = 0b00000001;
         const ENABLE_IPV6           = 0b00000010;
-        const PLEASE_WEBUI          = 0b00000100; // Not enforced
+        const ENABLE_WEBUI          = 0b00000100; // Not enforced
         const ENABLE_SHELL_PASSWORD = 0b00001000;
         const ENABLE_COVERITY       = 0b00010000;
     }
@@ -241,10 +241,10 @@ pub fn gen_mkinfo(
             let make_comm = format!(
                 r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERITY={}{}""#,
                 mkinfo.make_directory, make_goal,
-                if makeflag.contains(MakeFlag::ENABLE_COVERITY) { 1 } else { 0 },
                 if makeflag.contains(MakeFlag::RELEASE_BUILD) { 1 } else { 0 },
-                if makeflag.contains(MakeFlag::PLEASE_WEBUI) { 0 } else { 1 },
+                if makeflag.contains(MakeFlag::ENABLE_WEBUI) { 0 } else { 1 },
                 if makeflag.contains(MakeFlag::ENABLE_SHELL_PASSWORD) { 1 } else { 0 },
+                if makeflag.contains(MakeFlag::ENABLE_COVERITY) { 1 } else { 0 },
                 imageserver.map_or(String::new(), |v| format!(" OS_IMAGE_FTP_IP={}", v)),
             );
             compile_infos.push(CompileInfo {

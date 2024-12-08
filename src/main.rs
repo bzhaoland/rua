@@ -331,7 +331,7 @@ fn main() -> anyhow::Result<()> {
                 makeflag |= mkinfo::MakeFlag::ENABLE_IPV6;
             }
             if webui {
-                makeflag |= mkinfo::MakeFlag::PLEASE_WEBUI;
+                makeflag |= mkinfo::MakeFlag::ENABLE_WEBUI;
             }
             if password {
                 makeflag |= mkinfo::MakeFlag::ENABLE_SHELL_PASSWORD;
