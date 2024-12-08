@@ -1,10 +1,11 @@
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, fs};
 
 use anyhow::{anyhow, bail, Context};
 use indicatif::{ProgressBar, ProgressStyle};
+use regex::Regex;
 use std::time::Duration;
 
 use crate::utils::SvnInfo;
@@ -18,9 +19,33 @@ fn truncate_string(s: &str, l: usize) -> String {
     }
 }
 
+fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    
+    for component in path.as_ref().components() {
+        match component {
+            std::path::Component::RootDir => {
+                normalized.push(component);
+            }
+            std::path::Component::CurDir => {
+                // Skip current directory (.)
+            }
+            std::path::Component::ParentDir => {
+                normalized.pop(); // Go up one directory
+            }
+            std::path::Component::Normal(name) => {
+                normalized.push(name); // Push normal components
+            }
+            _ => {}
+        }
+    }
+    
+    normalized
+}
+
 pub fn clean_build(
     dirs: Option<Vec<OsString>>,
-    ignores: Option<&Vec<OsString>>
+    ignores: Option<&Vec<OsString>>,
 ) -> anyhow::Result<()> {
     // Check directory
     let svn_info = SvnInfo::new()?;
@@ -117,17 +142,20 @@ pub fn clean_build(
         }
     }
     pb2.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING UI OBJS...{{msg:.green}}",
+        "[{}/{}] CLEANING WEBUI OBJS...{{msg:.green}}",
         step, num_steps
     ))?);
     pb2.finish_with_message("OK");
 
     // Clean unversioned entries
     step += 1;
-    let pb3 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] LISTING UNVERSIONEDS {{spinner:.green}}",
-        step, num_steps
-    ))?.tick_chars(TICK_CHARS));
+    let pb3 = ProgressBar::no_length().with_style(
+        ProgressStyle::with_template(&format!(
+            "[{}/{}] LISTING UNVERSIONEDS {{spinner:.green}}",
+            step, num_steps
+        ))?
+        .tick_chars(TICK_CHARS),
+    );
     pb3.enable_steady_tick(REFRESH_INTERVAL);
     let dirs: Vec<OsString> = dirs.unwrap_or_default();
     let output = Command::new("svn")
@@ -144,29 +172,28 @@ pub fn clean_build(
                 .join(" ")
         );
     }
-    let pattern_for_unversioneds =
-        regex::Regex::new(r#"(?m)^\?[[:blank:]]+([^[:blank:]].*?)[[:space:]]*$"#)
-            .context("Error creating regex pattern")?; // Pattern for out-of-control files
-    let output_str =
-        String::from_utf8(output.stdout).context(anyhow!("Error converting to `String` type"))?;
-    let unversioned_files = pattern_for_unversioneds
-        .captures_iter(&output_str)
-        .filter_map(|c| fs::canonicalize((c.extract::<1>().1)[0]).ok())
-        .filter(|x| ignores.iter().all(|i| x != i))
-        .collect::<Vec<PathBuf>>();
     pb3.disable_steady_tick();
-    pb3.set_length(unversioned_files.len() as u64);
     pb3.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] CLEANING UNVERSIONEDS: {{msg:.green}}",
         step, num_steps,
     ))?);
-    for item in unversioned_files.iter() {
-        pb3.set_message(item.as_path().to_string_lossy().to_string());
-        if item.is_file() || item.is_symlink() {
-            fs::remove_file(item).context(format!("Error removing file {}", item.display()))?;
-        } else if item.is_dir() {
-            fs::remove_dir_all(item)
-                .context(format!("Error removing directory {}", item.display()))?;
+    let pattern_for_unversioneds = Regex::new(r#"^\?[[:blank:]]+([A-Za-z0-9._/\-]+)[[:space:]]*$"#)
+        .context("Failed to construct pattern for unversioned files")?; // Pattern for out-of-control files
+    let output_str =
+        String::from_utf8(output.stdout).context(anyhow!("Error converting to `String` type"))?;
+    for line in output_str.lines() {
+        if let Some(captures) = pattern_for_unversioneds.captures(line) {
+            let item = Path::new(captures.get(1).unwrap().as_str());
+            let entry = normalize_path(item);
+            if ignores.iter().all(|x| x != &entry) {
+                pb3.set_message(entry.as_path().to_string_lossy().to_string());
+                if entry.is_file() || entry.is_symlink() {
+                    fs::remove_file(&entry).context(format!("Error removing file {}", entry.display()))?;
+                } else if entry.is_dir() {
+                    fs::remove_dir_all(&entry)
+                        .context(format!("Error removing directory {}", entry.display()))?;
+                }
+            }
         }
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
@@ -174,7 +201,6 @@ pub fn clean_build(
         step, num_steps
     ))?);
     pb3.finish_with_message("OK");
-
 
     Ok(())
 }
