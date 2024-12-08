@@ -21,7 +21,7 @@ fn truncate_string(s: &str, l: usize) -> String {
 
 fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
     let mut normalized = PathBuf::new();
-    
+
     for component in path.as_ref().components() {
         match component {
             std::path::Component::RootDir => {
@@ -39,7 +39,7 @@ fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
             _ => {}
         }
     }
-    
+
     normalized
 }
 
@@ -188,7 +188,8 @@ pub fn clean_build(
             if ignores.iter().all(|x| x != &entry) {
                 pb3.set_message(entry.as_path().to_string_lossy().to_string());
                 if entry.is_file() || entry.is_symlink() {
-                    fs::remove_file(&entry).context(format!("Error removing file {}", entry.display()))?;
+                    fs::remove_file(&entry)
+                        .context(format!("Error removing file {}", entry.display()))?;
                 } else if entry.is_dir() {
                     fs::remove_dir_all(&entry)
                         .context(format!("Error removing directory {}", entry.display()))?;
