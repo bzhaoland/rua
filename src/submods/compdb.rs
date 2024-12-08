@@ -78,32 +78,25 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     ))?.tick_chars(TICK_CHARS));
     pb1.enable_steady_tick(TICK_INTERVAL);
     // Hacking for c files
-    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(HS_CC\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
+    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(HS_CC\)[[:blank:]]+(\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context("Failed to build regex pattern for C-oriented compile command")?;
     let lastrules_text = fs::read_to_string(lastrules_path)
         .context(format!(r#"Can't read file "{}""#, lastrules_path.display()))?;
     let captures = pattern_c
         .captures(&lastrules_text)
         .context(format!("Failed to capture pattern {}", pattern_c.as_str()))?;
-    let compline_c = captures.get(0).unwrap().as_str();
-    let compcomm_c = captures.get(1).unwrap().as_str();
-    let lastrules_text_hacked = pattern_c.replace_all(&lastrules_text, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_c, compcomm_c)).to_string();
+    let comp_args_c = captures.get(1).unwrap().as_str();
+    let lastrules_text_hacked = pattern_c.replace_all(&lastrules_text, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(CC) {} >>:file:>> $<", comp_args_c)).to_string();
     fs::write(lastrules_path, &lastrules_text_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
         lastrules_path.display()
     ))?;
     // Hacking for cxx files
-    let pattern_cc = Regex::new(r#"(?m)^\t[[:blank:]]*(\$\(COMPILE_CXX_CP_E\))[[:blank:]]*$"#)
+    let pattern_cxx = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
         .context("Building regex pattern for C++ compile command failed")?;
     let rules_text = fs::read_to_string(rules_path)
         .context(format!(r#"Can't read file "{}""#, rules_path.display()))?;
-    let captures = pattern_cc.captures(&rules_text).context(format!(
-        r#"Capturing pattern "{}" failed"#,
-        pattern_cc.as_str()
-    ))?;
-    let compline_cxx = captures.get(0).unwrap().as_str();
-    let compcomm_cxx = captures.get(1).unwrap().as_str();
-    let rules_text_hacked = pattern_cc.replace_all(&rules_text, format!("{}\n\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", compline_cxx, compcomm_cxx)).to_string();
+    let rules_text_hacked = pattern_cxx.replace_all(&rules_text, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<")).to_string();
     fs::write(rules_path, &rules_text_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
         rules_path.display()
