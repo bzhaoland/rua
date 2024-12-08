@@ -109,9 +109,9 @@ enum Comm {
 
     /// Get all matched makeinfos for product
     #[command(after_help = format!(r#"{CLAP_STYLE_HEADER}Examples:{CLAP_STYLE_HEADER:#}
-  rua mkinfo A1000     # With only IPv4 enabled
-  rua mkinfo -6 A1000  # With both IPv4 and IPv6 enabled
-  rua mkinfo 'A\d+'    # Regex pattern for X-products"#))]
+  rua mkinfo A1000      # Makeinfo for A1000 without extra features
+  rua mkinfo -6 A1000   # Makeinfo for A1000 with IPv6 enabled
+  rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern"#))]
     Mkinfo {
         #[arg(
             short = '4',
@@ -143,8 +143,8 @@ enum Comm {
         #[arg(short = 'd', long = "debug", default_value_t = false)]
         debug: bool,
 
-        /// Output format
-        #[arg(long = "outfmt", default_value = "list", value_name = "OUTPUT-FORMAT")]
+        /// Output format for makeinfos
+        #[arg(long = "format", default_value = "list", value_name = "FORMAT")]
         output_format: mkinfo::DumpFormat,
 
         /// Build with password
