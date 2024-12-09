@@ -39,8 +39,8 @@ pub struct SvnInfo {
     working_copy_root_path: String,
     url: String,
     relative_url: String,
-    repository_root: String,
-    repository_uuid: String,
+    repo_root: String,
+    repo_uuid: String,
     revision: usize,
     node_kind: String,
     schedule: String,
@@ -56,8 +56,8 @@ impl SvnInfo {
             working_copy_root_path: String::new(),
             url: String::new(),
             relative_url: String::new(),
-            repository_root: String::new(),
-            repository_uuid: String::new(),
+            repo_root: String::new(),
+            repo_uuid: String::new(),
             revision: 0,
             node_kind: String::new(),
             schedule: String::new(),
@@ -76,8 +76,8 @@ impl SvnInfo {
         self.working_copy_root_path.clear();
         self.url.clear();
         self.relative_url.clear();
-        self.repository_root.clear();
-        self.repository_uuid.clear();
+        self.repo_root.clear();
+        self.repo_uuid.clear();
         self.revision = 0;
         self.node_kind.clear();
         self.schedule.clear();
@@ -112,68 +112,32 @@ Last Changed Author: ([^\n]+)
 Last Changed Rev: ([[:digit:]]+)
 Last Changed Date: ([^\n]+)"#,
         )
-        .expect("Error building regex pattern for project root");
+        .context("Failed to build pattern for capturing project root dir")?;
 
-        let captures = pattern.captures(&info).context("Error matching svn info")?;
-        self.working_copy_root_path = captures
-            .get(1)
-            .context("Error capturing the working copy root path")?
-            .as_str()
-            .to_string();
-        self.url = captures
-            .get(2)
-            .context("Error capturing the url")?
-            .as_str()
-            .to_string();
-        self.relative_url = captures
-            .get(3)
-            .context("Error capturing the relative url")?
-            .as_str()
-            .to_string();
-        self.repository_root = captures
-            .get(4)
-            .context("Error capturing the repository root")?
-            .as_str()
-            .to_string();
-        self.repository_uuid = captures
-            .get(5)
-            .context("Error capturing the repository uuid")?
-            .as_str()
-            .to_string();
+        let captures = pattern.captures(&info).context("Failed to capture svn info")?;
+        self.working_copy_root_path = captures.get(1).unwrap().as_str().to_string();
+        self.url = captures.get(2).unwrap().as_str().to_string();
+        self.relative_url = captures.get(3).unwrap().as_str().to_string();
+        self.repo_root = captures.get(4).unwrap().as_str().to_string();
+        self.repo_uuid = captures.get(5).unwrap().as_str().to_string();
         self.revision = captures
             .get(6)
-            .context("Error capturing the revision")?
+            .unwrap()
             .as_str()
             .to_string()
             .parse()
-            .context("Error parsing the revision part into an integer")?;
-        self.node_kind = captures
-            .get(7)
-            .context("Error capturing the node kind")?
-            .as_str()
-            .to_string();
-        self.schedule = captures
-            .get(8)
-            .context("Error capturing the schedule")?
-            .as_str()
-            .to_string();
-        self.last_changed_author = captures
-            .get(9)
-            .context("Error capturing the last changed author")?
-            .as_str()
-            .to_string();
+            .context("Can't convert revision string to number")?;
+        self.node_kind = captures.get(7).unwrap().as_str().to_string();
+        self.schedule = captures.get(8).unwrap().as_str().to_string();
+        self.last_changed_author = captures.get(9).unwrap().as_str().to_string();
         self.last_changed_revision = captures
             .get(10)
-            .context("Error capturing the last changed revision")?
+            .unwrap()
             .as_str()
             .to_string()
             .parse()
-            .context("Error parsing the last changed revision part into an integer")?;
-        self.last_changed_date = captures
-            .get(11)
-            .context("Error capturing the last changed date")?
-            .as_str()
-            .to_string();
+            .context("Can't convert last changed revision to number")?;
+        self.last_changed_date = captures.get(11).unwrap().as_str().to_string();
 
         Ok(())
     }
@@ -197,11 +161,11 @@ Last Changed Date: ([^\n]+)"#,
     pub fn branch_name(&self) -> &str {
         let rel_url = self.relative_url();
         let branch_pattern = Regex::new(r#"\^/branches/([-[:word:]]+)"#)
-            .context("Error building regex pattern for capturing branch name")
+            .context("Failed to build pattern for branch name")
             .unwrap();
         let branch_name = branch_pattern
             .captures(rel_url)
-            .expect("Error capturing branch name")
+            .expect("Failed to match branch name")
             .get(1)
             .unwrap()
             .as_str();
@@ -210,12 +174,12 @@ Last Changed Date: ([^\n]+)"#,
 
     #[allow(dead_code)]
     pub fn repository_root(&self) -> &str {
-        self.repository_root.as_str()
+        self.repo_root.as_str()
     }
 
     #[allow(dead_code)]
     pub fn repository_uuid(&self) -> &str {
-        self.repository_uuid.as_str()
+        self.repo_uuid.as_str()
     }
 
     #[allow(dead_code)]

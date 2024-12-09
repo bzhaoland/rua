@@ -14,9 +14,9 @@ const COLOR_ANSI_YLW: anstyle::Style =
 /// Fetch the corresponding compile command from compilation database for the given filename.
 pub fn fetch_compile_command(filename: &str, compdb: &path::Path) -> Result<Vec<CompDBRecord>> {
     let compdb_str = fs::read_to_string(compdb)
-        .context(format!(r#"Error reading file "{}""#, compdb.display()))?;
+        .context(format!(r#"Can't read file "{}""#, compdb.display()))?;
     let compdb: CompDB = serde_json::from_str(&compdb_str)
-        .context(format!(r#"Error parsing "{}"!"#, compdb.display()))?;
+        .context(format!(r#"Failed to parse "{}"!"#, compdb.display()))?;
 
     let commands: Vec<CompDBRecord> = compdb
         .into_iter()

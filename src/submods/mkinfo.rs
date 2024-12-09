@@ -148,14 +148,14 @@ pub fn gen_mkinfo(
             "MX_MAIN" if repo_revision >= 293968 => true,
             "HAWAII_" => {
                 let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
-                    .context("Error building pattern for release version")?
+                    .context("Failed to build pattern for release version")?
                     .captures(repo_branch)
-                    .context("Error capturing release version from branch name")?
+                    .context("Failed to capture release version")?
                     .get(1)
                     .unwrap()
                     .as_str()
                     .parse::<usize>()
-                    .context("Error parsing release version as an integer")?;
+                    .context("Can't convert release version string to number")?;
                 (hawaii_release_ver == 11 && repo_revision >= 295630) || hawaii_release_ver > 11
             }
             _ => false,
@@ -163,11 +163,11 @@ pub fn gen_mkinfo(
 
     // Find out all matched records in src/libplatform/hs_platform.c
     let product_info_file = fs::File::open(&product_info_path).context(format!(
-        "Error opening file {}",
+        "Can't open file {}",
         product_info_path.display()
     ))?;
     let mut product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
-    let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}"#, nickname)).context("Error building regex pattern of product info")?;
+    let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}"#, nickname)).context("Failed to build pattern for product info")?;
     let mut product_info_list: Vec<ProductInfo> = Vec::with_capacity(128);
     let mut line = String::with_capacity(512);
     while product_info_reader.read_line(&mut line)? != 0 {
@@ -191,13 +191,13 @@ pub fn gen_mkinfo(
 
     // Fetch makeinfo for each product
     let makeinfo_file = fs::File::open(&makeinfo_path).context(format!(
-        r#"Error opening file "{}""#,
+        r#"Can't open file "{}""#,
         makeinfo_path.display()
     ))?;
     let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
     let makeinfo_pattern =
         Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
-            .context("Error building regex pattern for makeinfo")?;
+            .context("Failed to build pattern for makeinfo")?;
     let mut mkinfos: HashMap<String, Vec<MakeInfo>> = HashMap::with_capacity(256);
     while makeinfo_reader.read_line(&mut line)? != 0 {
         if let Some(captures) = makeinfo_pattern.captures(&line) {

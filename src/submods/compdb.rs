@@ -156,7 +156,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     let status = loop {
         if let Some(status) = child
             .try_wait()
-            .context("error attempting to wait: pseudo building")?
+            .context("Error attempting to wait: pseudo building")?
         {
             break status;
         }
@@ -211,7 +211,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     fs::remove_file(BUILDLOG_PATH)?;
     let pattern_hackrule = Regex::new(
         r#"(?m)^##JCDB##[[:blank:]]+>>:directory:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:command:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:file:>>[[:blank:]]+(.+)[[:blank:]]*$"#,
-    ).context("Error building hackrule pattern")?;
+    ).context("Failed to build pattern for hackrules")?;
     let mut records: Vec<CompDBRecord> = Vec::new();
     for (_, [dirc, comm, file]) in pattern_hackrule
         .captures_iter(&output_str)

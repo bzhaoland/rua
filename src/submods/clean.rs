@@ -96,10 +96,10 @@ pub fn clean_build(
             pb1.set_message(path_.to_string_lossy().to_string());
             if path_.is_file() || path_.is_symlink() {
                 fs::remove_file(path_)
-                    .context(format!("Error removing file {}", path_.display()))?;
+                    .context(format!("Failed to remove file {}", path_.display()))?;
             } else if path_.is_dir() {
                 fs::remove_dir_all(path_)
-                    .context(format!("Error removing directory {}", path_.display()))?;
+                    .context(format!("Failed to remove directory {}", path_.display()))?;
             }
         }
     }
@@ -134,10 +134,10 @@ pub fn clean_build(
             pb2.set_message(path_.to_string_lossy().to_string());
             if path_.is_file() || path_.is_symlink() {
                 fs::remove_file(path_)
-                    .context(format!("Error removing file {}", path_.display()))?;
+                    .context(format!("Failed to remove file: {}", path_.display()))?;
             } else if path_.is_dir() {
                 fs::remove_dir_all(path_)
-                    .context(format!("Error removing directory {}", path_.display()))?;
+                    .context(format!("Failed to remove directory: {}", path_.display()))?;
             }
         }
     }
@@ -165,7 +165,7 @@ pub fn clean_build(
         .context(format!("Command `svn status {:?}` failed", dirs))?;
     if !output.status.success() {
         bail!(
-            "Error invoking `svn status {:?}`",
+            "Can't invoke `svn status {:?}`",
             dirs.iter()
                 .map(|x| x.to_string_lossy().to_string().to_owned())
                 .collect::<Vec<String>>()
@@ -180,7 +180,7 @@ pub fn clean_build(
     let pattern_for_unversioneds = Regex::new(r#"^\?[[:blank:]]+(.+)[[:blank:]]*$"#)
         .context("Failed to construct pattern for unversioned files")?; // Pattern for out-of-control files
     let output_str =
-        String::from_utf8(output.stdout).context(anyhow!("Error converting to `String` type"))?;
+        String::from_utf8(output.stdout).context(anyhow!("Can't convert to String"))?;
     for line in output_str.lines() {
         if let Some(captures) = pattern_for_unversioneds.captures(line) {
             let item = Path::new(captures.get(1).unwrap().as_str());
@@ -189,10 +189,10 @@ pub fn clean_build(
                 pb3.set_message(entry.as_path().to_string_lossy().to_string());
                 if entry.is_file() || entry.is_symlink() {
                     fs::remove_file(&entry)
-                        .context(format!("Error removing file {}", entry.display()))?;
+                        .context(format!("Failed to remove: file {}", entry.display()))?;
                 } else if entry.is_dir() {
                     fs::remove_dir_all(&entry)
-                        .context(format!("Error removing directory {}", entry.display()))?;
+                        .context(format!("Failed to remove: {}", entry.display()))?;
                 }
             }
         }
