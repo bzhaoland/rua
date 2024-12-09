@@ -10,15 +10,6 @@ use std::time::Duration;
 
 use crate::utils::SvnInfo;
 
-#[allow(dead_code)]
-fn truncate_string(s: &str, l: usize) -> String {
-    if s.chars().count() <= l {
-        s.to_owned()
-    } else {
-        s.chars().skip(s.chars().count() - l).collect()
-    }
-}
-
 fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
     let mut normalized = PathBuf::new();
 
