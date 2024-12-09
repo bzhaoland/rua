@@ -68,14 +68,17 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
     // Hack makefiles
-    let pb1 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] INJECTING MKFILES ({} & {} & {}) {{spinner:.green}}",
-        step,
-        NSTEPS,
-        lastrules_path.display(),
-        rules_path.display(),
-        top_makefile.display(),
-    ))?.tick_chars(TICK_CHARS));
+    let pb1 = ProgressBar::no_length().with_style(
+        ProgressStyle::with_template(&format!(
+            "[{}/{}] INJECTING MKFILES ({} & {} & {}) {{spinner:.green}}",
+            step,
+            NSTEPS,
+            lastrules_path.display(),
+            rules_path.display(),
+            top_makefile.display(),
+        ))?
+        .tick_chars(TICK_CHARS),
+    );
     pb1.enable_steady_tick(TICK_INTERVAL);
     // Hacking for c files
     let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(HS_CC\)[[:blank:]]+(\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
@@ -96,7 +99,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         .context("Building regex pattern for C++ compile command failed")?;
     let rules_text = fs::read_to_string(rules_path)
         .context(format!(r#"Can't read file "{}""#, rules_path.display()))?;
-    let rules_text_hacked = pattern_cxx.replace_all(&rules_text, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<")).to_string();
+    let rules_text_hacked = pattern_cxx.replace_all(&rules_text, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
     fs::write(rules_path, &rules_text_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
         rules_path.display()
@@ -141,15 +144,18 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     // Build the target (pseudoly)
     step += 1;
     const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
-    let pb2 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] BUILDING PSEUDOLY {{spinner:.green}} [{{elapsed_precise}}]",
-        step, NSTEPS
-    ))?.tick_chars(TICK_CHARS));
+    let pb2 = ProgressBar::no_length().with_style(
+        ProgressStyle::with_template(&format!(
+            "[{}/{}] BUILDING PSEUDOLY {{spinner:.green}} [{{elapsed_precise}}]",
+            step, NSTEPS
+        ))?
+        .tick_chars(TICK_CHARS),
+    );
     pb2.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
     let mut child = command
         .arg(
-            &format!("make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_SHELL_PASSWORD=0 HS_BUILD_COVERITY=0 >{} 2>&1", make_directory, make_target, BUILDLOG_PATH), // This will be treated as a normal arg and passed into hsdocker7
+            format!("make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_SHELL_PASSWORD=0 HS_BUILD_COVERITY=0 >{} 2>&1", make_directory, make_target, BUILDLOG_PATH), // This will be treated as a normal arg and passed into hsdocker7
         )
         .spawn()
         .context("Failed to execute hsdocker7")?;
@@ -173,14 +179,17 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Restore the original makefiles
     step += 1;
-    let pb3 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] RESTORING MKFILES ({} & {} & {}) {{spinner:.green}}",
-        step,
-        NSTEPS,
-        lastrules_path.display(),
-        rules_path.display(),
-        top_makefile.display(),
-    ))?.tick_chars(TICK_CHARS));
+    let pb3 = ProgressBar::no_length().with_style(
+        ProgressStyle::with_template(&format!(
+            "[{}/{}] RESTORING MKFILES ({} & {} & {}) {{spinner:.green}}",
+            step,
+            NSTEPS,
+            lastrules_path.display(),
+            rules_path.display(),
+            top_makefile.display(),
+        ))?
+        .tick_chars(TICK_CHARS),
+    );
     pb3.enable_steady_tick(TICK_INTERVAL);
     fs::write(lastrules_path, &lastrules_text).context(format!(
         r#"Restoring "{}" failed"#,
@@ -202,10 +211,13 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Parse the build log
     step += 1;
-    let pb4 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] PARSING BUILDLOG {{spinner:.green}}",
-        step, NSTEPS
-    ))?.tick_chars(TICK_CHARS));
+    let pb4 = ProgressBar::no_length().with_style(
+        ProgressStyle::with_template(&format!(
+            "[{}/{}] PARSING BUILDLOG {{spinner:.green}}",
+            step, NSTEPS
+        ))?
+        .tick_chars(TICK_CHARS),
+    );
     pb4.enable_steady_tick(TICK_INTERVAL);
     let output_str = fs::read_to_string(BUILDLOG_PATH)?;
     fs::remove_file(BUILDLOG_PATH)?;
@@ -231,10 +243,13 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     // Generate JCDB
     step += 1;
-    let pb5 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] GENERATING JCDB {{spinner:.green}}",
-        step, NSTEPS
-    ))?.tick_chars(TICK_CHARS));
+    let pb5 = ProgressBar::no_length().with_style(
+        ProgressStyle::with_template(&format!(
+            "[{}/{}] GENERATING JCDB {{spinner:.green}}",
+            step, NSTEPS
+        ))?
+        .tick_chars(TICK_CHARS),
+    );
     pb5.enable_steady_tick(TICK_INTERVAL);
     let mut jcdb = json!([]);
     for item in records.iter() {

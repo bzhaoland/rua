@@ -3,6 +3,7 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::net::IpAddr;
 
 use anyhow::{self, bail, Context};
 use bitflags::bitflags;
@@ -118,7 +119,7 @@ const COLOR_ANSI_YLW: anstyle::Style =
 pub fn gen_mkinfo(
     nickname: &str,
     makeflag: MakeFlag,
-    imageserver: Option<&str>,
+    image_server: Option<IpAddr>,
 ) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
@@ -258,7 +259,7 @@ pub fn gen_mkinfo(
                 } else {
                     0
                 },
-                imageserver.map_or(String::new(), |v| format!(" OS_IMAGE_FTP_IP={}", v)),
+                image_server.map_or(String::new(), |v| format!(" OS_IMAGE_FTP_IP={}", v)),
             );
             compile_infos.push(CompileInfo {
                 product_name: product.long_name.clone(),

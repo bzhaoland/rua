@@ -2,13 +2,14 @@ mod submods;
 mod utils;
 
 use std::ffi::OsString;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use anstyle::{Ansi256Color, Color, Style};
+use anyhow::Context;
 use clap::builder::styling;
 use clap::{Parser, Subcommand};
-use url::Url;
 
 use crate::submods::clean;
 use crate::submods::compdb;
@@ -339,14 +340,14 @@ fn main() -> anyhow::Result<()> {
             if coverity {
                 makeflag |= mkinfo::MakeFlag::ENABLE_COVERITY;
             }
-            if image_server.is_some() {
-                let url_str = image_server.as_deref().unwrap();
-                assert!(
-                    Url::parse(url_str).is_ok(),
-                    "Invalid URL specified as image server"
-                );
-            }
-            let printinfos = mkinfo::gen_mkinfo(&product_name, makeflag, image_server.as_deref())?;
+            let image_server = match image_server {
+                Some(v) => Some(
+                    v.parse::<IpAddr>()
+                        .context(format!("Can't parse as IpAddr: {}", v))?,
+                ),
+                None => None,
+            };
+            let printinfos = mkinfo::gen_mkinfo(&product_name, makeflag, image_server)?;
 
             mkinfo::dump_mkinfo(&printinfos, output_format)
         }
