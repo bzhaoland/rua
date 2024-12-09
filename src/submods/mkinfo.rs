@@ -162,10 +162,8 @@ pub fn gen_mkinfo(
         };
 
     // Find out all matched records in src/libplatform/hs_platform.c
-    let product_info_file = fs::File::open(&product_info_path).context(format!(
-        "Can't open file {}",
-        product_info_path.display()
-    ))?;
+    let product_info_file = fs::File::open(&product_info_path)
+        .context(format!("Can't open file {}", product_info_path.display()))?;
     let mut product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
     let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}"#, nickname)).context("Failed to build pattern for product info")?;
     let mut product_info_list: Vec<ProductInfo> = Vec::with_capacity(128);
@@ -190,10 +188,8 @@ pub fn gen_mkinfo(
     product_info_list.shrink_to_fit();
 
     // Fetch makeinfo for each product
-    let makeinfo_file = fs::File::open(&makeinfo_path).context(format!(
-        r#"Can't open file "{}""#,
-        makeinfo_path.display()
-    ))?;
+    let makeinfo_file = fs::File::open(&makeinfo_path)
+        .context(format!(r#"Can't open file "{}""#, makeinfo_path.display()))?;
     let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
     let makeinfo_pattern =
         Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
@@ -208,9 +204,9 @@ pub fn gen_mkinfo(
                 make_directory: captures.get(3).unwrap().as_str().to_string(),
             };
 
-            if !mkinfos.contains_key(&makeinfo_item.platform_model) {
-                mkinfos.insert(makeinfo_item.platform_model.clone(), Vec::with_capacity(1));
-            }
+            mkinfos
+                .entry(makeinfo_item.platform_model.clone())
+                .or_insert(Vec::with_capacity(1));
 
             let v = mkinfos.get_mut(&makeinfo_item.platform_model).unwrap();
             v.push(makeinfo_item);
@@ -240,11 +236,28 @@ pub fn gen_mkinfo(
 
             let make_comm = format!(
                 r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERITY={}{}""#,
-                mkinfo.make_directory, make_goal,
-                if makeflag.contains(MakeFlag::RELEASE_BUILD) { 1 } else { 0 },
-                if makeflag.contains(MakeFlag::ENABLE_WEBUI) { 0 } else { 1 },
-                if makeflag.contains(MakeFlag::ENABLE_SHELL_PASSWORD) { 1 } else { 0 },
-                if makeflag.contains(MakeFlag::ENABLE_COVERITY) { 1 } else { 0 },
+                mkinfo.make_directory,
+                make_goal,
+                if makeflag.contains(MakeFlag::RELEASE_BUILD) {
+                    1
+                } else {
+                    0
+                },
+                if makeflag.contains(MakeFlag::ENABLE_WEBUI) {
+                    0
+                } else {
+                    1
+                },
+                if makeflag.contains(MakeFlag::ENABLE_SHELL_PASSWORD) {
+                    1
+                } else {
+                    0
+                },
+                if makeflag.contains(MakeFlag::ENABLE_COVERITY) {
+                    1
+                } else {
+                    0
+                },
                 imageserver.map_or(String::new(), |v| format!(" OS_IMAGE_FTP_IP={}", v)),
             );
             compile_infos.push(CompileInfo {
