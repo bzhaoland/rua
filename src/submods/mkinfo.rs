@@ -5,10 +5,12 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::net::IpAddr;
 
+use anstyle::{AnsiColor, Color, Style as anStyle};
 use anyhow::{self, bail, Context};
 use bitflags::bitflags;
 use clap::ValueEnum;
 use crossterm::terminal;
+use ratatui::style::Stylize;
 use regex::Regex;
 use serde_json::{json, Value};
 
@@ -109,10 +111,8 @@ impl fmt::Display for CompileInfo {
     }
 }
 
-const COLOR_ANSI_GRN: anstyle::Style =
-    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
-const COLOR_ANSI_YLW: anstyle::Style =
-    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow)));
+const COLOR_ANSI_YLW: anStyle =
+    anStyle::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
 
 /// Generate the make information for the given platform.
 /// This function must run under the project root which is a valid svn repo.
@@ -326,7 +326,7 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
 
 fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     // Style control
-    let decor_width = terminal::window_size()?.columns;
+    let term_columns = terminal::window_size()?.columns;
 
     if compile_infos.is_empty() {
         println!("No matched info.");
@@ -334,18 +334,8 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     }
 
     // Decorations
-    let outer_decor = format!(
-        "{}{}{:#}",
-        COLOR_ANSI_GRN,
-        "=".repeat(decor_width as usize),
-        COLOR_ANSI_GRN
-    );
-    let inner_decor = format!(
-        "{}{}{:#}",
-        COLOR_ANSI_GRN,
-        "-".repeat(decor_width as usize),
-        COLOR_ANSI_GRN
-    );
+    let outer_decor = "=".repeat(term_columns as usize).green();
+    let inner_decor = "-".repeat(term_columns as usize).green();
 
     println!(
         "{} matched info{}:",

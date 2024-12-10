@@ -3,13 +3,9 @@ use std::path;
 
 use anyhow::{Context, Result};
 use crossterm::terminal;
+use ratatui::style::Stylize;
 
 use crate::submods::compdb::{CompDB, CompDBRecord};
-
-const COLOR_ANSI_GRN: anstyle::Style =
-    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
-const COLOR_ANSI_YLW: anstyle::Style =
-    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow)));
 
 /// Fetch the corresponding compile command from compilation database for the given filename.
 pub fn fetch_compile_command(filename: &str, compdb: &path::Path) -> Result<Vec<CompDBRecord>> {
@@ -40,18 +36,8 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
     }
 
     let width = terminal::window_size()?.columns;
-    let head_decor = format!(
-        "{}{}{:#}",
-        COLOR_ANSI_GRN,
-        "=".repeat(width as usize),
-        COLOR_ANSI_GRN
-    );
-    let data_decor = format!(
-        "{}{}{:#}",
-        COLOR_ANSI_GRN,
-        "-".repeat(width as usize),
-        COLOR_ANSI_GRN
-    );
+    let head_decor = "=".repeat(width as usize).green().to_string();
+    let data_decor = "-".repeat(width as usize).green().to_string();
 
     let mut out = String::new();
     out.push_str(&format!(
@@ -61,7 +47,6 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
     ));
 
     out.push_str(&head_decor);
-
     for (idx, item) in records.iter().enumerate() {
         out.push_str(&format!(
             "File      : {}\nDirectory : {}\nCommand   : {}\n",
@@ -72,15 +57,8 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
             out.push_str(&data_decor);
         }
     }
-
     out.push_str(&head_decor);
-
-    out.push_str(&format!(
-        "{}{}{:#}",
-        COLOR_ANSI_YLW,
-        "Run the compile command under the corresponding directory.",
-        COLOR_ANSI_YLW
-    ));
+    out.push_str(&"Run the compile command under the corresponding directory.".yellow().to_string());
 
     println!("{}", out);
 
