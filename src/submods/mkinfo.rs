@@ -2,15 +2,13 @@ use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{self, BufRead, BufReader};
 use std::net::IpAddr;
 
-use anstyle::{AnsiColor, Color, Style as anStyle};
+use anstyle::{AnsiColor, Color, Style};
 use anyhow::{self, bail, Context};
 use bitflags::bitflags;
 use clap::ValueEnum;
-use crossterm::terminal;
-use ratatui::style::Stylize;
 use regex::Regex;
 use serde_json::{json, Value};
 
@@ -111,8 +109,8 @@ impl fmt::Display for CompileInfo {
     }
 }
 
-const COLOR_ANSI_YLW: anStyle =
-    anStyle::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
+const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
+const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
 
 /// Generate the make information for the given platform.
 /// This function must run under the project root which is a valid svn repo.
@@ -326,7 +324,9 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
 
 fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     // Style control
-    let term_columns = terminal::window_size()?.columns;
+    let backend = ratatui::backend::CrosstermBackend::new(io::stderr());
+    let ratterm = ratatui::Terminal::new(backend)?;
+    let size = ratterm.size()?;
 
     if compile_infos.is_empty() {
         println!("No matched info.");
@@ -334,8 +334,14 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     }
 
     // Decorations
-    let outer_decor = "=".repeat(term_columns as usize).green();
-    let inner_decor = "-".repeat(term_columns as usize).green();
+    let outer_decor = format!(
+        "{COLOR_GREEN}{}{COLOR_GREEN:#}",
+        "=".repeat(size.width as usize)
+    );
+    let inner_decor = format!(
+        "{COLOR_GREEN}{}{COLOR_GREEN:#}",
+        "-".repeat(size.width as usize)
+    );
 
     println!(
         "{} matched info{}:",
@@ -360,10 +366,8 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     println!("{}", outer_decor);
 
     println!(
-        r#"{}Run make command under the project root, i.e. "{}"{:#}"#,
-        COLOR_ANSI_YLW,
+        r#"{COLOR_YELLOW}Run make command under the project root, i.e. "{}"{COLOR_YELLOW:#}"#,
         utils::SvnInfo::new()?.working_copy_root_path().display(),
-        COLOR_ANSI_YLW
     );
 
     anyhow::Ok(())
