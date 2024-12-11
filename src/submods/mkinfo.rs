@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::fs;
-use std::io::{self, BufRead, BufReader};
-use std::net::IpAddr;
+use std::io::{BufRead, BufReader};
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{self, bail, Context};
 use bitflags::bitflags;
 use clap::ValueEnum;
 use regex::Regex;
+use rustix::system::uname;
 use serde_json::{json, Value};
 
 use crate::utils;
@@ -18,11 +18,26 @@ bitflags! {
     #[repr(transparent)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct MakeFlag: u8 {
-        const RELEASE_BUILD         = 0b00000001;
+        const BUILD_RELEASE         = 0b00000001;
         const ENABLE_IPV6           = 0b00000010;
         const ENABLE_WEBUI          = 0b00000100; // Not enforced
         const ENABLE_SHELL_PASSWORD = 0b00001000;
         const ENABLE_COVERITY       = 0b00010000;
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum ImageServer {
+    B, // Beijing
+    S, // Suzhou
+}
+
+impl fmt::Display for ImageServer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ImageServer::B => write!(f, "b"),
+            ImageServer::S => write!(f, "s"),
+        }
     }
 }
 
@@ -35,7 +50,7 @@ pub enum DumpFormat {
 }
 
 impl fmt::Display for DumpFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DumpFormat::Csv => write!(f, "Csv"),
             DumpFormat::Json => write!(f, "Json"),
@@ -117,7 +132,7 @@ const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Ye
 pub fn gen_mkinfo(
     nickname: &str,
     makeflag: MakeFlag,
-    image_server: Option<IpAddr>,
+    image_server: Option<ImageServer>,
 ) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
@@ -215,8 +230,53 @@ pub fn gen_mkinfo(
     }
     mkinfos.shrink_to_fit();
 
+    // Compose an image name using product-series/make-target/IPv6-tag/date/username
+    let mut imagename_suffix = String::with_capacity(32);
+
+    let pattern_nonalnum =
+        Regex::new(r#"[^[:alnum:]]+"#).context("Error building regex pattern for nonalnum")?;
+
+    // Use branch name abbreviation to compose the image name
+    let nickname_pattern = Regex::new(r"HAWAII_([-[:word:]]+)")
+        .context("Error building regex pattern for nickname")
+        .unwrap();
+    let captures = nickname_pattern.captures(repo_branch);
+    let branch_nickname = pattern_nonalnum
+        .replace_all(
+            &match captures {
+                Some(v) => v
+                    .get(1)
+                    .map_or(repo_branch.to_owned(), |x| x.as_str().to_string()),
+                None => repo_branch.to_string(),
+            },
+            "",
+        )
+        .to_string();
+
+    // IPv6 check
+    if makeflag.contains(MakeFlag::ENABLE_IPV6) {
+        imagename_suffix.push_str("V6-");
+    }
+
+    // Building mode
+    imagename_suffix.push(if makeflag.contains(MakeFlag::BUILD_RELEASE) {
+        'r'
+    } else {
+        'd'
+    });
+
+    // Timestamp
+    imagename_suffix.push_str(&chrono::Local::now().format("%m%d").to_string());
+
+    // Username
+    let username = utils::get_current_username().context("Failed to get username")?;
+    imagename_suffix.push('-');
+    imagename_suffix.push_str(&username);
+
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for product in product_info_list.iter() {
+        let imagename_prodname = pattern_nonalnum.replace_all(&product.short_name, "");
+
         let mkinfo_arr = mkinfos.get(&product.platform_code);
         if mkinfo_arr.is_none() {
             continue;
@@ -233,11 +293,19 @@ pub fn gen_mkinfo(
                 make_goal.push_str("-ipv6");
             }
 
+            let imagename_target = pattern_nonalnum
+                .replace_all(&mkinfo.make_goal, "")
+                .to_uppercase();
+            let imagename = format!(
+                "{}-{}-{}-{}",
+                imagename_prodname, branch_nickname, imagename_target, imagename_suffix
+            );
+
             let make_comm = format!(
-                r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERITY={}{}""#,
+                r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
                 mkinfo.make_directory,
                 make_goal,
-                if makeflag.contains(MakeFlag::RELEASE_BUILD) {
+                if makeflag.contains(MakeFlag::BUILD_RELEASE) {
                     1
                 } else {
                     0
@@ -257,7 +325,21 @@ pub fn gen_mkinfo(
                 } else {
                     0
                 },
-                image_server.map_or(String::new(), |v| format!(" OS_IMAGE_FTP_IP={}", v)),
+                image_server.map_or(
+                    {
+                        let nodename = uname().nodename().to_string_lossy().to_string();
+                        if nodename.ends_with("-sz") {
+                            "10.200.6.10".to_string()
+                        } else {
+                            "10.100.6.10".to_string()
+                        }
+                    },
+                    |v| match v {
+                        ImageServer::B => "10.100.6.10".to_string(),
+                        ImageServer::S => "10.200.6.10".to_string(),
+                    }
+                ),
+                imagename
             );
             compile_infos.push(CompileInfo {
                 product_name: product.long_name.clone(),
@@ -324,9 +406,7 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
 
 fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     // Style control
-    let backend = ratatui::backend::CrosstermBackend::new(io::stderr());
-    let ratterm = ratatui::Terminal::new(backend)?;
-    let size = ratterm.size()?;
+    let term_size = crossterm::terminal::window_size()?;
 
     if compile_infos.is_empty() {
         println!("No matched info.");
@@ -336,11 +416,11 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     // Decorations
     let outer_decor = format!(
         "{COLOR_GREEN}{}{COLOR_GREEN:#}",
-        "=".repeat(size.width as usize)
+        "=".repeat(term_size.columns as usize)
     );
     let inner_decor = format!(
         "{COLOR_GREEN}{}{COLOR_GREEN:#}",
-        "-".repeat(size.width as usize)
+        "-".repeat(term_size.columns as usize)
     );
 
     println!(

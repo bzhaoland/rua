@@ -2,14 +2,13 @@ mod submods;
 mod utils;
 
 use std::ffi::OsString;
-use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use anstyle::{Ansi256Color, Color, Style};
-use anyhow::Context;
 use clap::builder::styling;
 use clap::{Parser, Subcommand};
+use submods::mkinfo::ImageServer;
 
 use crate::submods::clean;
 use crate::submods::compdb;
@@ -157,8 +156,8 @@ enum Comm {
         webui: bool,
 
         /// Server to upload the output image to
-        #[arg(short = 's', long = "image-server", value_name = "IMAGE-SERVER-IP")]
-        image_server: Option<String>,
+        #[arg(short = 's', long = "image-server", value_name = "IMAGE-SERVER")]
+        image_server: Option<ImageServer>,
 
         /// Product name, such as 'A1000'. Regex is also supported, e.g. 'X\d+80'
         #[arg(value_name = "PRODUCT")]
@@ -326,7 +325,7 @@ fn main() -> anyhow::Result<()> {
         } => {
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
-                makeflag |= mkinfo::MakeFlag::RELEASE_BUILD;
+                makeflag |= mkinfo::MakeFlag::BUILD_RELEASE;
             };
             if ipv6 {
                 makeflag |= mkinfo::MakeFlag::ENABLE_IPV6;
@@ -340,13 +339,6 @@ fn main() -> anyhow::Result<()> {
             if coverity {
                 makeflag |= mkinfo::MakeFlag::ENABLE_COVERITY;
             }
-            let image_server = match image_server {
-                Some(v) => Some(
-                    v.parse::<IpAddr>()
-                        .context(format!("Can't parse as IpAddr: {}", v))?,
-                ),
-                None => None,
-            };
             let printinfos = mkinfo::gen_mkinfo(&product_name, makeflag, image_server)?;
 
             mkinfo::dump_mkinfo(&printinfos, output_format)
