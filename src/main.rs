@@ -1,11 +1,13 @@
+mod app;
+mod config;
 mod submods;
 mod utils;
 
-use std::ffi::OsString;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use anstyle::{Ansi256Color, Color, Style};
+use anyhow::bail;
 use clap::builder::styling;
 use clap::{Parser, Subcommand};
 use submods::mkinfo::ImageServer;
@@ -68,7 +70,7 @@ enum Comm {
             value_name = "ENTRY",
             help = "Files or directories to be cleaned ('target' is always included even if not specified)"
         )]
-        dirs: Option<Vec<OsString>>,
+        dirs: Option<Vec<String>>,
 
         #[arg(
             short = 'n',
@@ -76,7 +78,7 @@ enum Comm {
             value_name = "IGNORES",
             help = "List of files and directories seperated by commas to be ignored"
         )]
-        ignores: Option<Vec<OsString>>,
+        ignores: Option<Vec<String>>,
     },
 
     /// Generate JSON compilation database (JCDB) for a specific target
@@ -290,10 +292,26 @@ fn main() -> anyhow::Result<()> {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
 
+    let conf = config::load_config()?;
     let args = Cli::parse();
 
     match args.command {
-        Comm::Clean { dirs, ignores } => clean::clean_build(dirs, ignores.as_ref()),
+        Comm::Clean { dirs, ignores } => {
+            let ignores = if ignores.is_some() {
+                ignores.as_ref()
+            } else if conf.is_some() {
+                let conf = conf.as_ref().unwrap();
+                let clean_conf = conf.clean.as_ref();
+                if clean_conf.is_some() {
+                    clean_conf.unwrap().ignores.as_ref()
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            clean::clean_build(dirs, ignores)
+        }
         Comm::Compdb {
             product_dir,
             make_target,
@@ -323,6 +341,28 @@ fn main() -> anyhow::Result<()> {
             image_server,
             output_format,
         } => {
+            let image_server = if let Some(image_server) = image_server {
+                Some(image_server)
+            } else if conf.is_some() {
+                let conf = conf.as_ref().unwrap();
+                let mkinfo_conf = conf.mkinfo.as_ref();
+                if mkinfo_conf.is_some() {
+                    if let Some(v) = mkinfo_conf.unwrap().image_server.as_ref() {
+                        match v.as_str() {
+                            "Beijing" => Some(ImageServer::B),
+                            "Suzhou" => Some(ImageServer::S),
+                            _ => bail!("Invalid config item: image_server={}", v),
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
                 makeflag |= mkinfo::MakeFlag::BUILD_RELEASE;

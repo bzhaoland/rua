@@ -1,4 +1,3 @@
-use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, fs};
@@ -35,8 +34,8 @@ fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
 }
 
 pub fn clean_build(
-    dirs: Option<Vec<OsString>>,
-    ignores: Option<&Vec<OsString>>,
+    dirs: Option<Vec<String>>,
+    ignores: Option<&Vec<String>>,
 ) -> anyhow::Result<()> {
     // Check directory
     let svn_info = SvnInfo::new()?;
@@ -148,7 +147,7 @@ pub fn clean_build(
         .tick_chars(TICK_CHARS),
     );
     pb3.enable_steady_tick(REFRESH_INTERVAL);
-    let dirs: Vec<OsString> = dirs.unwrap_or_default();
+    let dirs: Vec<String> = dirs.unwrap_or_default();
     let output = Command::new("svn")
         .arg("status")
         .args(dirs.iter())
@@ -157,10 +156,7 @@ pub fn clean_build(
     if !output.status.success() {
         bail!(
             "Can't invoke `svn status {:?}`",
-            dirs.iter()
-                .map(|x| x.to_string_lossy().to_string().to_owned())
-                .collect::<Vec<String>>()
-                .join(" ")
+            dirs.join(" ")
         );
     }
     pb3.disable_steady_tick();
