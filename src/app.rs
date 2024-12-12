@@ -288,8 +288,8 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
             } else if conf.is_some() {
                 let conf = conf.as_ref().unwrap();
                 let clean_conf = conf.clean.as_ref();
-                if clean_conf.is_some() {
-                    clean_conf.unwrap().ignores.as_ref()
+                if let Some(v) = clean_conf {
+                    v.ignores.as_ref()
                 } else {
                     None
                 }
@@ -334,10 +334,10 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
                 let mkinfo_conf = conf.mkinfo.as_ref();
                 if mkinfo_conf.is_some() {
                     if let Some(v) = mkinfo_conf.unwrap().image_server.as_ref() {
-                        match v.as_str() {
-                            "Beijing" => Some(mkinfo::ImageServer::B),
-                            "Suzhou" => Some(mkinfo::ImageServer::S),
-                            _ => bail!("Invalid config item: image_server={}", v),
+                        match v.to_lowercase().as_str() {
+                            "beijing" | "bj" | "b" => Some(mkinfo::ImageServer::B),
+                            "buzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
+                            _ => bail!("Invalid config value: image_server = {:?}", v),
                         }
                     } else {
                         None

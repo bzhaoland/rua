@@ -16,9 +16,7 @@ impl CleanConf {
 
     #[allow(dead_code)]
     pub fn merge(mut self, other: &Self) -> Self {
-        if self.ignores.is_none() {
-            self.ignores = other.ignores.clone();
-        }
+        self.ignores = self.ignores.or_else(|| other.ignores.clone());
         self
     }
 }
@@ -36,9 +34,7 @@ impl MkinfoConf {
 
     #[allow(dead_code)]
     pub fn merge(mut self, other: &Self) -> Self {
-        if self.image_server.is_none() {
-            self.image_server = other.image_server.clone()
-        }
+        self.image_server = self.image_server.or_else(|| other.image_server.clone());
         self
     }
 }
@@ -82,12 +78,26 @@ pub fn load_config() -> Result<Option<RuaConf>> {
         .join(".config/rua/config.toml");
 
     let proj_conf: Option<RuaConf> = if proj_conf_file.is_file() {
-        Some(toml::from_str(&fs::read_to_string(proj_conf_file)?)?)
+        toml::from_str(
+            &fs::read_to_string(proj_conf_file.as_path())
+                .context(format!("Can't read file: {}", proj_conf_file.display()))?,
+        )
+        .context(format!(
+            "Failed to parse config file: {}",
+            proj_conf_file.display()
+        ))?
     } else {
         None
     };
     let user_conf: Option<RuaConf> = if user_conf_file.is_file() {
-        Some(toml::from_str(&fs::read_to_string(user_conf_file)?)?)
+        toml::from_str(
+            &fs::read_to_string(user_conf_file.as_path())
+                .context(format!("Failed to read: {}", user_conf_file.display()))?,
+        )
+        .context(format!(
+            "Failed to parse file: {}",
+            user_conf_file.display()
+        ))?
     } else {
         None
     };
