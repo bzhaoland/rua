@@ -80,7 +80,7 @@ struct ProductInfo {
 pub struct MakeInfo {
     platform_model: String,
     product_family: Option<String>,
-    make_goal: String,
+    make_target: String,
     make_directory: String,
 }
 
@@ -90,7 +90,7 @@ pub struct CompileInfo {
     product_model: String,
     product_family: String,
     platform_model: String,
-    make_goal: String,
+    make_target: String,
     make_directory: String,
     make_command: String,
 }
@@ -101,10 +101,10 @@ impl fmt::Display for MakeInfo {
             f,
             r#"MakeInfo {{
   platform_model: "{}",
-  make_goal: "{}",
-  make_directory: "{}",
+  target: "{}",
+  directory: "{}",
 }}"#,
-            self.platform_model, self.make_goal, self.make_directory,
+            self.platform_model, self.make_target, self.make_directory,
         )
     }
 }
@@ -115,11 +115,11 @@ impl fmt::Display for CompileInfo {
             f,
             r#"CompileInfo {{
   platform_model: "{}",
-  make_goal: "{}",
-  make_directory: "{}",
-  make_command: "{}"
+  target: "{}",
+  directory: "{}",
+  command: "{}"
 }}"#,
-            self.platform_model, self.make_goal, self.make_directory, self.make_command,
+            self.platform_model, self.make_target, self.make_directory, self.make_command,
         )
     }
 }
@@ -214,7 +214,7 @@ pub fn gen_mkinfo(
             let makeinfo_item = MakeInfo {
                 platform_model: captures.get(1).unwrap().as_str().to_string(),
                 product_family: captures.get(4).map(|v| v.as_str().to_string()),
-                make_goal: captures.get(2).unwrap().as_str().to_string(),
+                make_target: captures.get(2).unwrap().as_str().to_string(),
                 make_directory: captures.get(3).unwrap().as_str().to_string(),
             };
 
@@ -288,13 +288,13 @@ pub fn gen_mkinfo(
                 || (x.product_family.is_some()
                     && x.product_family.as_ref().unwrap() == &product.family)
         }) {
-            let mut make_goal = mkinfo.make_goal.clone();
+            let mut make_target = mkinfo.make_target.clone();
             if makeflag.contains(MakeFlag::ENABLE_IPV6) {
-                make_goal.push_str("-ipv6");
+                make_target.push_str("-ipv6");
             }
 
             let imagename_target = pattern_nonalnum
-                .replace_all(&mkinfo.make_goal, "")
+                .replace_all(&mkinfo.make_target, "")
                 .to_uppercase();
             let imagename = format!(
                 "{}-{}-{}-{}",
@@ -304,7 +304,7 @@ pub fn gen_mkinfo(
             let make_comm = format!(
                 r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
                 mkinfo.make_directory,
-                make_goal,
+                make_target,
                 if makeflag.contains(MakeFlag::BUILD_RELEASE) {
                     1
                 } else {
@@ -346,7 +346,7 @@ pub fn gen_mkinfo(
                 product_model: product.model.clone(),
                 product_family: product.family.clone(),
                 platform_model: mkinfo.platform_model.clone(),
-                make_goal,
+                make_target,
                 make_directory: mkinfo.make_directory.clone(),
                 make_command: make_comm,
             });
@@ -365,7 +365,7 @@ fn dump_csv(infos: &[CompileInfo]) -> anyhow::Result<()> {
         "Model",
         "Family",
         "Platform",
-        "Goal",
+        "Target",
         "Directory",
         "Command",
     ])?;
@@ -375,7 +375,7 @@ fn dump_csv(infos: &[CompileInfo]) -> anyhow::Result<()> {
             &info.product_model,
             &info.product_family,
             &info.platform_model,
-            &info.make_goal,
+            &info.make_target,
             &info.make_directory,
             &info.make_command,
         ])?;
@@ -394,7 +394,7 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
             "Model": item.product_name,
             "Family": item.product_family,
             "Platform": item.platform_model,
-            "Goal": item.make_goal,
+            "Target": item.make_target,
             "Directory": item.make_directory,
             "Command": item.make_command,
         }));
@@ -435,7 +435,7 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
         println!("Model     : {}", item.product_model);
         println!("Family    : {}", item.product_family);
         println!("Platform  : {}", item.platform_model);
-        println!("Goal      : {}", item.make_goal);
+        println!("Target    : {}", item.make_target);
         println!("Directory : {}", item.make_directory);
         println!("Command   : {}", item.make_command);
 
@@ -464,7 +464,7 @@ fn dump_tsv(infos: &[CompileInfo]) -> anyhow::Result<()> {
         "Model",
         "Family",
         "Platform",
-        "Goal",
+        "Target",
         "Directory",
         "Command",
     ])?;
@@ -474,7 +474,7 @@ fn dump_tsv(infos: &[CompileInfo]) -> anyhow::Result<()> {
             &info.product_model,
             &info.product_family,
             &info.platform_model,
-            &info.make_goal,
+            &info.make_target,
             &info.make_directory,
             &info.make_command,
         ])?;
