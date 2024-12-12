@@ -336,7 +336,7 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
                     if let Some(v) = mkinfo_conf.unwrap().image_server.as_ref() {
                         match v.to_lowercase().as_str() {
                             "beijing" | "bj" | "b" => Some(mkinfo::ImageServer::B),
-                            "buzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
+                            "suzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
                             _ => bail!("Invalid config value: image_server = {:?}", v),
                         }
                     } else {
