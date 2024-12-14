@@ -329,11 +329,9 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
         } => {
             let image_server = if let Some(image_server) = image_server {
                 Some(image_server)
-            } else if conf.is_some() {
-                let conf = conf.as_ref().unwrap();
-                let mkinfo_conf = conf.mkinfo.as_ref();
-                if mkinfo_conf.is_some() {
-                    if let Some(v) = mkinfo_conf.unwrap().image_server.as_ref() {
+            } else if let Some(conf) = conf {
+                if let Some(mkinfo_conf) = conf.mkinfo.as_ref() {
+                    if let Some(v) = mkinfo_conf.image_server.as_ref() {
                         match v.to_lowercase().as_str() {
                             "beijing" | "bj" | "b" => Some(mkinfo::ImageServer::B),
                             "suzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
@@ -351,19 +349,19 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
 
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
-                makeflag |= mkinfo::MakeFlag::BUILD_RELEASE;
+                makeflag |= mkinfo::MakeFlag::RELEASE;
             };
             if ipv6 {
-                makeflag |= mkinfo::MakeFlag::ENABLE_IPV6;
+                makeflag |= mkinfo::MakeFlag::IPV6;
             }
             if webui {
-                makeflag |= mkinfo::MakeFlag::ENABLE_WEBUI;
+                makeflag |= mkinfo::MakeFlag::WEBUI;
             }
             if password {
-                makeflag |= mkinfo::MakeFlag::ENABLE_SHELL_PASSWORD;
+                makeflag |= mkinfo::MakeFlag::SHELL_PASSWORD;
             }
             if coverity {
-                makeflag |= mkinfo::MakeFlag::ENABLE_COVERITY;
+                makeflag |= mkinfo::MakeFlag::COVERITY;
             }
             let printinfos = mkinfo::gen_mkinfo(&product_name, makeflag, image_server)?;
 

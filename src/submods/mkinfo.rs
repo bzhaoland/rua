@@ -18,11 +18,11 @@ bitflags! {
     #[repr(transparent)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct MakeFlag: u8 {
-        const BUILD_RELEASE         = 0b00000001;
-        const ENABLE_IPV6           = 0b00000010;
-        const ENABLE_WEBUI          = 0b00000100; // Not enforced
-        const ENABLE_SHELL_PASSWORD = 0b00001000;
-        const ENABLE_COVERITY       = 0b00010000;
+        const RELEASE        = 0b00000001;
+        const IPV6           = 0b00000010;
+        const WEBUI          = 0b00000100; // Only recommend
+        const SHELL_PASSWORD = 0b00001000;
+        const COVERITY       = 0b00010000;
     }
 }
 
@@ -254,12 +254,12 @@ pub fn gen_mkinfo(
         .to_string();
 
     // IPv6 check
-    if makeflag.contains(MakeFlag::ENABLE_IPV6) {
+    if makeflag.contains(MakeFlag::IPV6) {
         imagename_suffix.push_str("V6-");
     }
 
     // Building mode
-    imagename_suffix.push(if makeflag.contains(MakeFlag::BUILD_RELEASE) {
+    imagename_suffix.push(if makeflag.contains(MakeFlag::RELEASE) {
         'r'
     } else {
         'd'
@@ -289,7 +289,7 @@ pub fn gen_mkinfo(
                     && x.product_family.as_ref().unwrap() == &product.family)
         }) {
             let mut make_target = mkinfo.make_target.clone();
-            if makeflag.contains(MakeFlag::ENABLE_IPV6) {
+            if makeflag.contains(MakeFlag::IPV6) {
                 make_target.push_str("-ipv6");
             }
 
@@ -305,22 +305,22 @@ pub fn gen_mkinfo(
                 r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
                 mkinfo.make_directory,
                 make_target,
-                if makeflag.contains(MakeFlag::BUILD_RELEASE) {
+                if makeflag.contains(MakeFlag::RELEASE) {
                     1
                 } else {
                     0
                 },
-                if makeflag.contains(MakeFlag::ENABLE_WEBUI) {
+                if makeflag.contains(MakeFlag::WEBUI) {
                     0
                 } else {
                     1
                 },
-                if makeflag.contains(MakeFlag::ENABLE_SHELL_PASSWORD) {
+                if makeflag.contains(MakeFlag::SHELL_PASSWORD) {
                     1
                 } else {
                     0
                 },
-                if makeflag.contains(MakeFlag::ENABLE_COVERITY) {
+                if makeflag.contains(MakeFlag::COVERITY) {
                     1
                 } else {
                     0
