@@ -17,12 +17,13 @@ use crate::utils;
 bitflags! {
     #[repr(transparent)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-    pub struct MakeFlag: u8 {
+    pub struct MakeFlag: u64 {
         const RELEASE        = 0b00000001;
         const IPV6           = 0b00000010;
         const WEBUI          = 0b00000100; // Only recommend
         const SHELL_PASSWORD = 0b00001000;
         const COVERITY       = 0b00010000;
+        const COVERAGE       = 0b00100000;
     }
 }
 
@@ -302,7 +303,7 @@ pub fn gen_mkinfo(
             );
 
             let make_comm = format!(
-                r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
+                r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
                 mkinfo.make_directory,
                 make_target,
                 if makeflag.contains(MakeFlag::RELEASE) {
@@ -316,6 +317,11 @@ pub fn gen_mkinfo(
                     1
                 },
                 if makeflag.contains(MakeFlag::SHELL_PASSWORD) {
+                    1
+                } else {
+                    0
+                },
+                if makeflag.contains(MakeFlag::COVERAGE) {
                     1
                 } else {
                     0

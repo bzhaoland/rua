@@ -45,7 +45,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
     styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
-    after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs. "#
+    after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs."#
 )]
 pub(crate) struct Cli {
     #[command(subcommand)]
@@ -311,7 +311,7 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
                 None => PathBuf::from_str("compile_commands.json")?,
             };
             let records =
-                showcc::fetch_compile_command(compilation_unit.as_str(), compilation_db.as_path())?;
+                showcc::find_compile_command(compilation_unit.as_str(), compilation_db.as_path())?;
             showcc::print_records(&records)?;
             Ok(())
         }
