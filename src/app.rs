@@ -129,10 +129,18 @@ pub(crate) enum Comm {
         ipv6: bool,
 
         #[arg(
+            short = 'g',
+            long = "coverage",
+            default_value_t = false,
+            help = r"Run coverage"
+        )]
+        coverage: bool,
+
+        #[arg(
             short = 'c',
             long = "coverity",
             default_value_t = false,
-            help = r"Build with coverity check"
+            help = r"Run coverity"
         )]
         coverity: bool,
 
@@ -317,9 +325,10 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
         }
         Comm::Silist { prefix } => silist::gen_silist(&prefix),
         Comm::Mkinfo {
-            coverity,
             ipv4: _,
             ipv6,
+            coverage,
+            coverity,
             password,
             product_name,
             debug,
@@ -359,6 +368,9 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
             }
             if password {
                 makeflag |= mkinfo::MakeFlag::SHELL_PASSWORD;
+            }
+            if coverage {
+                makeflag |= mkinfo::MakeFlag::COVERAGE;
             }
             if coverity {
                 makeflag |= mkinfo::MakeFlag::COVERITY;
