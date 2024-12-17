@@ -15,27 +15,27 @@ use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
 
-const CLAP_STYLE_HEADER: Style = Style::new()
+const HEADER_STYLE: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
-const CLAP_STYLE_USAGE: Style = Style::new()
+const USAGE_STYLE: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
-const CLAP_STYLE_LITERAL: Style = Style::new()
+const LITERAL_STYLE: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(2))))
     .bold();
-const CLAP_STYLE_PLACEHOLDER: Style = Style::new()
+const HOLDER_STYLE: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(6))))
     .bold();
-const CLAP_STYLE_CAUTION: Style = Style::new()
+const CAUTION_STYLE: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(1))))
     .bold();
 const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 const STYLES: styling::Styles = styling::Styles::styled()
-    .header(CLAP_STYLE_HEADER)
-    .usage(CLAP_STYLE_USAGE)
-    .literal(CLAP_STYLE_LITERAL)
-    .placeholder(CLAP_STYLE_PLACEHOLDER);
+    .header(HEADER_STYLE)
+    .usage(USAGE_STYLE)
+    .literal(LITERAL_STYLE)
+    .placeholder(HOLDER_STYLE);
 
 #[derive(Parser)]
 #[command(
@@ -58,7 +58,7 @@ pub(crate) struct Cli {
 #[derive(Subcommand)]
 pub(crate) enum Comm {
     /// Clean build files (run under project root)
-    #[command(after_help = format!("{CLAP_STYLE_HEADER}Examples:{CLAP_STYLE_HEADER:#}
+    #[command(after_help = format!("{HEADER_STYLE}Examples:{HEADER_STYLE:#}
   rua clean  # Clean the entire project"))]
     Clean {
         #[arg(
@@ -88,10 +88,10 @@ pub(crate) enum Comm {
   hacked while running, and would be left in hacked state if the command aborts
   unexpectedly. Use the following command to manually restore them:
   {}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{:#}"#,
-      CLAP_STYLE_HEADER,
-      CLAP_STYLE_HEADER,
-      CLAP_STYLE_CAUTION,
-      CLAP_STYLE_CAUTION,
+      HEADER_STYLE,
+      HEADER_STYLE,
+      CAUTION_STYLE,
+      CAUTION_STYLE,
       STYLE_YELLOW,
       STYLE_YELLOW))]
     Compdb {
@@ -105,7 +105,7 @@ pub(crate) enum Comm {
     },
 
     /// Get all matched makeinfos for product
-    #[command(after_help = format!(r#"{CLAP_STYLE_HEADER}Examples:{CLAP_STYLE_HEADER:#}
+    #[command(after_help = format!(r#"{HEADER_STYLE}Examples:{HEADER_STYLE:#}
   rua mkinfo A1000      # Makeinfo for A1000 without extra features
   rua mkinfo -6 A1000   # Makeinfo for A1000 with IPv6 enabled
   rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern"#))]
