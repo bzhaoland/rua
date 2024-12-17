@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anstyle::{Ansi256Color, Color, Style};
-use anyhow::{bail, Result};
+use anyhow::Result;
 use clap::builder::styling;
 use clap::{Parser, Subcommand};
 
@@ -37,7 +37,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
     .literal(LITERAL_STYLE)
     .placeholder(HOLDER_STYLE);
 
-#[derive(Parser)]
+#[derive(Clone, Debug, Parser)]
 #[command(
     name = "rua",
     author = "bzhao",
@@ -55,7 +55,7 @@ pub(crate) struct Cli {
     debug: bool,
 }
 
-#[derive(Subcommand)]
+#[derive(Clone, Debug, Subcommand)]
 pub(crate) enum Comm {
     /// Clean build files (run under project root)
     #[command(after_help = format!("{HEADER_STYLE}Examples:{HEADER_STYLE:#}
@@ -268,14 +268,14 @@ pub(crate) enum Comm {
             value_name = "SOURCE-FILE",
             help = "Source file name for which to fetch all the available compile commands"
         )]
-        compilation_unit: String,
+        comp_unit: String,
         #[arg(
             value_name = "COMPDB",
             short = 'c',
             long = "compdb",
             help = r#"Compilation database (defaults to file "compile_commands.json" in the current directory)"#
         )]
-        compilation_db: Option<String>,
+        comp_db: Option<String>,
     },
 
     /// Generate a filelist for Source Insight
@@ -288,15 +288,13 @@ pub(crate) enum Comm {
     },
 }
 
-pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
-    match args.command {
+pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
+    match args.command.clone() {
         Comm::Clean { dirs, ignores } => {
             let ignores = if ignores.is_some() {
                 ignores.as_ref()
-            } else if conf.is_some() {
-                let conf = conf.as_ref().unwrap();
-                let clean_conf = conf.clean.as_ref();
-                if let Some(v) = clean_conf {
+            } else if let Some(conf) = conf {
+                if let Some(v) = conf.clean.as_ref() {
                     v.ignores.as_ref()
                 } else {
                     None
@@ -304,22 +302,19 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
             } else {
                 None
             };
-            clean::clean_build(dirs, ignores)
+            clean::clean_build(dirs.as_ref(), ignores)
         }
         Comm::Compdb {
             product_dir,
             make_target,
         } => compdb::gen_compdb(&product_dir, &make_target),
-        Comm::Showcc {
-            compilation_unit,
-            compilation_db,
-        } => {
-            let compilation_db = match compilation_db {
+        Comm::Showcc { comp_unit, comp_db } => {
+            let compilation_db = match comp_db {
                 Some(v) => PathBuf::from_str(v.as_str())?,
                 None => PathBuf::from_str("compile_commands.json")?,
             };
             let records =
-                showcc::find_compile_command(compilation_unit.as_str(), compilation_db.as_path())?;
+                showcc::find_compile_command(comp_unit.as_str(), compilation_db.as_path())?;
             showcc::print_records(&records)?;
             Ok(())
         }
@@ -344,7 +339,13 @@ pub(crate) fn run_app(args: Cli, conf: Option<&RuaConf>) -> Result<()> {
                         match v.to_lowercase().as_str() {
                             "beijing" | "bj" | "b" => Some(mkinfo::ImageServer::B),
                             "suzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
-                            _ => bail!("Invalid config value: image_server = {:?}", v),
+                            other => {
+                                eprintln!(
+                                    r#"WARNING: Invalid config value: image_server = {:?}! Falling back to "Suzhou" as image server"#,
+                                    other
+                                );
+                                Some(mkinfo::ImageServer::S)
+                            }
                         }
                     } else {
                         None

@@ -15,5 +15,5 @@ fn main() -> anyhow::Result<()> {
     let conf = config::load_config()?;
     let args = app::Cli::parse();
 
-    app::run_app(args, conf.as_ref())
+    app::run_app(&args, conf.as_ref())
 }

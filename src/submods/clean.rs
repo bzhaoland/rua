@@ -34,7 +34,7 @@ fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
 }
 
 pub fn clean_build(
-    dirs: Option<Vec<String>>,
+    dirs: Option<&Vec<String>>,
     ignores: Option<&Vec<String>>,
 ) -> anyhow::Result<()> {
     // Check directory
@@ -147,7 +147,7 @@ pub fn clean_build(
         .tick_chars(TICK_CHARS),
     );
     pb3.enable_steady_tick(REFRESH_INTERVAL);
-    let dirs: Vec<String> = dirs.unwrap_or_default();
+    let dirs: Vec<String> = dirs.map_or(Vec::new(), |x| x.clone());
     let output = Command::new("svn")
         .arg("status")
         .args(dirs.iter())
