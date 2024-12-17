@@ -64,7 +64,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
 
     const NSTEPS: usize = 5;
     let mut step: usize = 1;
-    const TICK_INTERVAL: Duration = Duration::from_millis(200);
+    const TICK_INTERVAL: Duration = Duration::from_millis(150);
     const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
     // Hack makefiles

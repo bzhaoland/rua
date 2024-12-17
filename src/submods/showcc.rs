@@ -1,11 +1,18 @@
 use std::fs;
 use std::path;
 
+use anstyle::{AnsiColor, Color, Style};
 use anyhow::{Context, Result};
 use crossterm::terminal;
-use ratatui::style::Stylize;
 
 use crate::submods::compdb::{CompDB, CompDBRecord};
+
+const STYLE_GREEN: Style = Style::new()
+    .fg_color(Some(Color::Ansi(AnsiColor::Green)))
+    .bold();
+const STYLE_YELLOW: Style = Style::new()
+    .fg_color(Some(Color::Ansi(AnsiColor::Yellow)))
+    .bold();
 
 /// Find corresponding compile command from compilation database for the given filename.
 pub fn find_compile_command(filename: &str, compdb: &path::Path) -> Result<Vec<CompDBRecord>> {
@@ -36,8 +43,8 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
     }
 
     let width = terminal::window_size()?.columns;
-    let head_decor = "=".repeat(width as usize).green().to_string();
-    let data_decor = "-".repeat(width as usize).green().to_string();
+    let head_decor = format!("{STYLE_GREEN}{}{STYLE_GREEN:#}", "=".repeat(width as usize));
+    let data_decor = format!("{STYLE_GREEN}{}{STYLE_GREEN:#}", "-".repeat(width as usize));
 
     let mut out = String::new();
     out.push_str(&format!(
@@ -58,7 +65,7 @@ pub fn print_records(records: &[CompDBRecord]) -> Result<()> {
         }
     }
     out.push_str(&head_decor);
-    out.push_str(&"Run the compile command under the corresponding directory.".yellow().to_string());
+    out.push_str(&format!("{STYLE_YELLOW}Compile command should be run under the corresponding directory.{STYLE_YELLOW:#}"));
 
     println!("{}", out);
 

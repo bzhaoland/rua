@@ -54,7 +54,7 @@ pub fn clean_build(
         })
         .unwrap_or_default();
 
-    const REFRESH_INTERVAL: Duration = Duration::from_millis(200);
+    const TICK_INTERVAL: Duration = Duration::from_millis(150);
     const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
     let num_steps = 3;
@@ -146,7 +146,7 @@ pub fn clean_build(
         ))?
         .tick_chars(TICK_CHARS),
     );
-    pb3.enable_steady_tick(REFRESH_INTERVAL);
+    pb3.enable_steady_tick(TICK_INTERVAL);
     let dirs: Vec<String> = dirs.map_or(Vec::new(), |x| x.clone());
     let output = Command::new("svn")
         .arg("status")

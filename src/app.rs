@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use anstyle::{Ansi256Color, Color, Style};
+use anstyle::{AnsiColor, Color, Style};
 use anyhow::Result;
 use clap::builder::styling;
 use clap::{Parser, Subcommand};
@@ -15,27 +15,23 @@ use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
 
-const HEADER_STYLE: Style = Style::new()
-    .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
+const STYLE_YELLOW: Style = Style::new()
+    .fg_color(Some(Color::Ansi(AnsiColor::Yellow)))
     .bold();
-const USAGE_STYLE: Style = Style::new()
-    .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
+const STYLE_GREEN: Style = Style::new()
+    .fg_color(Some(Color::Ansi(AnsiColor::Green)))
     .bold();
-const LITERAL_STYLE: Style = Style::new()
-    .fg_color(Some(Color::Ansi256(Ansi256Color(2))))
+const STYLE_CYAN: Style = Style::new()
+    .fg_color(Some(Color::Ansi(AnsiColor::Cyan)))
     .bold();
-const HOLDER_STYLE: Style = Style::new()
-    .fg_color(Some(Color::Ansi256(Ansi256Color(6))))
+const STYLE_RED: Style = Style::new()
+    .fg_color(Some(Color::Ansi(AnsiColor::Red)))
     .bold();
-const CAUTION_STYLE: Style = Style::new()
-    .fg_color(Some(Color::Ansi256(Ansi256Color(1))))
-    .bold();
-const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 const STYLES: styling::Styles = styling::Styles::styled()
-    .header(HEADER_STYLE)
-    .usage(USAGE_STYLE)
-    .literal(LITERAL_STYLE)
-    .placeholder(HOLDER_STYLE);
+    .header(STYLE_YELLOW)
+    .usage(STYLE_YELLOW)
+    .literal(STYLE_GREEN)
+    .placeholder(STYLE_CYAN);
 
 #[derive(Clone, Debug, Parser)]
 #[command(
@@ -58,7 +54,7 @@ pub(crate) struct Cli {
 #[derive(Clone, Debug, Subcommand)]
 pub(crate) enum Comm {
     /// Clean build files (run under project root)
-    #[command(after_help = format!("{HEADER_STYLE}Examples:{HEADER_STYLE:#}
+    #[command(after_help = format!("{STYLE_YELLOW}Examples:{STYLE_YELLOW:#}
   rua clean  # Clean the entire project"))]
     Clean {
         #[arg(
@@ -88,10 +84,10 @@ pub(crate) enum Comm {
   hacked while running, and would be left in hacked state if the command aborts
   unexpectedly. Use the following command to manually restore them:
   {}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{:#}"#,
-      HEADER_STYLE,
-      HEADER_STYLE,
-      CAUTION_STYLE,
-      CAUTION_STYLE,
+      STYLE_YELLOW,
+      STYLE_YELLOW,
+      STYLE_RED,
+      STYLE_RED,
       STYLE_YELLOW,
       STYLE_YELLOW))]
     Compdb {
@@ -105,7 +101,7 @@ pub(crate) enum Comm {
     },
 
     /// Get all matched makeinfos for product
-    #[command(after_help = format!(r#"{HEADER_STYLE}Examples:{HEADER_STYLE:#}
+    #[command(after_help = format!(r#"{STYLE_YELLOW}Examples:{STYLE_YELLOW:#}
   rua mkinfo A1000      # Makeinfo for A1000 without extra features
   rua mkinfo -6 A1000   # Makeinfo for A1000 with IPv6 enabled
   rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern"#))]
