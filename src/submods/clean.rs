@@ -54,7 +54,7 @@ pub fn clean_build(
         })
         .unwrap_or_default();
 
-    const TICK_INTERVAL: Duration = Duration::from_millis(150);
+    const TICK_INTERVAL: Duration = Duration::from_millis(200);
     const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
     let num_steps = 3;
