@@ -212,10 +212,7 @@ const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Ye
 
 /// Generate the make information for the given platform.
 /// This function must run under the project root which is a valid svn repo.
-pub(crate) fn gen_mkinfo(
-    nickname: &str,
-    makeopts: MakeOpts
-) -> anyhow::Result<Vec<CompileInfo>> {
+pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
     // Check location
@@ -230,24 +227,28 @@ pub(crate) fn gen_mkinfo(
     let product_infos = load_product_infos(&svninfo, nickname)?;
     let mkinfos = load_makeinfo_table(&svninfo)?;
 
-    let has_family_field_in_plattable =
-        match svninfo.branch_name().chars().take(7).collect::<String>().as_str() {
-            "MX_MAIN" if svninfo.revision() >= 293968 => true,
-            "HAWAII_" => {
-                let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
-                    .context("Failed to build pattern for release version")?
-                    .captures(svninfo.branch_name())
-                    .context("Failed to capture release version")?
-                    .get(1)
-                    .unwrap()
-                    .as_str()
-                    .parse::<usize>()
-                    .context("Can't convert release version string to number")?;
-                (hawaii_release_ver == 11 && svninfo.revision() >= 295630) || hawaii_release_ver > 11
-            }
-            _ => false,
-        };
-
+    let has_family_field_in_plattable = match svninfo
+        .branch_name()
+        .chars()
+        .take(7)
+        .collect::<String>()
+        .as_str()
+    {
+        "MX_MAIN" if svninfo.revision() >= 293968 => true,
+        "HAWAII_" => {
+            let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
+                .context("Failed to build pattern for release version")?
+                .captures(svninfo.branch_name())
+                .context("Failed to capture release version")?
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse::<usize>()
+                .context("Can't convert release version string to number")?;
+            (hawaii_release_ver == 11 && svninfo.revision() >= 295630) || hawaii_release_ver > 11
+        }
+        _ => false,
+    };
 
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let mut imagename_suffix = String::with_capacity(32);

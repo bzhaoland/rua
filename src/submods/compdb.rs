@@ -6,12 +6,12 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
+use crate::utils;
 use anyhow::{bail, Context};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
-use crate::utils;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CompDBRecord {
@@ -46,7 +46,7 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     let lastrules_path = Path::new("scripts/last-rules.mk");
     let rules_path = Path::new("scripts/rules.mk");
     let top_makefile = Path::new("Makefile");
-    
+
     if !lastrules_path.is_file() {
         bail!(r#"File not found: "{}""#, lastrules_path.display());
     }

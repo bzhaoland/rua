@@ -16,8 +16,8 @@ const STYLE_YELLOW: Style = Style::new()
 
 /// Find corresponding compile command from compilation database for the given filename.
 pub fn find_compile_command(filename: &str, compdb: &path::Path) -> Result<Vec<CompDBRecord>> {
-    let compdb_str = fs::read_to_string(compdb)
-        .context(format!(r#"Can't read file "{}""#, compdb.display()))?;
+    let compdb_str =
+        fs::read_to_string(compdb).context(format!(r#"Can't read file "{}""#, compdb.display()))?;
     let compdb: CompDB = serde_json::from_str(&compdb_str)
         .context(format!(r#"Failed to parse "{}"!"#, compdb.display()))?;
 

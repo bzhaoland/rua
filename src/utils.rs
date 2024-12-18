@@ -114,7 +114,9 @@ Last Changed Date: ([^\n]+)"#,
         )
         .context("Failed to build pattern for capturing project root dir")?;
 
-        let captures = pattern.captures(&info).context("Failed to capture svn info")?;
+        let captures = pattern
+            .captures(&info)
+            .context("Failed to capture svn info")?;
         self.working_copy_root_path = captures.get(1).unwrap().as_str().to_string();
         self.url = captures.get(2).unwrap().as_str().to_string();
         self.relative_url = captures.get(3).unwrap().as_str().to_string();

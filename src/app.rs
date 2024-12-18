@@ -372,7 +372,13 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
             if coverity {
                 makeflag |= mkinfo::MakeFlag::COVERITY;
             }
-            let printinfos = mkinfo::gen_mkinfo(&product_name, MakeOpts { flag: makeflag, image_server })?;
+            let printinfos = mkinfo::gen_mkinfo(
+                &product_name,
+                MakeOpts {
+                    flag: makeflag,
+                    image_server,
+                },
+            )?;
 
             mkinfo::dump_mkinfo(&printinfos, output_format)
         }
