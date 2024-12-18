@@ -18,7 +18,7 @@ use crate::utils::SvnInfo;
 bitflags! {
     #[repr(transparent)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-    pub struct MakeFlag: u64 {
+    pub(crate) struct MakeFlag: u64 {
         const RELEASE        = 0b00000001;
         const IPV6           = 0b00000010;
         const WEBUI          = 0b00000100; // Only recommend
@@ -34,18 +34,28 @@ pub(crate) enum ImageServer {
     S, // Suzhou
 }
 
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct MakeOpts {
-    pub(crate) flag: MakeFlag,
-    pub(crate) image_server: Option<ImageServer>,
-}
-
 impl fmt::Display for ImageServer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ImageServer::B => write!(f, "b"),
             ImageServer::S => write!(f, "s"),
         }
+    }
+}
+
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct MakeOpts {
+    pub(crate) flag: MakeFlag,
+    pub(crate) image_server: Option<ImageServer>,
+}
+
+impl fmt::Display for MakeOpts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, r#"MakeOpts {{
+    flag: {:?}
+    image_server: {:?}
+}}"#, self.flag, self.image_server)
     }
 }
 
