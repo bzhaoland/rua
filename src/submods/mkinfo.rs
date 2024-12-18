@@ -34,6 +34,12 @@ pub(crate) enum ImageServer {
     S, // Suzhou
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct MakeOpts {
+    pub(crate) flag: MakeFlag,
+    pub(crate) image_server: Option<ImageServer>,
+}
+
 impl fmt::Display for ImageServer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -208,8 +214,7 @@ const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Ye
 /// This function must run under the project root which is a valid svn repo.
 pub(crate) fn gen_mkinfo(
     nickname: &str,
-    makeflag: MakeFlag,
-    image_server: Option<ImageServer>,
+    makeopts: MakeOpts
 ) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
@@ -268,12 +273,12 @@ pub(crate) fn gen_mkinfo(
         .to_string();
 
     // IPv6 check
-    if makeflag.contains(MakeFlag::IPV6) {
+    if makeopts.flag.contains(MakeFlag::IPV6) {
         imagename_suffix.push_str("V6-");
     }
 
     // Building mode
-    imagename_suffix.push(if makeflag.contains(MakeFlag::RELEASE) {
+    imagename_suffix.push(if makeopts.flag.contains(MakeFlag::RELEASE) {
         'r'
     } else {
         'd'
@@ -303,7 +308,7 @@ pub(crate) fn gen_mkinfo(
                     && x.product_family.as_ref().unwrap() == &product.family)
         }) {
             let mut make_target = mkinfo.make_target.clone();
-            if makeflag.contains(MakeFlag::IPV6) {
+            if makeopts.flag.contains(MakeFlag::IPV6) {
                 make_target.push_str("-ipv6");
             }
 
@@ -319,32 +324,32 @@ pub(crate) fn gen_mkinfo(
                 r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
                 mkinfo.make_directory,
                 make_target,
-                if makeflag.contains(MakeFlag::RELEASE) {
+                if makeopts.flag.contains(MakeFlag::RELEASE) {
                     1
                 } else {
                     0
                 },
-                if makeflag.contains(MakeFlag::WEBUI) {
+                if makeopts.flag.contains(MakeFlag::WEBUI) {
                     0
                 } else {
                     1
                 },
-                if makeflag.contains(MakeFlag::SHELL_PASSWORD) {
+                if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
                     1
                 } else {
                     0
                 },
-                if makeflag.contains(MakeFlag::COVERAGE) {
+                if makeopts.flag.contains(MakeFlag::COVERAGE) {
                     1
                 } else {
                     0
                 },
-                if makeflag.contains(MakeFlag::COVERITY) {
+                if makeopts.flag.contains(MakeFlag::COVERITY) {
                     1
                 } else {
                     0
                 },
-                image_server.map_or(
+                makeopts.image_server.map_or(
                     {
                         let nodename = uname().nodename().to_string_lossy().to_string();
                         if nodename.ends_with("-sz") {
