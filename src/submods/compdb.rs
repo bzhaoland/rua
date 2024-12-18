@@ -6,21 +6,22 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-use crate::utils;
 use anyhow::{bail, Context};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 
+use crate::utils;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CompDBRecord {
+pub(crate) struct CompRecord {
     pub command: String,
     pub directory: String,
     pub file: String,
 }
 
-impl fmt::Display for CompDBRecord {
+impl fmt::Display for CompRecord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -30,9 +31,9 @@ impl fmt::Display for CompDBRecord {
     }
 }
 
-pub type CompDB = Vec<CompDBRecord>;
+pub(crate) type CompDB = Vec<CompRecord>;
 
-pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
+pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
     // Check if current working directory is svn repo root
     let svninfo = utils::SvnInfo::new()?;
     if env::current_dir()? != svninfo.working_copy_root_path() {
@@ -219,12 +220,12 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
     let pattern_hackrule = Regex::new(
         r#"(?m)^##JCDB##[[:blank:]]+>>:directory:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:command:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:file:>>[[:blank:]]+(.+)[[:blank:]]*$"#,
     ).context("Failed to build pattern for hackrules")?;
-    let mut records: Vec<CompDBRecord> = Vec::new();
+    let mut records: Vec<CompRecord> = Vec::new();
     for (_, [dirc, comm, file]) in pattern_hackrule
         .captures_iter(&output_str)
         .map(|c| c.extract())
     {
-        records.push(CompDBRecord {
+        records.push(CompRecord {
             directory: dirc.to_string(),
             command: comm.to_string(),
             file: Path::new(&dirc).join(file).to_string_lossy().to_string(),
