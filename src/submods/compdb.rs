@@ -11,7 +11,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
-
 use crate::utils;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -43,21 +42,17 @@ pub fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()>
         );
     }
 
-    const LASTRULES_MAKEFILE: &str = "scripts/last-rules.mk";
-    const RULES_MAKEFILE: &str = "scripts/rules.mk";
-    const TOP_MAKEFILE: &str = "Makefile";
-
-    let lastrules_path = Path::new(LASTRULES_MAKEFILE);
+    // Check necessary files
+    let lastrules_path = Path::new("scripts/last-rules.mk");
+    let rules_path = Path::new("scripts/rules.mk");
+    let top_makefile = Path::new("Makefile");
+    
     if !lastrules_path.is_file() {
         bail!(r#"File not found: "{}""#, lastrules_path.display());
     }
-
-    let rules_path = Path::new(RULES_MAKEFILE);
     if !rules_path.is_file() {
         bail!(r#"File not found: "{}""#, rules_path.display());
     }
-
-    let top_makefile = Path::new(TOP_MAKEFILE);
     if !top_makefile.is_file() {
         bail!(r#"File not found: "{}""#, top_makefile.display());
     }

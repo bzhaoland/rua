@@ -5,7 +5,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 
 use anstyle::{AnsiColor, Color, Style};
-use anyhow::{self, bail, Context};
+use anyhow::{self, bail, Context, Result};
 use bitflags::bitflags;
 use clap::ValueEnum;
 use regex::Regex;
@@ -13,6 +13,7 @@ use rustix::system::uname;
 use serde_json::{json, Value};
 
 use crate::utils;
+use crate::utils::SvnInfo;
 
 bitflags! {
     #[repr(transparent)]
@@ -28,7 +29,7 @@ bitflags! {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum ImageServer {
+pub(crate) enum ImageServer {
     B, // Beijing
     S, // Suzhou
 }
@@ -43,7 +44,7 @@ impl fmt::Display for ImageServer {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum DumpFormat {
+pub(crate) enum DumpFormat {
     Csv,
     Json,
     List,
@@ -64,36 +65,36 @@ impl fmt::Display for DumpFormat {
 /// Structure holding product information.
 #[derive(Debug)]
 #[allow(dead_code)]
-struct ProductInfo {
-    platform_code: String,
-    model: String,
-    name_id: usize,
-    oem_id: String,
-    family: String,
-    short_name: String,
-    long_name: String,
-    snmp_descr: String,
-    snmp_oid: String,
-    icon_path: Option<String>,
+pub(crate) struct ProductInfo {
+    pub(crate) platform_code: String,
+    pub(crate) model: String,
+    pub(crate) name_id: usize,
+    pub(crate) oem_id: String,
+    pub(crate) family: String,
+    pub(crate) short_name: String,
+    pub(crate) long_name: String,
+    pub(crate) snmp_descr: String,
+    pub(crate) snmp_oid: String,
+    pub(crate) icon_path: Option<String>,
 }
 
 #[derive(Debug)]
 pub struct MakeInfo {
-    platform_model: String,
-    product_family: Option<String>,
-    make_target: String,
-    make_directory: String,
+    pub(crate) platform_model: String,
+    pub(crate) product_family: Option<String>,
+    pub(crate) make_target: String,
+    pub(crate) make_directory: String,
 }
 
 #[derive(Debug)]
-pub struct CompileInfo {
-    product_name: String,
-    product_model: String,
-    product_family: String,
-    platform_model: String,
-    make_target: String,
-    make_directory: String,
-    make_command: String,
+pub(crate) struct CompileInfo {
+    pub(crate) product_name: String,
+    pub(crate) product_model: String,
+    pub(crate) product_family: String,
+    pub(crate) platform_model: String,
+    pub(crate) make_target: String,
+    pub(crate) make_directory: String,
+    pub(crate) make_command: String,
 }
 
 impl fmt::Display for MakeInfo {
@@ -125,56 +126,12 @@ impl fmt::Display for CompileInfo {
     }
 }
 
-const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
-const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
-
-/// Generate the make information for the given platform.
-/// This function must run under the project root which is a valid svn repo.
-pub fn gen_mkinfo(
-    nickname: &str,
-    makeflag: MakeFlag,
-    image_server: Option<ImageServer>,
-) -> anyhow::Result<Vec<CompileInfo>> {
-    let svninfo = utils::SvnInfo::new()?;
-
-    // Check location
+pub(crate) fn load_product_infos(svninfo: &SvnInfo, nickname: &str) -> Result<Vec<ProductInfo>> {
     let proj_root = svninfo.working_copy_root_path();
-    if env::current_dir()?.as_path() != proj_root {
-        bail!(
-            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
-            proj_root.display()
-        );
-    }
-
-    // Check file
     let product_info_path = proj_root.join("src/libplatform/hs_platform.c");
     if !product_info_path.is_file() {
         bail!(r#"File "{}" not available"#, product_info_path.display());
     }
-    let makeinfo_path = proj_root.join("scripts/platform_table");
-    if !makeinfo_path.is_file() {
-        bail!(r#"File "{}" not available"#, makeinfo_path.display());
-    }
-
-    let repo_branch = svninfo.branch_name();
-    let repo_revision = svninfo.revision();
-    let has_family_field_in_plattable =
-        match repo_branch.chars().take(7).collect::<String>().as_str() {
-            "MX_MAIN" if repo_revision >= 293968 => true,
-            "HAWAII_" => {
-                let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
-                    .context("Failed to build pattern for release version")?
-                    .captures(repo_branch)
-                    .context("Failed to capture release version")?
-                    .get(1)
-                    .unwrap()
-                    .as_str()
-                    .parse::<usize>()
-                    .context("Can't convert release version string to number")?;
-                (hawaii_release_ver == 11 && repo_revision >= 295630) || hawaii_release_ver > 11
-            }
-            _ => false,
-        };
 
     // Find out all matched records in src/libplatform/hs_platform.c
     let product_info_file = fs::File::open(&product_info_path)
@@ -202,13 +159,23 @@ pub fn gen_mkinfo(
     }
     product_info_list.shrink_to_fit();
 
-    // Fetch makeinfo for each product
+    Ok(product_info_list)
+}
+
+pub(crate) fn load_makeinfo_table(svninfo: &SvnInfo) -> Result<HashMap<String, Vec<MakeInfo>>> {
+    let proj_root = svninfo.working_copy_root_path();
+    let makeinfo_path = proj_root.join("scripts/platform_table");
+    if !makeinfo_path.is_file() {
+        bail!(r#"File "{}" not available"#, makeinfo_path.display());
+    }
+
     let makeinfo_file = fs::File::open(&makeinfo_path)
         .context(format!(r#"Can't open file "{}""#, makeinfo_path.display()))?;
     let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
     let makeinfo_pattern =
-        Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
-            .context("Failed to build pattern for makeinfo")?;
+    Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
+        .context("Failed to build pattern for makeinfo")?;
+    let mut line = String::with_capacity(512);
     let mut mkinfos: HashMap<String, Vec<MakeInfo>> = HashMap::with_capacity(256);
     while makeinfo_reader.read_line(&mut line)? != 0 {
         if let Some(captures) = makeinfo_pattern.captures(&line) {
@@ -231,6 +198,52 @@ pub fn gen_mkinfo(
     }
     mkinfos.shrink_to_fit();
 
+    Ok(mkinfos)
+}
+
+const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
+const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
+
+/// Generate the make information for the given platform.
+/// This function must run under the project root which is a valid svn repo.
+pub(crate) fn gen_mkinfo(
+    nickname: &str,
+    makeflag: MakeFlag,
+    image_server: Option<ImageServer>,
+) -> anyhow::Result<Vec<CompileInfo>> {
+    let svninfo = utils::SvnInfo::new()?;
+
+    // Check location
+    let proj_root = svninfo.working_copy_root_path();
+    if env::current_dir()?.as_path() != proj_root {
+        bail!(
+            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
+            proj_root.display()
+        );
+    }
+
+    let product_infos = load_product_infos(&svninfo, nickname)?;
+    let mkinfos = load_makeinfo_table(&svninfo)?;
+
+    let has_family_field_in_plattable =
+        match svninfo.branch_name().chars().take(7).collect::<String>().as_str() {
+            "MX_MAIN" if svninfo.revision() >= 293968 => true,
+            "HAWAII_" => {
+                let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
+                    .context("Failed to build pattern for release version")?
+                    .captures(svninfo.branch_name())
+                    .context("Failed to capture release version")?
+                    .get(1)
+                    .unwrap()
+                    .as_str()
+                    .parse::<usize>()
+                    .context("Can't convert release version string to number")?;
+                (hawaii_release_ver == 11 && svninfo.revision() >= 295630) || hawaii_release_ver > 11
+            }
+            _ => false,
+        };
+
+
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let mut imagename_suffix = String::with_capacity(32);
 
@@ -241,14 +254,14 @@ pub fn gen_mkinfo(
     let nickname_pattern = Regex::new(r"HAWAII_([-[:word:]]+)")
         .context("Error building regex pattern for nickname")
         .unwrap();
-    let captures = nickname_pattern.captures(repo_branch);
+    let captures = nickname_pattern.captures(svninfo.branch_name());
     let branch_nickname = pattern_nonalnum
         .replace_all(
             &match captures {
                 Some(v) => v
                     .get(1)
-                    .map_or(repo_branch.to_owned(), |x| x.as_str().to_string()),
-                None => repo_branch.to_string(),
+                    .map_or(svninfo.branch_name().to_owned(), |x| x.as_str().to_string()),
+                None => svninfo.branch_name().to_string(),
             },
             "",
         )
@@ -275,7 +288,7 @@ pub fn gen_mkinfo(
     imagename_suffix.push_str(&username);
 
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
-    for product in product_info_list.iter() {
+    for product in product_infos.iter() {
         let imagename_prodname = pattern_nonalnum.replace_all(&product.short_name, "");
 
         let mkinfo_arr = mkinfos.get(&product.platform_code);
