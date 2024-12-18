@@ -68,28 +68,24 @@ pub fn clean_build(
     ))?);
     let target_dir = normalize_path("target");
     if target_dir.is_dir() {
-        for x in walkdir::WalkDir::new(&target_dir)
+        for item in walkdir::WalkDir::new(&target_dir)
             .contents_first(true)
             .into_iter()
-            .filter(|x| {
-                if x.is_err() {
-                    return false;
-                }
-                let x = x.as_ref().unwrap();
-                let entry = x.path();
-
-                ignores.iter().all(|x| x.as_path() != entry)
-            })
         {
-            let entry = x?;
-            let path_ = entry.path();
-            pb1.set_message(path_.to_string_lossy().to_string());
-            if path_.is_file() || path_.is_symlink() {
-                fs::remove_file(path_)
-                    .context(format!("Failed to remove file {}", path_.display()))?;
-            } else if path_.is_dir() {
-                fs::remove_dir_all(path_)
-                    .context(format!("Failed to remove directory {}", path_.display()))?;
+            if let Ok(entry) = item {
+                if ignores.iter().any(|x| entry.path().starts_with(x)) {
+                    continue;
+                }
+
+                let path_ = entry.path();
+                pb1.set_message(path_.to_string_lossy().to_string());
+                if path_.is_file() || path_.is_symlink() {
+                    fs::remove_file(path_)
+                        .context(format!("Failed to remove file {}", path_.display()))?;
+                } else if path_.is_dir() {
+                    fs::remove_dir_all(path_)
+                        .context(format!("Failed to remove directory {}", path_.display()))?;
+                }
             }
         }
     }
@@ -107,27 +103,24 @@ pub fn clean_build(
     ))?);
     let webui_dir = normalize_path(svn_info.branch_name()); // UI directory name is the same as the branch name
     if webui_dir.is_dir() {
-        for x in walkdir::WalkDir::new(&webui_dir)
+        for item in walkdir::WalkDir::new(&webui_dir)
             .contents_first(true)
             .into_iter()
-            .filter(|x| {
-                if x.is_err() {
-                    return false;
-                }
-                let x = x.as_ref().unwrap();
-                let entry = x.path();
-                ignores.iter().all(|i| i.as_path() != entry)
-            })
         {
-            let entry = x?;
-            let path_ = entry.path();
-            pb2.set_message(path_.to_string_lossy().to_string());
-            if path_.is_file() || path_.is_symlink() {
-                fs::remove_file(path_)
-                    .context(format!("Failed to remove file: {}", path_.display()))?;
-            } else if path_.is_dir() {
-                fs::remove_dir_all(path_)
-                    .context(format!("Failed to remove directory: {}", path_.display()))?;
+            if let Ok(entry) = item {
+                if ignores.iter().any(|x| entry.path().starts_with(x)) {
+                    continue;
+                }
+
+                let path_ = entry.path();
+                pb2.set_message(path_.to_string_lossy().to_string());
+                if path_.is_file() || path_.is_symlink() {
+                    fs::remove_file(path_)
+                        .context(format!("Failed to remove file: {}", path_.display()))?;
+                } else if path_.is_dir() {
+                    fs::remove_dir_all(path_)
+                        .context(format!("Failed to remove directory: {}", path_.display()))?;
+                }
             }
         }
     }
@@ -154,10 +147,7 @@ pub fn clean_build(
         .output()
         .context(format!("Command `svn status {:?}` failed", dirs))?;
     if !output.status.success() {
-        bail!(
-            "Can't invoke `svn status {:?}`",
-            dirs.join(" ")
-        );
+        bail!("Can't invoke `svn status {:?}`", dirs.join(" "));
     }
     pb3.disable_steady_tick();
     pb3.set_style(ProgressStyle::with_template(&format!(

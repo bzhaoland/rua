@@ -337,7 +337,7 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
                             "suzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
                             other => {
                                 eprintln!(
-                                    r#"WARNING: Invalid config value: image_server = {:?}! Falling back to "Suzhou" as image server"#,
+                                    r#"WARNING: Invalid config item: image_server = {:?}! Falling back to "Suzhou" as image server"#,
                                     other
                                 );
                                 Some(mkinfo::ImageServer::S)
