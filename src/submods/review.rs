@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{path::Path, process::Command};
 
 use anyhow::{bail, Context};
 use reqwest::Client;
@@ -15,9 +15,18 @@ pub struct ReviewOptions {
     pub branch_name: Option<String>,
     pub repo_name: Option<String>,
     pub revisions: Option<String>,
+    pub description_template_file: Option<String>,
 }
 
 pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
+    const DEFAULT_DESCRIPTION_TEMPLATE_FILE: &str = "/devel/sw/bin/review_template";
+
+    // Check file existence
+    let description_template_file = Path::new(DEFAULT_DESCRIPTION_TEMPLATE_FILE);
+    if !description_template_file.is_file() {
+        bail!("File not found: {}", DEFAULT_DESCRIPTION_TEMPLATE_FILE)
+    }
+
     // Make a http request and get the response. The response text indicates
     // the category of the bug.
     let client = Client::new();
@@ -59,7 +68,14 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
     // If review id is not given, then start a new one
     match options.review_id {
         Some(v) => comm.args(["-r", &v.to_string()]),
-        None => comm.arg(r#"--description-file=/devel/sw/bin/review_template"#),
+        None => comm.arg(format!(
+            r#"--description-file={}"#,
+            options
+                .description_template_file
+                .as_ref()
+                .map(|x| x.as_str())
+                .unwrap_or(DEFAULT_DESCRIPTION_TEMPLATE_FILE)
+        )),
     };
 
     if options.files.is_some() {
@@ -69,7 +85,7 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
     let status = comm.status()?;
     if !status.success() {
         bail!(
-            "Failed to execute postreview-cops.py: {}",
+            "Run postreview-cops.py failed: {}",
             status.code().context("Aborted")?
         );
     }

@@ -256,6 +256,14 @@ pub(crate) enum Comm {
             help = "Revision to be used"
         )]
         revisions: Option<String>,
+
+        #[arg(
+            value_name = "DESCRIPTION-TEMPLATE-FILE",
+            short = 't',
+            long = "description-template-file",
+            help = "File used as description template file (please ensure that the provided template can run through commit hooks)"
+        )]
+        description_template_file: Option<String>,
     },
 
     /// Show all possible compile commands for filename (based on compilation database)
@@ -400,6 +408,7 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
             branch_name,
             repo_name,
             revisions,
+            description_template_file,
         } => {
             let options = review::ReviewOptions {
                 bug_id,
@@ -410,6 +419,7 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
                 branch_name,
                 repo_name,
                 revisions,
+                description_template_file,
             };
             tokio::runtime::Runtime::new()?.block_on(review::review(&options))
         }
