@@ -72,8 +72,7 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
             r#"--description-file={}"#,
             options
                 .description_template_file
-                .as_ref()
-                .map(|x| x.as_str())
+                .as_deref()
                 .unwrap_or(DEFAULT_DESCRIPTION_TEMPLATE_FILE)
         )),
     };
