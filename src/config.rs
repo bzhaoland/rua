@@ -10,51 +10,73 @@ pub struct CleanConf {
 
 impl CleanConf {
     #[allow(dead_code)]
-    pub fn new() -> CleanConf {
+    pub(crate) fn new() -> CleanConf {
         CleanConf { ignores: None }
     }
 
     #[allow(dead_code)]
-    pub fn merge(mut self, other: &Self) -> Self {
+    pub(crate) fn merge(mut self, other: &Self) -> Self {
         self.ignores = self.ignores.or_else(|| other.ignores.clone());
         self
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct MkinfoConf {
-    pub image_server: Option<String>,
+pub(crate) struct MkinfoConf {
+    pub(crate) image_server: Option<String>,
 }
 
 impl MkinfoConf {
     #[allow(dead_code)]
-    pub fn new() -> MkinfoConf {
+    pub(crate) fn new() -> MkinfoConf {
         MkinfoConf { image_server: None }
     }
 
     #[allow(dead_code)]
-    pub fn merge(mut self, other: &Self) -> Self {
+    pub(crate) fn merge(mut self, other: &Self) -> Self {
         self.image_server = self.image_server.or_else(|| other.image_server.clone());
         self
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct RuaConf {
-    pub clean: Option<CleanConf>,
-    pub mkinfo: Option<MkinfoConf>,
+pub(crate) struct ReviewConf {
+    pub(crate) template_file: Option<String>,
+}
+
+impl ReviewConf {
+    #[allow(dead_code)]
+    pub(crate) fn new() -> ReviewConf {
+        ReviewConf {
+            template_file: None,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn merge(mut self, other: &Self) -> Self {
+        self.template_file = self.template_file.or_else(|| other.template_file.clone());
+        self
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct RuaConf {
+    pub(crate) clean: Option<CleanConf>,
+    pub(crate) mkinfo: Option<MkinfoConf>,
+    pub(crate) review: Option<ReviewConf>,
 }
 
 impl RuaConf {
     #[allow(dead_code)]
-    pub fn new() -> RuaConf {
+    pub(crate) fn new() -> RuaConf {
         RuaConf {
             clean: None,
             mkinfo: None,
+            review: None,
         }
     }
 
-    pub fn merge(mut self, other: &RuaConf) -> Result<Self> {
+    pub(crate) fn merge(mut self, other: &RuaConf) -> Result<Self> {
         if self.clean.is_none() {
             self.clean = other.clean.clone();
         } else if other.clean.is_some() {
@@ -65,6 +87,12 @@ impl RuaConf {
             self.mkinfo = other.mkinfo.clone();
         } else if other.clean.is_some() {
             self.mkinfo = Some(self.mkinfo.unwrap().merge(other.mkinfo.as_ref().unwrap()));
+        }
+
+        if self.review.is_none() {
+            self.review = other.review.clone();
+        } else if other.review.is_some() {
+            self.review = Some(self.review.unwrap().merge(other.review.as_ref().unwrap()));
         }
 
         Ok(self)

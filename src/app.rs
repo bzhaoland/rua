@@ -410,6 +410,17 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
             revisions,
             description_template_file,
         } => {
+            let description_template_file = if let Some(v) = description_template_file {
+                Some(v)
+            } else if let Some(conf) = conf {
+                if let Some(v) = conf.review.as_ref() {
+                    v.template_file.clone()
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
             let options = review::ReviewOptions {
                 bug_id,
                 review_id,
