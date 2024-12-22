@@ -261,7 +261,7 @@ pub(crate) enum Comm {
             value_name = "TEMPLATE",
             short = 't',
             long = "template",
-            help = "Customized description template file (ensure it can run through svn commit hooks)"
+            help = "Customized description template file (please ensure it can run through svn commit hooks)"
         )]
         description_template_file: Option<String>,
     },
