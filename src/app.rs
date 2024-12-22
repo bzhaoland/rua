@@ -207,9 +207,9 @@ pub(crate) enum Comm {
         bug_id: u32,
 
         #[arg(
-            value_name = "REVIEW",
+            value_name = "REVIEW-ID",
             short = 'r',
-            long = "review",
+            long = "review-id",
             help = "Existing review id"
         )]
         review_id: Option<u32>,
@@ -258,10 +258,10 @@ pub(crate) enum Comm {
         revisions: Option<String>,
 
         #[arg(
-            value_name = "DESCRIPTION-TEMPLATE-FILE",
+            value_name = "TEMPLATE",
             short = 't',
-            long = "description-template-file",
-            help = "File used as description template file (please ensure that the provided template can run through svn commit hooks)"
+            long = "template",
+            help = "Customized description template file (ensure it can run through svn commit hooks)"
         )]
         description_template_file: Option<String>,
     },
