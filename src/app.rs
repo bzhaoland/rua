@@ -202,7 +202,7 @@ pub(crate) enum Comm {
             short = 'n',
             long = "bug",
             value_name = "BUG",
-            help = "Bug id for this review request"
+            help = "Bug id for this review request (required)"
         )]
         bug_id: u32,
 
@@ -261,7 +261,7 @@ pub(crate) enum Comm {
             value_name = "DESCRIPTION-TEMPLATE-FILE",
             short = 't',
             long = "description-template-file",
-            help = "File used as description template file (please ensure that the provided template can run through commit hooks)"
+            help = "File used as description template file (please ensure that the provided template can run through svn commit hooks)"
         )]
         description_template_file: Option<String>,
     },
