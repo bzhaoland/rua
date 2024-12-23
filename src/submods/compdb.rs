@@ -36,17 +36,14 @@ pub(crate) type CompDB = Vec<CompRecord>;
 pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
     // Check if current working directory is svn repo root
     let svninfo = utils::SvnInfo::new()?;
-    if env::current_dir()? != svninfo.working_copy_root_path() {
-        bail!(
-            r#"Location error! Please run this command under the project root, i.e. "{}"."#,
-            svninfo.working_copy_root_path().display()
-        );
-    }
+    let at_proj_root = env::current_dir()? == svninfo.working_copy_root_path();
 
     // Check necessary files
-    let lastrules_path = Path::new("scripts/last-rules.mk");
-    let rules_path = Path::new("scripts/rules.mk");
-    let top_makefile = Path::new("Makefile");
+    let lastrules_path = svninfo
+        .working_copy_root_path()
+        .join("scripts/last-rules.mk");
+    let rules_path = svninfo.working_copy_root_path().join("scripts/rules.mk");
+    let top_makefile = svninfo.working_copy_root_path().join("Makefile");
 
     if !lastrules_path.is_file() {
         bail!(r#"File not found: "{}""#, lastrules_path.display());
@@ -54,8 +51,10 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
     if !rules_path.is_file() {
         bail!(r#"File not found: "{}""#, rules_path.display());
     }
-    if !top_makefile.is_file() {
-        bail!(r#"File not found: "{}""#, top_makefile.display());
+    if at_proj_root {
+        if !top_makefile.is_file() {
+            bail!(r#"File not found: "{}""#, top_makefile.display());
+        }
     }
 
     const NSTEPS: usize = 5;
@@ -66,12 +65,16 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
     // Hack makefiles
     let pb1 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] INJECTING MKFILES ({} & {} & {}) {{spinner:.green}}",
+            "[{}/{}] INJECTING MKFILES ({} & {}{}) {{spinner:.green}}",
             step,
             NSTEPS,
             lastrules_path.display(),
             rules_path.display(),
-            top_makefile.display(),
+            if at_proj_root {
+                format!("& {}", top_makefile.display())
+            } else {
+                "".to_string()
+            }
         ))?
         .tick_chars(TICK_CHARS),
     );
@@ -79,54 +82,57 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
     // Hacking for c files
     let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(HS_CC\)[[:blank:]]+(\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context("Failed to build regex pattern for C-oriented compile command")?;
-    let lastrules_text = fs::read_to_string(lastrules_path)
+    let lastrules_text = fs::read_to_string(lastrules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, lastrules_path.display()))?;
     let captures = pattern_c
         .captures(&lastrules_text)
         .context(format!("Failed to capture pattern {}", pattern_c.as_str()))?;
     let comp_args_c = captures.get(1).unwrap().as_str();
     let lastrules_text_hacked = pattern_c.replace_all(&lastrules_text, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(CC) {} >>:file:>> $<", comp_args_c)).to_string();
-    fs::write(lastrules_path, &lastrules_text_hacked).context(format!(
+    fs::write(lastrules_path.as_path(), &lastrules_text_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
         lastrules_path.display()
     ))?;
     // Hacking for cxx files
     let pattern_cxx = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
         .context("Building regex pattern for C++ compile command failed")?;
-    let rules_text = fs::read_to_string(rules_path)
+    let rules_text = fs::read_to_string(rules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, rules_path.display()))?;
     let rules_text_hacked = pattern_cxx.replace_all(&rules_text, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
-    fs::write(rules_path, &rules_text_hacked).context(format!(
+    fs::write(rules_path.as_path(), &rules_text_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
         rules_path.display()
     ))?;
 
     // Hacking for make target
-    let pattern_target = Regex::new(r#"(?m)^( *)stoneos-image:(.*)$"#)
-        .context("Building regex pattern for make target failed")?;
-    let top_makefile_text = fs::read_to_string(top_makefile)
-        .context(format!(r#"Can't read file "{}"""#, top_makefile.display()))?;
-    let captures = pattern_target
-        .captures(&top_makefile_text)
-        .context(format!(
-            "Can't capture pattern '{}' from '{}'",
-            pattern_target.as_str(),
-            top_makefile.display()
-        ))?;
-    let prefix = captures.get(1).unwrap();
-    let suffix = captures.get(2).unwrap();
-    let top_makefile_text_hacked = pattern_target
-        .replace(
-            &top_makefile_text,
-            format!(
-                "stoneos-image: make_sub\n\n{}stoneos-image.orig:{}",
-                prefix.as_str(),
-                suffix.as_str()
-            ),
-        )
-        .to_string();
-    fs::write(top_makefile, &top_makefile_text_hacked)
-        .context(format!("Can't write file: '{}'", top_makefile.display()))?;
+    let mut top_makefile_text = String::new();
+    if at_proj_root {
+        let pattern_target = Regex::new(r#"(?m)^( *)stoneos-image:(.*)$"#)
+            .context("Building regex pattern for make target failed")?;
+        top_makefile_text = fs::read_to_string(top_makefile.as_path())
+            .context(format!(r#"Can't read file "{}"""#, top_makefile.display()))?;
+        let captures = pattern_target
+            .captures(&top_makefile_text)
+            .context(format!(
+                "Can't capture pattern '{}' from '{}'",
+                pattern_target.as_str(),
+                top_makefile.display()
+            ))?;
+        let prefix = captures.get(1).unwrap();
+        let suffix = captures.get(2).unwrap();
+        let top_makefile_text_hacked = pattern_target
+            .replace(
+                &top_makefile_text,
+                format!(
+                    "stoneos-image: make_sub\n\n{}stoneos-image.orig:{}",
+                    prefix.as_str(),
+                    suffix.as_str()
+                ),
+            )
+            .to_string();
+        fs::write(top_makefile.as_path(), &top_makefile_text_hacked)
+            .context(format!("Can't write file: '{}'", top_makefile.display()))?;
+    }
     pb1.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] INJECTING MKFILES ({} & {} & {} MODIFIED)...{{msg:.green}}",
         step,
@@ -187,14 +193,16 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
         .tick_chars(TICK_CHARS),
     );
     pb3.enable_steady_tick(TICK_INTERVAL);
-    fs::write(lastrules_path, &lastrules_text).context(format!(
+    fs::write(lastrules_path.as_path(), &lastrules_text).context(format!(
         r#"Restoring "{}" failed"#,
         lastrules_path.display()
     ))?;
-    fs::write(rules_path, &rules_text)
+    fs::write(rules_path.as_path(), &rules_text)
         .context(format!(r#"Restoring "{}" failed"#, rules_path.display()))?;
-    fs::write(top_makefile, &top_makefile_text)
-        .context(format!(r#"Restoring "{}" failed"#, top_makefile.display()))?;
+    if at_proj_root {
+        fs::write(top_makefile.as_path(), &top_makefile_text)
+            .context(format!(r#"Restoring "{}" failed"#, top_makefile.display()))?;
+    }
     pb3.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] RESTORING MKFILES ({} & {} & {} RESTORED)...{{msg:.green}}",
         step,
