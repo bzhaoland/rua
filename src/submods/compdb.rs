@@ -62,22 +62,21 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
     }
 
     let mut step: usize = 1;
+    let modified_files_hint = if at_proj_root {
+        format!(
+            "{} & {} & {}",
+            lastrules_path.display(),
+            rules_path.display(),
+            top_makefile.display(),
+        )
+    } else {
+        format!("{} & {}", lastrules_path.display(), rules_path.display())
+    };
     let pb1 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
             format!(
                 "[{}/{}] INJECTING MKFILES ({}) {{spinner:.green}}",
-                step,
-                NSTEPS,
-                if at_proj_root {
-                    format!(
-                        "{} & {} & {}",
-                        lastrules_path.display(),
-                        rules_path.display(),
-                        top_makefile.display(),
-                    )
-                } else {
-                    format!("{} & {}", lastrules_path.display(), rules_path.display())
-                }
+                step, NSTEPS, modified_files_hint
             )
             .as_str(),
         )?
@@ -141,12 +140,8 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
             .context(format!("Can't write file: '{}'", top_makefile.display()))?;
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] INJECTING MKFILES ({} & {} & {} MODIFIED)...{{msg:.green}}",
-        step,
-        NSTEPS,
-        lastrules_path.display(),
-        rules_path.display(),
-        top_makefile.display(),
+        "[{}/{}] INJECTING MKFILES ({} MODIFIED)...{{msg:.green}}",
+        step, NSTEPS, modified_files_hint
     ))?);
     pb1.finish_with_message("OK");
 
@@ -190,12 +185,8 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
     step += 1;
     let pb3 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] RESTORING MKFILES ({} & {} & {}) {{spinner:.green}}",
-            step,
-            NSTEPS,
-            lastrules_path.display(),
-            rules_path.display(),
-            top_makefile.display(),
+            "[{}/{}] RESTORING MKFILES ({}) {{spinner:.green}}",
+            step, NSTEPS, modified_files_hint
         ))?
         .tick_chars(TICK_CHARS),
     );
@@ -211,12 +202,8 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
             .context(format!(r#"Restoring "{}" failed"#, top_makefile.display()))?;
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] RESTORING MKFILES ({} & {} & {} RESTORED)...{{msg:.green}}",
-        step,
-        NSTEPS,
-        lastrules_path.display(),
-        rules_path.display(),
-        top_makefile.display(),
+        "[{}/{}] RESTORING MKFILES ({} RESTORED)...{{msg:.green}}",
+        step, NSTEPS, modified_files_hint
     ))?);
     pb3.finish_with_message("OK");
 
