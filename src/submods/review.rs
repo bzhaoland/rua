@@ -19,12 +19,16 @@ pub struct ReviewOptions {
 }
 
 pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
-    const DEFAULT_DESCRIPTION_TEMPLATE_FILE: &str = "/devel/sw/bin/review_template";
+    const DEFAULT_REVIEW_TEMPLATE_FILE: &str = "/devel/sw/bin/review_template";
 
-    // Check file existence
-    let description_template_file = Path::new(DEFAULT_DESCRIPTION_TEMPLATE_FILE);
-    if !description_template_file.is_file() {
-        bail!("File not found: {}", DEFAULT_DESCRIPTION_TEMPLATE_FILE)
+    let review_template_file = options
+        .description_template_file
+        .as_deref()
+        .unwrap_or(DEFAULT_REVIEW_TEMPLATE_FILE);
+
+    // Check for file existence
+    if !Path::new(review_template_file).is_file() {
+        bail!("File not found: {}", review_template_file)
     }
 
     // Make a http request and get the response. The response text indicates
@@ -40,7 +44,7 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
         .text()
         .await?;
     if bug_class == "CustomerIssues" {
-        bail!("CustomerIssues cannot be reviewed");
+        bail!("Can not review CustomerIssues");
     }
 
     // Get branch name from the output of svn info
@@ -48,12 +52,6 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
         Some(v) => v.to_owned(),
         None => SvnInfo::new()?.branch_name().to_string(),
     };
-
-    // Files to commit
-    let cmdres = Command::new("svn").args(["status", "-q"]).output()?;
-    if !cmdres.status.success() {
-        bail!("Command `svn status -q` failed");
-    }
 
     let mut comm = Command::new("python2");
     comm.args([
@@ -68,13 +66,7 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
     // If review id is not given, then start a new one
     match options.review_id {
         Some(v) => comm.args(["-r", &v.to_string()]),
-        None => comm.arg(format!(
-            r#"--description-file={}"#,
-            options
-                .description_template_file
-                .as_deref()
-                .unwrap_or(DEFAULT_DESCRIPTION_TEMPLATE_FILE)
-        )),
+        None => comm.arg(format!(r#"--description-file={}"#, review_template_file)),
     };
 
     if options.files.is_some() {
