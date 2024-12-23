@@ -258,10 +258,10 @@ pub(crate) enum Comm {
         revisions: Option<String>,
 
         #[arg(
-            value_name = "TEMPLATE",
+            value_name = "FILE",
             short = 't',
-            long = "template",
-            help = "Customized description template file (please ensure it can run through svn commit hooks)"
+            long = "template-file",
+            help = "Use customized template file (please ensure it can run through svn commit hooks)"
         )]
         description_template_file: Option<String>,
     },
