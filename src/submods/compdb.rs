@@ -34,6 +34,10 @@ impl fmt::Display for CompRecord {
 pub(crate) type CompDB = Vec<CompRecord>;
 
 pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
+    const NSTEPS: usize = 5;
+    const TICK_INTERVAL: Duration = Duration::from_millis(200);
+    const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+
     // Check if current working directory is svn repo root
     let svninfo = utils::SvnInfo::new()?;
     let at_proj_root = env::current_dir()? == svninfo.working_copy_root_path();
@@ -42,43 +46,45 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
     let lastrules_path = svninfo
         .working_copy_root_path()
         .join("scripts/last-rules.mk");
-    let rules_path = svninfo.working_copy_root_path().join("scripts/rules.mk");
-    let top_makefile = svninfo.working_copy_root_path().join("Makefile");
-
     if !lastrules_path.is_file() {
         bail!(r#"File not found: "{}""#, lastrules_path.display());
     }
+
+    let rules_path = svninfo.working_copy_root_path().join("scripts/rules.mk");
     if !rules_path.is_file() {
         bail!(r#"File not found: "{}""#, rules_path.display());
     }
-    if at_proj_root {
-        if !top_makefile.is_file() {
-            bail!(r#"File not found: "{}""#, top_makefile.display());
-        }
+
+    // Optional, only needed for running at project root
+    let top_makefile = svninfo.working_copy_root_path().join("Makefile");
+    if at_proj_root && !top_makefile.is_file() {
+        bail!(r#"File not found: "{}""#, top_makefile.display());
     }
 
-    const NSTEPS: usize = 5;
     let mut step: usize = 1;
-    const TICK_INTERVAL: Duration = Duration::from_millis(200);
-    const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
-
-    // Hack makefiles
     let pb1 = ProgressBar::no_length().with_style(
-        ProgressStyle::with_template(&format!(
-            "[{}/{}] INJECTING MKFILES ({} & {}{}) {{spinner:.green}}",
-            step,
-            NSTEPS,
-            lastrules_path.display(),
-            rules_path.display(),
-            if at_proj_root {
-                format!("& {}", top_makefile.display())
-            } else {
-                "".to_string()
-            }
-        ))?
+        ProgressStyle::with_template(
+            format!(
+                "[{}/{}] INJECTING MKFILES ({}) {{spinner:.green}}",
+                step,
+                NSTEPS,
+                if at_proj_root {
+                    format!(
+                        "{} & {} & {}",
+                        lastrules_path.display(),
+                        rules_path.display(),
+                        top_makefile.display(),
+                    )
+                } else {
+                    format!("{} & {}", lastrules_path.display(), rules_path.display())
+                }
+            )
+            .as_str(),
+        )?
         .tick_chars(TICK_CHARS),
     );
     pb1.enable_steady_tick(TICK_INTERVAL);
+
     // Hacking for c files
     let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(HS_CC\)[[:blank:]]+(\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
         .context("Failed to build regex pattern for C-oriented compile command")?;
@@ -93,6 +99,7 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
         r#"Writing to file "{}" failed"#,
         lastrules_path.display()
     ))?;
+
     // Hacking for cxx files
     let pattern_cxx = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
         .context("Building regex pattern for C++ compile command failed")?;
@@ -104,7 +111,7 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
         rules_path.display()
     ))?;
 
-    // Hacking for make target
+    // Hacking for make target when running at project root
     let mut top_makefile_text = String::new();
     if at_proj_root {
         let pattern_target = Regex::new(r#"(?m)^( *)stoneos-image:(.*)$"#)

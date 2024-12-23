@@ -72,17 +72,30 @@ pub(crate) enum Comm {
         ignores: Option<Vec<String>>,
     },
 
-    /// Generate JSON compilation database (JCDB) for a specific target
+    /// Generate JSON compilation database (JCDB) for a specific target.
+    ///
+    /// You may run this command at either project root directory or submodule
+    /// directory.
+    /// However, you may have to compile the target completely first before
+    /// running at submodule directory.
     #[command(after_help = format!(
         r#"{}Examples:{:#}
   rua compdb products/ngfw_as a-dnv        # For A1000/A1100/A2000...
   rua compdb products/ngfw_as a-dnv-ipv6   # For A1000/A1100/A2000... with IPv6 enabled
   rua compdb products/ngfw_as kunlun-ipv6  # For X20803/X20812... with IPv6 enabled
+  rua compdb . ""  # For running at submodule dir (after compiling the target completely)
 
 {}Caution:{:#}
-  Three files ("scripts/last-rules.mk", "scripts/rules.mk" and "Makefile") are
-  hacked while running, and would be left in hacked state if the command aborts
-  unexpectedly. Use the following command to manually restore them:
+  Several files will be hacked while running:
+  1. When running at project root dir:
+     scripts/last-rules.mk
+     scripts/rules.mk
+     Makefile
+  2. When running at submodule dir:
+     scripts/last-rules.mk
+     scripts/rules.mk
+  These files may be left dirty if compdb aborted unexpectedly. You could use
+  the following command to manually restore them:
   {}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{:#}"#,
       STYLE_YELLOW,
       STYLE_YELLOW,
