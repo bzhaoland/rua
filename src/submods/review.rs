@@ -15,14 +15,14 @@ pub struct ReviewOptions {
     pub branch_name: Option<String>,
     pub repo_name: Option<String>,
     pub revisions: Option<String>,
-    pub description_template_file: Option<String>,
+    pub template_file: Option<String>,
 }
 
 pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
     const DEFAULT_REVIEW_TEMPLATE_FILE: &str = "/devel/sw/bin/review_template";
 
     let review_template_file = options
-        .description_template_file
+        .template_file
         .as_deref()
         .unwrap_or(DEFAULT_REVIEW_TEMPLATE_FILE);
 
