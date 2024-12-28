@@ -43,7 +43,6 @@ impl fmt::Display for ImageServer {
     }
 }
 
-
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct MakeOpts {
     pub(crate) flag: MakeFlag,
@@ -52,10 +51,14 @@ pub(crate) struct MakeOpts {
 
 impl fmt::Display for MakeOpts {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, r#"MakeOpts {{
+        write!(
+            f,
+            r#"MakeOpts {{
     flag: {:?}
     image_server: {:?}
-}}"#, self.flag, self.image_server)
+}}"#,
+            self.flag, self.image_server
+        )
     }
 }
 
@@ -70,10 +73,10 @@ pub(crate) enum DumpFormat {
 impl fmt::Display for DumpFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DumpFormat::Csv => write!(f, "Csv"),
-            DumpFormat::Json => write!(f, "Json"),
-            DumpFormat::List => write!(f, "List"),
-            DumpFormat::Tsv => write!(f, "Tsv"),
+            DumpFormat::Csv => write!(f, "DumpFormat::Csv"),
+            DumpFormat::Json => write!(f, "DumpFormat::Json"),
+            DumpFormat::List => write!(f, "DumpFormat::List"),
+            DumpFormat::Tsv => write!(f, "DumpFormat::Tsv"),
         }
     }
 }

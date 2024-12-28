@@ -109,8 +109,16 @@ pub(crate) enum Comm {
             help = "Make path for the target, such as 'products/vfw'"
         )]
         product_dir: String,
+
         #[arg(value_name = "TARGET", help = "Target to make, such as 'aws'")]
         make_target: String,
+
+        #[arg(
+            value_name = "ENGINE",
+            help = "Engine used to generate JCDB",
+            default_value = "built-in"
+        )]
+        engine: compdb::CompdbEngine,
     },
 
     /// Get all matched makeinfos for product
@@ -324,7 +332,20 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
         Comm::Compdb {
             product_dir,
             make_target,
-        } => compdb::gen_compdb(&product_dir, &make_target),
+            engine,
+        } => {
+            let compdb_conf = if let Some(v) = conf {
+                v.compdb.clone()
+            } else {
+                None
+            };
+            let compdb_options = compdb::CompdbOptions {
+                engine,
+                bear_path: compdb_conf.as_ref().unwrap().bear_path.clone(),
+                intercept_build_path: compdb_conf.as_ref().unwrap().intercept_build_path.clone(),
+            };
+            compdb::gen_compdb(&product_dir, &make_target, compdb_options)
+        }
         Comm::Showcc { comp_unit, comp_db } => {
             let compilation_db = match comp_db {
                 Some(v) => PathBuf::from_str(v.as_str())?,

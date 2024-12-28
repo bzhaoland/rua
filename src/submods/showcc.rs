@@ -5,7 +5,7 @@ use anstyle::{AnsiColor, Color, Style};
 use anyhow::{Context, Result};
 use crossterm::terminal;
 
-use crate::submods::compdb::{CompDB, CompRecord};
+use crate::submods::compdb::{CompDB, CompdbRecord};
 
 const STYLE_GREEN: Style = Style::new()
     .fg_color(Some(Color::Ansi(AnsiColor::Green)))
@@ -15,13 +15,13 @@ const STYLE_YELLOW: Style = Style::new()
     .bold();
 
 /// Find corresponding compile command from compilation database for the given filename.
-pub fn find_compile_command(filename: &str, compdb: &path::Path) -> Result<Vec<CompRecord>> {
+pub fn find_compile_command(filename: &str, compdb: &path::Path) -> Result<Vec<CompdbRecord>> {
     let compdb_str =
         fs::read_to_string(compdb).context(format!(r#"Can't read file "{}""#, compdb.display()))?;
     let compdb: CompDB = serde_json::from_str(&compdb_str)
         .context(format!(r#"Failed to parse "{}"!"#, compdb.display()))?;
 
-    let commands: Vec<CompRecord> = compdb
+    let commands: Vec<CompdbRecord> = compdb
         .into_iter()
         .filter_map(|x| {
             let file = path::Path::new(x.file.as_str());
@@ -36,7 +36,7 @@ pub fn find_compile_command(filename: &str, compdb: &path::Path) -> Result<Vec<C
     Ok(commands)
 }
 
-pub fn print_records(records: &[CompRecord]) -> Result<()> {
+pub fn print_records(records: &[CompdbRecord]) -> Result<()> {
     if records.is_empty() {
         println!("No matched record.");
         return Ok(());

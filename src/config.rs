@@ -60,10 +60,38 @@ impl ReviewConf {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct CompdbConf {
+    pub(crate) engine: Option<String>,
+    pub(crate) bear_path: Option<String>,
+    pub(crate) intercept_build_path: Option<String>,
+}
+
+impl CompdbConf {
+    #[allow(dead_code)]
+    pub(crate) fn new() -> CompdbConf {
+        CompdbConf {
+            engine: None,
+            bear_path: None,
+            intercept_build_path: None,
+        }
+    }
+
+    pub(crate) fn merge(mut self, other: &Self) -> Self {
+        self.engine = self.engine.or_else(|| other.engine.clone());
+        self.bear_path = self.bear_path.or_else(|| other.bear_path.clone());
+        self.intercept_build_path = self
+            .intercept_build_path
+            .or_else(|| other.bear_path.clone());
+        self
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct RuaConf {
     pub(crate) clean: Option<CleanConf>,
     pub(crate) mkinfo: Option<MkinfoConf>,
     pub(crate) review: Option<ReviewConf>,
+    pub(crate) compdb: Option<CompdbConf>,
 }
 
 impl RuaConf {
@@ -73,6 +101,7 @@ impl RuaConf {
             clean: None,
             mkinfo: None,
             review: None,
+            compdb: None,
         }
     }
 
@@ -93,6 +122,12 @@ impl RuaConf {
             self.review = other.review.clone();
         } else if other.review.is_some() {
             self.review = Some(self.review.unwrap().merge(other.review.as_ref().unwrap()));
+        }
+
+        if self.compdb.is_none() {
+            self.compdb = other.compdb.clone();
+        } else if other.review.is_some() {
+            self.compdb = Some(self.compdb.unwrap().merge(other.compdb.as_ref().unwrap()));
         }
 
         Ok(self)

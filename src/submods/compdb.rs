@@ -7,6 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::{bail, Context};
+use clap::ValueEnum;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -14,14 +15,52 @@ use serde_json::{self, json};
 
 use crate::utils;
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum)]
+pub(crate) enum CompdbEngine {
+    Builtin,
+    ExternalInterceptBuild,
+    ExternalBear,
+}
+
+impl fmt::Display for CompdbEngine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Builtin => write!(f, "builtin"),
+            Self::ExternalInterceptBuild => write!(f, "intercept-build"),
+            Self::ExternalBear => write!(f, "bear"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub(crate) struct CompRecord {
+pub(crate) struct CompdbOptions {
+    pub(crate) engine: CompdbEngine,
+    pub(crate) intercept_build_path: Option<String>,
+    pub(crate) bear_path: Option<String>,
+}
+
+impl fmt::Display for CompdbOptions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            r#"CompdbOptions {{
+    engine: {:?}
+    intercept_build_path: {:?}
+    bear_path: {:?}
+}}"#,
+            self.engine, self.intercept_build_path, self.bear_path
+        )
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct CompdbRecord {
     pub command: String,
     pub directory: String,
     pub file: String,
 }
 
-impl fmt::Display for CompRecord {
+impl fmt::Display for CompdbRecord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -31,12 +70,18 @@ impl fmt::Display for CompRecord {
     }
 }
 
-pub(crate) type CompDB = Vec<CompRecord>;
+pub(crate) type CompDB = Vec<CompdbRecord>;
 
-pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Result<()> {
+const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
+const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
+const TICK_INTERVAL: Duration = Duration::from_millis(200);
+const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+
+pub(crate) fn gen_compdb_using_builtin_method(
+    make_directory: &str,
+    make_target: &str,
+) -> anyhow::Result<()> {
     const NSTEPS: usize = 5;
-    const TICK_INTERVAL: Duration = Duration::from_millis(200);
-    const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
     // Check if current working directory is svn repo root
     let svninfo = utils::SvnInfo::new()?;
@@ -173,7 +218,7 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
         thread::sleep(TICK_INTERVAL);
     };
     if !status.success() {
-        bail!("Pseudo building failed: {:?}", status.code());
+        bail!("Pseudo building failed ({:?})", status.code());
     }
     pb2.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] BUILDING PSEUDOLY...{{msg:.green}}",
@@ -222,12 +267,12 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
     let pattern_hackrule = Regex::new(
         r#"(?m)^##JCDB##[[:blank:]]+>>:directory:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:command:>>[[:blank:]]+([^>]+?)[[:blank:]]+>>:file:>>[[:blank:]]+(.+)[[:blank:]]*$"#,
     ).context("Failed to build pattern for hackrules")?;
-    let mut records: Vec<CompRecord> = Vec::new();
+    let mut records: Vec<CompdbRecord> = Vec::new();
     for (_, [dirc, comm, file]) in pattern_hackrule
         .captures_iter(&output_str)
         .map(|c| c.extract())
     {
-        records.push(CompRecord {
+        records.push(CompdbRecord {
             directory: dirc.to_string(),
             command: comm.to_string(),
             file: Path::new(&dirc).join(file).to_string_lossy().to_string(),
@@ -268,4 +313,100 @@ pub(crate) fn gen_compdb(make_directory: &str, make_target: &str) -> anyhow::Res
     pb5.finish_with_message("OK");
 
     Ok(())
+}
+
+pub(crate) fn gen_compdb_using_intercept_build(
+    intercept_build_path: &str,
+    make_directory: &str,
+    make_target: &str,
+) -> anyhow::Result<()> {
+    let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
+        "GENERATING JCDB USING INTERCEPT-BUILD {{spinner:.green}}",
+    )?);
+    pb.enable_steady_tick(TICK_INTERVAL);
+    let mut command = Command::new("hsdocker7");
+    let command_with_args = command.arg(format!(
+        "{} -- make -C {} -j8 -B {}",
+        intercept_build_path, make_directory, make_target
+    ));
+    let mut child_proc = command_with_args
+        .spawn()
+        .context("Error spawning child process")?;
+    let status = loop {
+        if let Some(v) = child_proc.try_wait()? {
+            break v;
+        }
+        thread::sleep(TICK_INTERVAL);
+    };
+    if !status.success() {
+        bail!("Intercept-build running failed ({:?})", status.code());
+    }
+    pb.disable_steady_tick();
+    pb.set_style(ProgressStyle::with_template(
+        "GENERATING JCDB USING INTERCEPT-BUILD...{{msg: .green}}",
+    )?);
+    pb.finish_with_message("OK");
+    Ok(())
+}
+
+pub(crate) fn gen_compdb_using_bear(
+    bear_path: &str,
+    make_directory: &str,
+    make_target: &str,
+) -> anyhow::Result<()> {
+    let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
+        "GENERATING JCDB USING BEAR {{spinner:.green}}",
+    )?);
+    pb.enable_steady_tick(TICK_INTERVAL);
+    let mut command = Command::new("hsdocker7");
+    let command_with_args = command.arg(format!(
+        "{} -- make -C {} -j8 -B {}",
+        bear_path, make_directory, make_target
+    ));
+    let mut child_proc = command_with_args
+        .spawn()
+        .context("Error spawning child process")?;
+    let status = loop {
+        if let Some(v) = child_proc.try_wait()? {
+            break v;
+        }
+        thread::sleep(TICK_INTERVAL);
+    };
+    if !status.success() {
+        bail!("Bear running failed ({:?})", status.code());
+    }
+    pb.disable_steady_tick();
+    pb.set_style(ProgressStyle::with_template(
+        "GENERATING JCDB USING BEAR...{{msg: .green}}",
+    )?);
+    pb.finish_with_message("OK");
+    Ok(())
+}
+
+pub(crate) fn gen_compdb(
+    make_directory: &str,
+    make_target: &str,
+    options: CompdbOptions,
+) -> anyhow::Result<()> {
+    match options.engine {
+        CompdbEngine::Builtin => gen_compdb_using_builtin_method(make_directory, make_target),
+        CompdbEngine::ExternalInterceptBuild => {
+            let mut intercept_build_path = DEFAULT_INTERCEPT_BUILD_PATH.to_string();
+            if let Some(v) = options.intercept_build_path {
+                intercept_build_path = v;
+            }
+            gen_compdb_using_intercept_build(
+                intercept_build_path.as_str(),
+                make_directory,
+                make_target,
+            )
+        }
+        CompdbEngine::ExternalBear => {
+            let mut bear_path = DEFAULT_BEAR_PATH.to_string();
+            if let Some(v) = options.bear_path {
+                bear_path = v
+            }
+            gen_compdb_using_bear(bear_path.as_str(), make_directory, make_target)
+        }
+    }
 }
