@@ -3,6 +3,8 @@ use std::{env, fs};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::utils::SvnInfo;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CleanConf {
     pub ignores: Option<Vec<String>>,
@@ -135,7 +137,8 @@ impl RuaConf {
 }
 
 pub fn load_config() -> Result<Option<RuaConf>> {
-    let proj_conf_file = env::current_dir()?.join(".rua/config.toml");
+    let svninfo = SvnInfo::new()?;
+    let proj_conf_file = svninfo.working_copy_root_path().join(".rua/config.toml");
     let user_conf_file = home::home_dir()
         .context("Unable to get home directory")?
         .join(".config/rua/config.toml");
