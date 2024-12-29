@@ -326,7 +326,7 @@ pub(crate) fn gen_compdb_using_intercept_build(
     pb.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
     let command_with_args = command.arg(format!(
-        "{} make -C {} -j8 -B {}",
+        "{} make -C {} -j8 -B {} >rua.compdb.log 2>&1",
         intercept_build_path, make_directory, make_target
     ));
     let mut child_proc = command_with_args
@@ -360,7 +360,7 @@ pub(crate) fn gen_compdb_using_bear(
     pb.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
     let command_with_args = command.arg(format!(
-        "{} -- make -C {} -j8 -B {}",
+        "{} -- make -C {} -j8 -B {} >rua.compdb.log 2>&1",
         bear_path, make_directory, make_target
     ));
     let mut child_proc = command_with_args
