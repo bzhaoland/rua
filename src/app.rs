@@ -2,13 +2,13 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anstyle::{AnsiColor, Color, Style};
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::builder::styling;
 use clap::{Parser, Subcommand};
 
 use crate::config::RuaConf;
 use crate::submods::clean;
-use crate::submods::compdb;
+use crate::submods::compdb::{self, CompdbEngine};
 use crate::submods::mkinfo::{self, MakeOpts};
 use crate::submods::perfan;
 use crate::submods::review;
@@ -114,11 +114,22 @@ pub(crate) enum Comm {
         make_target: String,
 
         #[arg(
+            short = 'e',
+            long = "engine",
             value_name = "ENGINE",
-            help = "Engine used to generate JCDB",
-            default_value = "built-in"
+            help = "Engine used to generate compilation database"
         )]
-        engine: compdb::CompdbEngine,
+        engine: Option<CompdbEngine>,
+
+        #[arg(
+            long = "intercept_build_path",
+            value_name = "INTERCEPT-BUILD",
+            help = "Path to intercept-build"
+        )]
+        intercept_build_path: Option<String>,
+
+        #[arg(long = "bear_path", value_name = "BEAR", help = "Path to bear")]
+        bear_path: Option<String>,
     },
 
     /// Get all matched makeinfos for product
@@ -332,17 +343,49 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
         Comm::Compdb {
             product_dir,
             make_target,
-            engine,
+            mut engine,
+            mut intercept_build_path,
+            mut bear_path,
         } => {
-            let compdb_conf = if let Some(v) = conf {
-                v.compdb.clone()
-            } else {
-                None
-            };
+            if engine.is_none() {
+                if let Some(rua_conf) = conf {
+                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                        if let Some(engine_key) = compdb_conf.engine.as_ref() {
+                            engine = match engine_key.as_str() {
+                                "built-in" => Some(CompdbEngine::BuiltIn),
+                                "intercept-build" => Some(CompdbEngine::InterceptBuild),
+                                "bear" => Some(CompdbEngine::Bear),
+                                _ => bail!("Invalid config: engine = {}", engine_key),
+                            };
+                        }
+                    }
+                }
+            }
+
+            if intercept_build_path.is_none() {
+                if let Some(rua_conf) = conf {
+                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                        if let Some(v) = compdb_conf.intercept_build_path.as_ref() {
+                            intercept_build_path = Some(v.to_owned());
+                        }
+                    }
+                }
+            }
+
+            if bear_path.is_none() {
+                if let Some(rua_conf) = conf {
+                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                        if let Some(v) = compdb_conf.bear_path.as_ref() {
+                            bear_path = Some(v.to_owned());
+                        }
+                    }
+                }
+            }
+
             let compdb_options = compdb::CompdbOptions {
                 engine,
-                bear_path: compdb_conf.as_ref().unwrap().bear_path.clone(),
-                intercept_build_path: compdb_conf.as_ref().unwrap().intercept_build_path.clone(),
+                bear_path,
+                intercept_build_path,
             };
             compdb::gen_compdb(&product_dir, &make_target, compdb_options)
         }

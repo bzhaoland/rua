@@ -82,7 +82,7 @@ impl fmt::Display for DumpFormat {
 }
 
 /// Structure holding product information.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub(crate) struct ProductInfo {
     pub(crate) platform_code: String,

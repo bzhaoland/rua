@@ -17,24 +17,24 @@ use crate::utils;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum)]
 pub(crate) enum CompdbEngine {
-    Builtin,
-    ExternalInterceptBuild,
-    ExternalBear,
+    BuiltIn,
+    InterceptBuild,
+    Bear,
 }
 
 impl fmt::Display for CompdbEngine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Builtin => write!(f, "builtin"),
-            Self::ExternalInterceptBuild => write!(f, "intercept-build"),
-            Self::ExternalBear => write!(f, "bear"),
+            Self::BuiltIn => write!(f, "built-in"),
+            Self::InterceptBuild => write!(f, "intercept-build"),
+            Self::Bear => write!(f, "bear"),
         }
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct CompdbOptions {
-    pub(crate) engine: CompdbEngine,
+    pub(crate) engine: Option<CompdbEngine>,
     pub(crate) intercept_build_path: Option<String>,
     pub(crate) bear_path: Option<String>,
 }
@@ -388,25 +388,20 @@ pub(crate) fn gen_compdb(
     make_target: &str,
     options: CompdbOptions,
 ) -> anyhow::Result<()> {
-    match options.engine {
-        CompdbEngine::Builtin => gen_compdb_using_builtin_method(make_directory, make_target),
-        CompdbEngine::ExternalInterceptBuild => {
-            let mut intercept_build_path = DEFAULT_INTERCEPT_BUILD_PATH.to_string();
-            if let Some(v) = options.intercept_build_path {
-                intercept_build_path = v;
-            }
-            gen_compdb_using_intercept_build(
-                intercept_build_path.as_str(),
-                make_directory,
-                make_target,
-            )
+    let engine = options.engine.unwrap_or(CompdbEngine::BuiltIn);
+
+    match engine {
+        CompdbEngine::BuiltIn => gen_compdb_using_builtin_method(make_directory, make_target),
+        CompdbEngine::InterceptBuild => {
+            let intercept_build_path = options
+                .intercept_build_path
+                .as_deref()
+                .unwrap_or(DEFAULT_INTERCEPT_BUILD_PATH);
+            gen_compdb_using_intercept_build(intercept_build_path, make_directory, make_target)
         }
-        CompdbEngine::ExternalBear => {
-            let mut bear_path = DEFAULT_BEAR_PATH.to_string();
-            if let Some(v) = options.bear_path {
-                bear_path = v
-            }
-            gen_compdb_using_bear(bear_path.as_str(), make_directory, make_target)
+        CompdbEngine::Bear => {
+            let bear_path = options.bear_path.as_deref().unwrap_or(DEFAULT_BEAR_PATH);
+            gen_compdb_using_bear(bear_path, make_directory, make_target)
         }
     }
 }
