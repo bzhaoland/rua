@@ -321,12 +321,12 @@ pub(crate) fn gen_compdb_using_intercept_build(
     make_target: &str,
 ) -> anyhow::Result<()> {
     let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
-        "GENERATING JCDB USING INTERCEPT-BUILD {{spinner:.green}}",
+        "GENERATING JCDB USING INTERCEPT-BUILD {spinner:.green}",
     )?);
     pb.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
     let command_with_args = command.arg(format!(
-        "{} -- make -C {} -j8 -B {}",
+        "{} make -C {} -j8 -B {}",
         intercept_build_path, make_directory, make_target
     ));
     let mut child_proc = command_with_args
@@ -343,7 +343,7 @@ pub(crate) fn gen_compdb_using_intercept_build(
     }
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "GENERATING JCDB USING INTERCEPT-BUILD...{{msg: .green}}",
+        "GENERATING JCDB USING INTERCEPT-BUILD...{msg: .green}",
     )?);
     pb.finish_with_message("OK");
     Ok(())
@@ -355,7 +355,7 @@ pub(crate) fn gen_compdb_using_bear(
     make_target: &str,
 ) -> anyhow::Result<()> {
     let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
-        "GENERATING JCDB USING BEAR {{spinner:.green}}",
+        "GENERATING JCDB USING BEAR {spinner:.green}",
     )?);
     pb.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
@@ -377,7 +377,7 @@ pub(crate) fn gen_compdb_using_bear(
     }
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "GENERATING JCDB USING BEAR...{{msg: .green}}",
+        "GENERATING JCDB USING BEAR...{msg: .green}",
     )?);
     pb.finish_with_message("OK");
     Ok(())
