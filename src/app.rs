@@ -80,13 +80,14 @@ pub(crate) enum Comm {
     /// running at submodule directory.
     #[command(after_help = format!(
         r#"{}Examples:{:#}
-  rua compdb products/ngfw_as a-dnv        # For A1000/A1100/A2000...
-  rua compdb products/ngfw_as a-dnv-ipv6   # For A1000/A1100/A2000... with IPv6 enabled
-  rua compdb products/ngfw_as kunlun-ipv6  # For X20803/X20812... with IPv6 enabled
-  rua compdb . ""  # For running at submodule dir (after compiling the target completely)
+  rua compdb products/ngfw_as a-dnv           # For A1000/A2000...
+  rua compdb products/ngfw_as a-dnv-ipv6      # For A1000/A2000... with IPv6 support
+  rua compdb . a-dnv                          # For A1000/A2000... at submodule directory
+  rua compdb --engine=bear . a-dnv            # For A1000/A2000... using bear at submodule directory
+  run compdb --engine=intercept-build . a-dnv # For A1000/A2000... using intercept-build at submodule directory
 
 {}Caution:{:#}
-  Several files will be hacked while running:
+  Several files will be hacked while running with default engine (built-in):
   1. When running at project root dir:
      scripts/last-rules.mk
      scripts/rules.mk
