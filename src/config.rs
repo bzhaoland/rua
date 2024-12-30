@@ -134,46 +134,48 @@ impl RuaConf {
 
         Ok(self)
     }
-}
 
-pub fn load_config() -> Result<Option<RuaConf>> {
-    let svninfo = SvnInfo::new()?;
-    let proj_conf_file = svninfo.working_copy_root_path().join(".rua/config.toml");
-    let user_conf_file = home::home_dir()
-        .context("Unable to get home directory")?
-        .join(".config/rua/config.toml");
+    #[allow(dead_code)]
+    pub(crate) fn load() -> Result<Option<RuaConf>> {
+        let svninfo = SvnInfo::new()?;
+        
+        let proj_conf_file = svninfo.working_copy_root_path().join(".rua/config.toml");
+        let user_conf_file = home::home_dir()
+            .context("Unable to get home directory")?
+            .join(".config/rua/config.toml");
 
-    let proj_conf: Option<RuaConf> = if proj_conf_file.is_file() {
-        toml::from_str(
-            &fs::read_to_string(proj_conf_file.as_path())
-                .context(format!("Can't read file: {}", proj_conf_file.display()))?,
-        )
-        .context(format!(
-            "Failed to parse config file: {}",
-            proj_conf_file.display()
-        ))?
-    } else {
-        None
-    };
-    let user_conf: Option<RuaConf> = if user_conf_file.is_file() {
-        toml::from_str(
-            &fs::read_to_string(user_conf_file.as_path())
-                .context(format!("Failed to read: {}", user_conf_file.display()))?,
-        )
-        .context(format!(
-            "Failed to parse file: {}",
-            user_conf_file.display()
-        ))?
-    } else {
-        None
-    };
+        let proj_conf: Option<RuaConf> = if proj_conf_file.is_file() {
+            toml::from_str(
+                &fs::read_to_string(proj_conf_file.as_path())
+                    .context(format!("Can't read file: {}", proj_conf_file.display()))?,
+            )
+            .context(format!(
+                "Failed to parse config file: {}",
+                proj_conf_file.display()
+            ))?
+        } else {
+            None
+        };
+        let user_conf: Option<RuaConf> = if user_conf_file.is_file() {
+            toml::from_str(
+                &fs::read_to_string(user_conf_file.as_path())
+                    .context(format!("Failed to read: {}", user_conf_file.display()))?,
+            )
+            .context(format!(
+                "Failed to parse file: {}",
+                user_conf_file.display()
+            ))?
+        } else {
+            None
+        };
 
-    let conf = match (proj_conf, user_conf) {
-        (Some(x), Some(y)) => Some(x.merge(&y)?),
-        (Some(x), None) => Some(x),
-        (None, Some(y)) => Some(y),
-        (None, None) => None,
-    };
+        let conf = match (proj_conf, user_conf) {
+            (Some(x), Some(y)) => Some(x.merge(&y)?),
+            (Some(x), None) => Some(x),
+            (None, Some(y)) => Some(y),
+            (None, None) => None,
+        };
 
-    Ok(conf)
+        Ok(conf)
+    }
 }
