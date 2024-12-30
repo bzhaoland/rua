@@ -14,8 +14,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     let args = app::Cli::parse();
-    // let conf = RuaConf::load()?;
-    let conf = RuaConf::new();
+    let conf = RuaConf::load()?;
 
-    app::run_app(&args, Some(conf).as_ref())
+    app::run_app(&args, conf.as_ref())
 }
