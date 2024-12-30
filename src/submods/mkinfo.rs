@@ -21,7 +21,7 @@ bitflags! {
     pub(crate) struct MakeFlag: u64 {
         const RELEASE        = 0b00000001;
         const IPV6           = 0b00000010;
-        const WEBUI          = 0b00000100; // Only recommend
+        const WEBUI          = 0b00000100; // Just recommend
         const SHELL_PASSWORD = 0b00001000;
         const COVERITY       = 0b00010000;
         const COVERAGE       = 0b00100000;
