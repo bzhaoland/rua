@@ -52,53 +52,16 @@ pub struct SvnInfo {
 impl SvnInfo {
     /// Return an empty template of SvnInfo
     pub fn new() -> anyhow::Result<Self> {
-        let mut instance = SvnInfo {
-            working_copy_root_path: String::new(),
-            url: String::new(),
-            relative_url: String::new(),
-            repo_root: String::new(),
-            repo_uuid: String::new(),
-            revision: 0,
-            node_kind: String::new(),
-            schedule: String::new(),
-            last_changed_author: String::new(),
-            last_changed_revision: 0,
-            last_changed_date: String::new(),
-        };
-
-        instance.info()?;
-        Ok(instance)
-    }
-
-    /// Clear the contents inside
-    #[allow(dead_code)]
-    pub fn reset(&mut self) {
-        self.working_copy_root_path.clear();
-        self.url.clear();
-        self.relative_url.clear();
-        self.repo_root.clear();
-        self.repo_uuid.clear();
-        self.revision = 0;
-        self.node_kind.clear();
-        self.schedule.clear();
-        self.last_changed_author.clear();
-        self.last_changed_revision = 0;
-        self.last_changed_date.clear();
-    }
-
-    /// Invoking .info method means executing `svn info` command once and storing its output
-    #[allow(dead_code)]
-    pub fn info(&mut self) -> anyhow::Result<()> {
-        let output = Command::new("svn")
+        let result = Command::new("svn")
             .arg("info")
             .output()
             .context(r#"Command `svn info` failed"#)?;
-        if !output.status.success() {
-            bail!(anyhow!(String::from_utf8_lossy(&output.stderr).to_string())
+        if !result.status.success() {
+            bail!(anyhow!(String::from_utf8_lossy(&result.stderr).to_string())
                 .context(r#"Command `svn info` failed."#));
         }
 
-        let info = String::from_utf8_lossy(&output.stdout).to_string();
+        let output = String::from_utf8_lossy(&result.stdout).to_string();
         let pattern = Regex::new(
             r#"Working Copy Root Path: ([^\n]+)
 URL: ([^\n]+)
@@ -112,36 +75,37 @@ Last Changed Author: ([^\n]+)
 Last Changed Rev: ([[:digit:]]+)
 Last Changed Date: ([^\n]+)"#,
         )
-        .context("Failed to build pattern for capturing project root dir")?;
+        .context("Failed to build regex pattern for svn info")?;
 
         let captures = pattern
-            .captures(&info)
+            .captures(&output)
             .context("Failed to capture svn info")?;
-        self.working_copy_root_path = captures.get(1).unwrap().as_str().to_string();
-        self.url = captures.get(2).unwrap().as_str().to_string();
-        self.relative_url = captures.get(3).unwrap().as_str().to_string();
-        self.repo_root = captures.get(4).unwrap().as_str().to_string();
-        self.repo_uuid = captures.get(5).unwrap().as_str().to_string();
-        self.revision = captures
-            .get(6)
-            .unwrap()
-            .as_str()
-            .to_string()
-            .parse()
-            .context("Can't convert revision string to number")?;
-        self.node_kind = captures.get(7).unwrap().as_str().to_string();
-        self.schedule = captures.get(8).unwrap().as_str().to_string();
-        self.last_changed_author = captures.get(9).unwrap().as_str().to_string();
-        self.last_changed_revision = captures
-            .get(10)
-            .unwrap()
-            .as_str()
-            .to_string()
-            .parse()
-            .context("Can't convert last changed revision to number")?;
-        self.last_changed_date = captures.get(11).unwrap().as_str().to_string();
 
-        Ok(())
+        Ok(SvnInfo {
+            working_copy_root_path: captures.get(1).unwrap().as_str().to_string(),
+            url: captures.get(2).unwrap().as_str().to_string(),
+            relative_url: captures.get(3).unwrap().as_str().to_string(),
+            repo_root: captures.get(4).unwrap().as_str().to_string(),
+            repo_uuid: captures.get(5).unwrap().as_str().to_string(),
+            revision: captures
+                .get(6)
+                .unwrap()
+                .as_str()
+                .to_string()
+                .parse()
+                .context("Can't convert revision string to number")?,
+            node_kind: captures.get(7).unwrap().as_str().to_string(),
+            schedule: captures.get(8).unwrap().as_str().to_string(),
+            last_changed_author: captures.get(9).unwrap().as_str().to_string(),
+            last_changed_revision: captures
+                .get(10)
+                .unwrap()
+                .as_str()
+                .to_string()
+                .parse()
+                .context("Can't convert last changed revision to number")?,
+            last_changed_date: captures.get(11).unwrap().as_str().to_string(),
+        })
     }
 
     #[allow(dead_code)]
