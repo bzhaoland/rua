@@ -4,16 +4,17 @@ use std::str::FromStr;
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{bail, Result};
 use clap::builder::styling;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 
 use crate::config::RuaConf;
-use crate::submods::clean;
 use crate::submods::compdb::{self, CompdbEngine};
 use crate::submods::mkinfo::{self, MakeOpts};
 use crate::submods::perfan;
 use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
+use crate::submods::{clean, initsh};
 
 const STYLE_YELLOW: Style = Style::new()
     .fg_color(Some(Color::Ansi(AnsiColor::Yellow)))
@@ -323,6 +324,15 @@ pub(crate) enum Comm {
         )]
         prefix: String,
     },
+
+    /// Generate completion for the given shell
+    #[command(after_help = format!(r#"{STYLE_YELLOW}Note:{STYLE_YELLOW:#}
+  eval "$(rua init bash)"  # Append this line to ~/.bashrc
+  eval "$(rua init zsh)"   # Append this line to ~/.zshrc"#))]
+    Init {
+        #[arg(value_name = "SHELL", help = "Shell type", value_enum)]
+        shell: Shell,
+    },
 }
 
 pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
@@ -511,6 +521,10 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
                 template_file,
             };
             tokio::runtime::Runtime::new()?.block_on(review::review(&options))
+        }
+        Comm::Init { shell } => {
+            initsh::gen_completion(&mut Cli::command(), shell);
+            Ok(())
         }
     }
 }
