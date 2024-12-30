@@ -12,8 +12,8 @@ fn main() -> anyhow::Result<()> {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
 
-    let conf = config::load_config()?;
     let args = app::Cli::parse();
+    let conf = config::load_config()?;
 
     app::run_app(&args, conf.as_ref())
 }
