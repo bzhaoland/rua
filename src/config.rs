@@ -138,7 +138,7 @@ impl RuaConf {
     #[allow(dead_code)]
     pub(crate) fn load() -> Result<Option<RuaConf>> {
         let svninfo = SvnInfo::new()?;
-        
+
         let proj_conf_file = svninfo.working_copy_root_path().join(".rua/config.toml");
         let user_conf_file = home::home_dir()
             .context("Unable to get home directory")?

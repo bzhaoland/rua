@@ -63,12 +63,8 @@ pub fn proc_perfanno<P: AsRef<Path>>(
                     .context("Can't cast as u64")?
                     + 1u64
             );
-            json_data["counter"] = json!(
-                json_data["counter"]
-                    .as_u64()
-                    .context("Can't cast as u64")?
-                    + counter
-            );
+            json_data["counter"] =
+                json!(json_data["counter"].as_u64().context("Can't cast as u64")? + counter);
             if json_data["mods"]
                 .get(curr_modkey.as_ref().context("None is encountered")?)
                 .is_none()
@@ -144,12 +140,8 @@ pub fn proc_perfanno<P: AsRef<Path>>(
                 .context("Failed to get the value at the index")?
                 .as_object_mut()
                 .context("Can't cast as mutable object")?;
-            curr_func["counter"] = json!(
-                curr_func["counter"]
-                    .as_u64()
-                    .context("Can't cast as u64")?
-                    + counter
-            );
+            curr_func["counter"] =
+                json!(curr_func["counter"].as_u64().context("Can't cast as u64")? + counter);
             let curr_lines = curr_func["lines"]
                 .as_array_mut()
                 .context("Can't cast as mutable array")?;
@@ -230,18 +222,10 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
             // table
             let summary_decor: String = "S".repeat(100);
             let spacer: String = " ".repeat(6);
-            let top_counter = data["counter"]
-                .as_u64()
-                .context("Can't cast as u64")?;
-            let top_num_mods = data["num_mods"]
-                .as_u64()
-                .context("Can't cast as u64")?;
-            let top_num_funcs = data["num_funcs"]
-                .as_u64()
-                .context("Can't cast as u64")?;
-            let top_num_lines = data["num_lines"]
-                .as_u64()
-                .context("Can't cast as u64")?;
+            let top_counter = data["counter"].as_u64().context("Can't cast as u64")?;
+            let top_num_mods = data["num_mods"].as_u64().context("Can't cast as u64")?;
+            let top_num_funcs = data["num_funcs"].as_u64().context("Can't cast as u64")?;
+            let top_num_lines = data["num_lines"].as_u64().context("Can't cast as u64")?;
 
             // Print text title
             println!("{}", summary_decor);
@@ -260,15 +244,9 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                 .iter()
             {
                 mod_count += 1;
-                let mod_counter = modv["counter"]
-                    .as_u64()
-                    .context("Can't cast as u64")?;
-                let mod_num_funcs = modv["num_funcs"]
-                    .as_u64()
-                    .context("Can't cast as u64")?;
-                let mod_num_lines = modv["num_lines"]
-                    .as_u64()
-                    .context("Can't cast as u64")?;
+                let mod_counter = modv["counter"].as_u64().context("Can't cast as u64")?;
+                let mod_num_funcs = modv["num_funcs"].as_u64().context("Can't cast as u64")?;
+                let mod_num_lines = modv["num_lines"].as_u64().context("Can't cast as u64")?;
 
                 // Module-level title
                 println!("{}", module_decor);
@@ -295,9 +273,7 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                     .iter()
                     .enumerate()
                 {
-                    let func_counter = func["counter"]
-                        .as_u64()
-                        .context("Can't cast as u64")?;
+                    let func_counter = func["counter"].as_u64().context("Can't cast as u64")?;
                     let func_counter_str = format!("{}/{}", func_counter, top_counter);
                     let modfunc_str = format!("[{}][Func#{}]", modk, func_idx + 1);
                     let lines = func["lines"].as_array().context("Can't cast as array")?;
@@ -318,17 +294,12 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                     );
 
                     for line in lines.iter() {
-                        let address = line["address"]
-                            .as_str()
-                            .context("Can't cast as &str")?;
-                        let counter = line["counter"]
-                            .as_u64()
-                            .context("Can't cast as u64")?;
+                        let address = line["address"].as_str().context("Can't cast as &str")?;
+                        let counter = line["counter"].as_u64().context("Can't cast as u64")?;
                         let counter_str = format!("{}/{}", counter, top_counter);
                         let share = counter as f64 / top_counter as f64 * 100f64;
-                        let instruction = line["instruction"]
-                            .as_str()
-                            .context("Can't cast as &str")?;
+                        let instruction =
+                            line["instruction"].as_str().context("Can't cast as &str")?;
                         let mut location = String::new();
                         for (idx, item) in line["frames"]
                             .as_array()
@@ -338,12 +309,10 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                             .enumerate()
                         {
                             let frame = item.as_object().context("Can't cast as object")?;
-                            let funcname = frame["funcname"]
-                                .as_str()
-                                .context("Can't cast as &str")?;
-                            let fileloca = frame["location"]
-                                .as_str()
-                                .context("Can't cast as &str")?;
+                            let funcname =
+                                frame["funcname"].as_str().context("Can't cast as &str")?;
+                            let fileloca =
+                                frame["location"].as_str().context("Can't cast as &str")?;
                             if idx > 0 {
                                 location.push_str("->");
                             }
