@@ -119,18 +119,38 @@ pub(crate) enum Comm {
             short = 'e',
             long = "engine",
             value_name = "ENGINE",
+            conflicts_with_all = &["intercept_build", "bear"],
             help = "Engine used to generate compilation database"
         )]
         engine: Option<CompdbEngine>,
 
         #[arg(
-            long = "intercept_build_path",
+            short = 'i',
+            long = "intercept-build",
+            help = "Use intercept-build engine, same as --engine=intercept-build",
+            conflicts_with_all = &["engine", "bear"],
+            default_value_t = false
+        )]
+        intercept_build: bool,
+
+        #[arg(
+            short = 'b',
+            long = "bear",
+            help = "Use bear engine, same as --engine=bear",
+            conflicts_with = "engine",
+            conflicts_with = "intercept_build",
+            default_value_t = false
+        )]
+        bear: bool,
+
+        #[arg(
+            long = "intercept-build-path",
             value_name = "INTERCEPT-BUILD",
             help = "Path to intercept-build"
         )]
         intercept_build_path: Option<String>,
 
-        #[arg(long = "bear_path", value_name = "BEAR", help = "Path to bear")]
+        #[arg(long = "bear-path", value_name = "BEAR", help = "Path to bear")]
         bear_path: Option<String>,
     },
 
@@ -355,9 +375,17 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
             product_dir,
             make_target,
             mut engine,
+            intercept_build,
+            bear,
             mut intercept_build_path,
             mut bear_path,
         } => {
+            if intercept_build {
+                engine = Some(CompdbEngine::InterceptBuild)
+            }
+            if bear {
+                engine = Some(CompdbEngine::Bear)
+            }
             if engine.is_none() {
                 if let Some(rua_conf) = conf {
                     if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
