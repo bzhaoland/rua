@@ -4,7 +4,6 @@ mod submods;
 mod utils;
 
 use clap::Parser;
-use config::RuaConf;
 
 fn main() -> anyhow::Result<()> {
     // Suppress the following error info:
@@ -14,7 +13,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     let args = app::Cli::parse();
-    let conf = RuaConf::load()?;
 
-    app::run_app(&args, conf.as_ref())
+    app::run_app(&args)
 }

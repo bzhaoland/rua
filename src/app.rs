@@ -355,12 +355,13 @@ pub(crate) enum Comm {
     },
 }
 
-pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
+pub(crate) fn run_app(args: &Cli) -> Result<()> {
     match args.command.clone() {
         Comm::Clean { dirs, ignores } => {
+            let conf = RuaConf::load()?;
             let ignores = if ignores.is_some() {
                 ignores.as_ref()
-            } else if let Some(conf) = conf {
+            } else if let Some(conf) = conf.as_ref() {
                 if let Some(v) = conf.clean.as_ref() {
                     v.ignores.as_ref()
                 } else {
@@ -380,6 +381,7 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
             mut intercept_build_path,
             mut bear_path,
         } => {
+            let conf = RuaConf::load()?;
             if intercept_build {
                 engine = Some(CompdbEngine::InterceptBuild)
             }
@@ -387,7 +389,7 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
                 engine = Some(CompdbEngine::Bear)
             }
             if engine.is_none() {
-                if let Some(rua_conf) = conf {
+                if let Some(rua_conf) = conf.as_ref() {
                     if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
                         if let Some(engine_key) = compdb_conf.engine.as_ref() {
                             engine = match engine_key.as_str() {
@@ -402,7 +404,7 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
             }
 
             if intercept_build_path.is_none() {
-                if let Some(rua_conf) = conf {
+                if let Some(rua_conf) = conf.as_ref() {
                     if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
                         if let Some(v) = compdb_conf.intercept_build_path.as_ref() {
                             intercept_build_path = Some(v.to_owned());
@@ -412,7 +414,7 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
             }
 
             if bear_path.is_none() {
-                if let Some(rua_conf) = conf {
+                if let Some(rua_conf) = conf.as_ref() {
                     if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
                         if let Some(v) = compdb_conf.bear_path.as_ref() {
                             bear_path = Some(v.to_owned());
@@ -451,9 +453,10 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
             image_server,
             output_format,
         } => {
+            let conf = RuaConf::load()?;
             let image_server = if let Some(image_server) = image_server {
                 Some(image_server)
-            } else if let Some(conf) = conf {
+            } else if let Some(conf) = conf.as_ref() {
                 if let Some(mkinfo_conf) = conf.mkinfo.as_ref() {
                     if let Some(v) = mkinfo_conf.image_server.as_ref() {
                         match v.to_lowercase().as_str() {
@@ -526,9 +529,10 @@ pub(crate) fn run_app(args: &Cli, conf: Option<&RuaConf>) -> Result<()> {
             revisions,
             template_file,
         } => {
+            let conf = RuaConf::load()?;
             let template_file = if let Some(v) = template_file {
                 Some(v)
-            } else if let Some(conf) = conf {
+            } else if let Some(conf) = conf.as_ref() {
                 if let Some(v) = conf.review.as_ref() {
                     v.template_file.clone()
                 } else {
