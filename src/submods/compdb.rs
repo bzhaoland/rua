@@ -76,6 +76,7 @@ const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
 const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
 const TICK_INTERVAL: Duration = Duration::from_millis(200);
 const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
 
 pub(crate) fn gen_compdb_using_builtin_method(
     make_directory: &str,
@@ -192,7 +193,6 @@ pub(crate) fn gen_compdb_using_builtin_method(
 
     // Build the target (pseudoly)
     step += 1;
-    const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
     let pb2 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
             "[{}/{}] BUILDING PSEUDOLY {{spinner:.green}} [{{elapsed_precise}}]",
@@ -326,8 +326,8 @@ pub(crate) fn gen_compdb_using_intercept_build(
     pb.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
     let command_with_args = command.arg(format!(
-        "{} make -C {} -j8 -B {} >rua.compdb.log 2>&1",
-        intercept_build_path, make_directory, make_target
+        "{} make -C {} -j8 -B {} >{} 2>&1",
+        intercept_build_path, make_directory, make_target, BUILDLOG_PATH
     ));
     let mut child_proc = command_with_args
         .spawn()
@@ -341,6 +341,7 @@ pub(crate) fn gen_compdb_using_intercept_build(
     if !status.success() {
         bail!("Intercept-build running failed ({:?})", status.code());
     }
+    fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
         "GENERATING JCDB USING INTERCEPT-BUILD...{msg: .green}",
@@ -360,8 +361,8 @@ pub(crate) fn gen_compdb_using_bear(
     pb.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
     let command_with_args = command.arg(format!(
-        "{} -- make -C {} -j8 -B {} >rua.compdb.log 2>&1",
-        bear_path, make_directory, make_target
+        "{} -- make -C {} -j8 -B {} >{} 2>&1",
+        bear_path, make_directory, make_target, BUILDLOG_PATH
     ));
     let mut child_proc = command_with_args
         .spawn()
@@ -375,6 +376,7 @@ pub(crate) fn gen_compdb_using_bear(
     if !status.success() {
         bail!("Bear running failed ({:?})", status.code());
     }
+    fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
         "GENERATING JCDB USING BEAR...{msg: .green}",
