@@ -344,7 +344,7 @@ pub(crate) fn gen_compdb_using_intercept_build(
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "GENERATING JCDB USING INTERCEPT-BUILD...{msg: .green}",
+        "GENERATING JCDB USING INTERCEPT-BUILD...{msg:.green}",
     )?);
     pb.finish_with_message("OK");
     Ok(())
@@ -379,7 +379,7 @@ pub(crate) fn gen_compdb_using_bear(
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "GENERATING JCDB USING BEAR...{msg: .green}",
+        "GENERATING JCDB USING BEAR...{msg:.green}",
     )?);
     pb.finish_with_message("OK");
     Ok(())
