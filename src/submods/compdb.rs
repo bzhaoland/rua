@@ -72,8 +72,8 @@ impl fmt::Display for CompdbRecord {
 
 pub(crate) type CompDB = Vec<CompdbRecord>;
 
-const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
-const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
+const DEFAULT_INTERCEPT_BUILD_PATH: &str = "intercept-build";
+const DEFAULT_BEAR_PATH: &str = "bear";
 const TICK_INTERVAL: Duration = Duration::from_millis(200);
 const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
