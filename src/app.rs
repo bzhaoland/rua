@@ -127,7 +127,7 @@ pub(crate) enum Comm {
         #[arg(
             short = 'i',
             long = "intercept-build",
-            help = "Use intercept-build engine, same as --engine=intercept-build",
+            help = "Use intercept-build engine, same as --engine=intercept-build (make sure you have installed intercept-build and can build the target successfully using make)",
             conflicts_with_all = &["engine", "bear"],
             default_value_t = false
         )]
@@ -136,7 +136,7 @@ pub(crate) enum Comm {
         #[arg(
             short = 'b',
             long = "bear",
-            help = "Use bear engine, same as --engine=bear",
+            help = "Use bear engine, same as --engine=bear (make sure you have installed bear and can build the target successfully using make)",
             conflicts_with = "engine",
             conflicts_with = "intercept_build",
             default_value_t = false
