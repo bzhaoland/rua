@@ -119,7 +119,6 @@ pub(crate) enum Comm {
             short = 'e',
             long = "engine",
             value_name = "ENGINE",
-            conflicts_with_all = &["intercept_build", "bear"],
             help = "Engine used to generate compilation database"
         )]
         engine: Option<CompdbEngine>,
