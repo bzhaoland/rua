@@ -147,7 +147,7 @@ impl RuaConf {
         let proj_conf: Option<RuaConf> = if proj_conf_file.is_file() {
             toml::from_str(
                 &fs::read_to_string(proj_conf_file.as_path())
-                    .context(format!("Can't read file: {}", proj_conf_file.display()))?,
+                    .context(format!("Can not read: {}", proj_conf_file.display()))?,
             )
             .context(format!(
                 "Failed to parse config file: {}",
@@ -159,7 +159,7 @@ impl RuaConf {
         let user_conf: Option<RuaConf> = if user_conf_file.is_file() {
             toml::from_str(
                 &fs::read_to_string(user_conf_file.as_path())
-                    .context(format!("Failed to read: {}", user_conf_file.display()))?,
+                    .context(format!("Can not read: {}", user_conf_file.display()))?,
             )
             .context(format!(
                 "Failed to parse file: {}",

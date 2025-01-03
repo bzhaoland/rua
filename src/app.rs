@@ -125,33 +125,20 @@ pub(crate) enum Comm {
         engine: Option<CompdbEngine>,
 
         #[arg(
-            short = 'i',
-            long = "intercept-build",
-            help = "Use intercept-build engine, same as --engine=intercept-build (make sure you have installed intercept-build and can build the target successfully using make)",
-            conflicts_with_all = &["engine", "bear"],
-            default_value_t = false
-        )]
-        intercept_build: bool,
-
-        #[arg(
             short = 'b',
-            long = "bear",
-            help = "Use bear engine, same as --engine=bear (make sure you have installed bear and can build the target successfully using make)",
-            conflicts_with = "engine",
-            conflicts_with = "intercept_build",
-            default_value_t = false
+            long = "bear-path",
+            value_name = "BEAR",
+            help = "Path to bear (typically /devel/sw/bear/bin/bear)"
         )]
-        bear: bool,
+        bear_path: Option<String>,
 
         #[arg(
+            short = 'i',
             long = "intercept-build-path",
             value_name = "INTERCEPT-BUILD",
-            help = "Path to intercept-build"
+            help = "Path to intercept-build (typically /devel/sw/llvm/bin/intercept-build)"
         )]
         intercept_build_path: Option<String>,
-
-        #[arg(long = "bear-path", value_name = "BEAR", help = "Path to bear")]
-        bear_path: Option<String>,
     },
 
     /// Get all matched makeinfos for product
@@ -376,46 +363,40 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             product_dir,
             make_target,
             mut engine,
-            intercept_build,
-            bear,
             mut intercept_build_path,
             mut bear_path,
         } => {
             let conf = RuaConf::load()?;
+
+            if bear_path.is_none() {
+                if let Some(rua_conf) = conf.as_ref() {
+                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                        if let Some(v) = compdb_conf.bear_path.as_ref() {
+                            bear_path = Some(v.to_owned());
+                        }
+                    }
+                }
+            }
+            if intercept_build_path.is_none() {
+                if let Some(rua_conf) = conf.as_ref() {
+                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                        if let Some(v) = compdb_conf.intercept_build_path.as_ref() {
+                            intercept_build_path = Some(v.to_owned());
+                        }
+                    }
+                }
+            }
+
             if engine.is_none() {
-                if bear {
-                    engine = Some(CompdbEngine::Bear);
-                    if bear_path.is_none() {
-                        if let Some(rua_conf) = conf.as_ref() {
-                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                                if let Some(v) = compdb_conf.bear_path.as_ref() {
-                                    bear_path = Some(v.to_owned());
-                                }
-                            }
-                        }
-                    }
-                } else if intercept_build {
-                    engine = Some(CompdbEngine::InterceptBuild);
-                    if intercept_build_path.is_none() {
-                        if let Some(rua_conf) = conf.as_ref() {
-                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                                if let Some(v) = compdb_conf.intercept_build_path.as_ref() {
-                                    intercept_build_path = Some(v.to_owned());
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    if let Some(rua_conf) = conf.as_ref() {
-                        if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                            if let Some(engine_key) = compdb_conf.engine.as_ref() {
-                                engine = match engine_key.as_str() {
-                                    "built-in" => Some(CompdbEngine::BuiltIn),
-                                    "bear" => Some(CompdbEngine::Bear),
-                                    "intercept-build" => Some(CompdbEngine::InterceptBuild),
-                                    _ => bail!("Invalid config: engine = {}", engine_key),
-                                };
-                            }
+                if let Some(rua_conf) = conf.as_ref() {
+                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                        if let Some(engine_key) = compdb_conf.engine.as_ref() {
+                            engine = match engine_key.as_str() {
+                                "built-in" => Some(CompdbEngine::BuiltIn),
+                                "bear" => Some(CompdbEngine::Bear),
+                                "intercept-build" => Some(CompdbEngine::InterceptBuild),
+                                _ => bail!("Invalid config: engine = {}", engine_key),
+                            };
                         }
                     }
                 }
