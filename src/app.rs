@@ -382,42 +382,40 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             mut bear_path,
         } => {
             let conf = RuaConf::load()?;
-            if intercept_build {
-                engine = Some(CompdbEngine::InterceptBuild)
-            }
-            if bear {
-                engine = Some(CompdbEngine::Bear)
-            }
             if engine.is_none() {
-                if let Some(rua_conf) = conf.as_ref() {
-                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                        if let Some(engine_key) = compdb_conf.engine.as_ref() {
-                            engine = match engine_key.as_str() {
-                                "built-in" => Some(CompdbEngine::BuiltIn),
-                                "intercept-build" => Some(CompdbEngine::InterceptBuild),
-                                "bear" => Some(CompdbEngine::Bear),
-                                _ => bail!("Invalid config: engine = {}", engine_key),
-                            };
+                if bear {
+                    engine = Some(CompdbEngine::Bear);
+                    if bear_path.is_none() {
+                        if let Some(rua_conf) = conf.as_ref() {
+                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                                if let Some(v) = compdb_conf.bear_path.as_ref() {
+                                    bear_path = Some(v.to_owned());
+                                }
+                            }
                         }
                     }
-                }
-            }
-
-            if intercept_build_path.is_none() {
-                if let Some(rua_conf) = conf.as_ref() {
-                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                        if let Some(v) = compdb_conf.intercept_build_path.as_ref() {
-                            intercept_build_path = Some(v.to_owned());
+                } else if intercept_build {
+                    engine = Some(CompdbEngine::InterceptBuild);
+                    if intercept_build_path.is_none() {
+                        if let Some(rua_conf) = conf.as_ref() {
+                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                                if let Some(v) = compdb_conf.intercept_build_path.as_ref() {
+                                    intercept_build_path = Some(v.to_owned());
+                                }
+                            }
                         }
                     }
-                }
-            }
-
-            if bear_path.is_none() {
-                if let Some(rua_conf) = conf.as_ref() {
-                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                        if let Some(v) = compdb_conf.bear_path.as_ref() {
-                            bear_path = Some(v.to_owned());
+                } else {
+                    if let Some(rua_conf) = conf.as_ref() {
+                        if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                            if let Some(engine_key) = compdb_conf.engine.as_ref() {
+                                engine = match engine_key.as_str() {
+                                    "built-in" => Some(CompdbEngine::BuiltIn),
+                                    "bear" => Some(CompdbEngine::Bear),
+                                    "intercept-build" => Some(CompdbEngine::InterceptBuild),
+                                    _ => bail!("Invalid config: engine = {}", engine_key),
+                                };
+                            }
                         }
                     }
                 }

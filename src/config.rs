@@ -83,7 +83,7 @@ impl CompdbConf {
         self.bear_path = self.bear_path.or_else(|| other.bear_path.clone());
         self.intercept_build_path = self
             .intercept_build_path
-            .or_else(|| other.bear_path.clone());
+            .or_else(|| other.intercept_build_path.clone());
         self
     }
 }
@@ -128,7 +128,7 @@ impl RuaConf {
 
         if self.compdb.is_none() {
             self.compdb = other.compdb.clone();
-        } else if other.review.is_some() {
+        } else if other.compdb.is_some() {
             self.compdb = Some(self.compdb.unwrap().merge(other.compdb.as_ref().unwrap()));
         }
 
