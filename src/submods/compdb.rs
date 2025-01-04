@@ -70,8 +70,6 @@ impl fmt::Display for CompdbRecord {
     }
 }
 
-pub(crate) type CompDB = Vec<CompdbRecord>;
-
 const TICK_INTERVAL: Duration = Duration::from_millis(200);
 const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
