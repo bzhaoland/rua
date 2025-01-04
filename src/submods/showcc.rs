@@ -83,7 +83,7 @@ pub(crate) fn show_compile_command(filename: &str, compdb: &path::Path) -> Resul
     }
     out.push_str(&head_decor);
     out.push_str(&format!(
-        "{STYLE_YELLOW}Compile command must run under corresponding directory.{STYLE_YELLOW:#}"
+        "{STYLE_YELLOW}Run compile command under corresponding directory.{STYLE_YELLOW:#}"
     ));
 
     println!("{}", out);
