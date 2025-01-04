@@ -413,10 +413,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 Some(v) => PathBuf::from_str(v.as_str())?,
                 None => PathBuf::from_str("compile_commands.json")?,
             };
-            let records =
-                showcc::find_compile_command(comp_unit.as_str(), compilation_db.as_path())?;
-            showcc::print_records(&records)?;
-            Ok(())
+            showcc::show_compile_command(comp_unit.as_str(), compilation_db.as_path())
         }
         Comm::Silist { prefix } => silist::gen_silist(&prefix),
         Comm::Mkinfo {
