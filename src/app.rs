@@ -127,7 +127,7 @@ pub(crate) enum Comm {
             short = 'b',
             long = "bear-path",
             value_name = "BEAR",
-            help = "Path to bear (typically /devel/sw/bear/bin/bear)"
+            help = "Path to bear (defaults to /devel/sw/bear/bin/bear)"
         )]
         bear_path: Option<String>,
 
@@ -135,7 +135,7 @@ pub(crate) enum Comm {
             short = 'i',
             long = "intercept-build-path",
             value_name = "INTERCEPT-BUILD",
-            help = "Path to intercept-build (typically /devel/sw/llvm/bin/intercept-build)"
+            help = "Path to intercept-build (defaults to /devel/sw/llvm/bin/intercept-build)"
         )]
         intercept_build_path: Option<String>,
     },
