@@ -151,7 +151,6 @@ pub(crate) enum Comm {
             short = '4',
             long = "ipv4",
             default_value_t = true,
-            conflicts_with = "ipv6",
         )]
         ipv4: bool,
 
