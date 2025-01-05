@@ -146,37 +146,37 @@ pub(crate) enum Comm {
   rua mkinfo -6 A1000   # Makeinfo for A1000 with IPv6 enabled
   rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern"#))]
     Mkinfo {
+        /// Build with only IPv4 enabled
         #[arg(
             short = '4',
             long = "ipv4",
             default_value_t = true,
             conflicts_with = "ipv6",
-            help = r"Build with IPv4 only"
         )]
         ipv4: bool,
 
+        /// Build with IPv6 enabled
         #[arg(
             short = '6',
             long = "ipv6",
             default_value_t = false,
             conflicts_with = "ipv4",
-            help = r"Build with IPv4 & IPv6"
         )]
         ipv6: bool,
 
+        /// Run coverage
         #[arg(
             short = 'g',
             long = "coverage",
             default_value_t = false,
-            help = r"Run coverage"
         )]
         coverage: bool,
 
+        /// Run coverity
         #[arg(
             short = 'c',
             long = "coverity",
             default_value_t = false,
-            help = r"Run coverity"
         )]
         coverity: bool,
 
@@ -188,11 +188,11 @@ pub(crate) enum Comm {
         #[arg(long = "format", default_value = "list", value_name = "FORMAT")]
         output_format: mkinfo::DumpFormat,
 
-        /// Build with password
+        /// Build with shell password enabled
         #[arg(short = 'p', long = "password", default_value_t = false)]
         password: bool,
 
-        /// Build with WebUI
+        /// Build with WebUI enabled
         #[arg(short = 'w', long = "webui")]
         webui: bool,
 
