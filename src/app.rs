@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anstyle::{AnsiColor, Color, Style};
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use clap::builder::styling;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
@@ -122,7 +122,7 @@ pub(crate) enum Comm {
             value_name = "KEY=VAL",
             help = "Define a variable"
         )]
-        definitions: Vec<String>,
+        defines: Vec<String>,
 
         #[arg(
             short = 'e',
@@ -357,7 +357,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
         Comm::Compdb {
             product_dir,
             make_target,
-            mut definitions,
+            defines,
             mut engine,
             mut intercept_build_path,
             mut bear_path,
@@ -398,16 +398,28 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
             }
 
-            let mut macro_map: IndexMap<String, String> = IndexMap::new();
-            for item in definitions.iter() {
-                let (k, v) = item
-                    .split_once("=")
-                    .context("Expect key-value pairs with an equal sign in between")?;
-                macro_map.insert(k.to_owned(), v.to_owned());
+            let mut defines_imap: IndexMap<String, String> = IndexMap::new();
+            // Add defines provided as command line arguments
+            for item in defines.iter() {
+                if let Some((k, v)) = item.split_once("=") {
+                    defines_imap.insert(k.to_owned(), v.to_owned());
+                } else {
+                    bail!("Invalid key-value pair: {}", item);
+                }
+            }
+            // Add defines defined in configuration file
+            if let Some(rua_conf) = conf.as_ref() {
+                if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                    if let Some(defines_conf) = compdb_conf.defines.as_ref() {
+                        for (k, v) in defines_conf {
+                            defines_imap.insert(k.to_owned(), v.to_owned());
+                        }
+                    }
+                }
             }
 
             let compdb_options = compdb::CompdbOptions {
-                macros: macro_map,
+                defines: defines_imap,
                 engine,
                 bear_path,
                 intercept_build_path,

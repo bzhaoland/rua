@@ -35,7 +35,7 @@ impl fmt::Display for CompdbEngine {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct CompdbOptions {
-    pub(crate) macros: IndexMap<String, String>,
+    pub(crate) defines: IndexMap<String, String>,
     pub(crate) engine: Option<CompdbEngine>,
     pub(crate) intercept_build_path: Option<String>,
     pub(crate) bear_path: Option<String>,
@@ -407,7 +407,7 @@ pub(crate) fn gen_compdb(
 
     match engine {
         CompdbEngine::BuiltIn => {
-            gen_compdb_using_builtin_method(make_directory, make_target, &options.macros)
+            gen_compdb_using_builtin_method(make_directory, make_target, &options.defines)
         }
         CompdbEngine::InterceptBuild => {
             let intercept_build_path = options

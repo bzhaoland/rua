@@ -1,6 +1,7 @@
 use std::fs;
 
 use anyhow::{Context, Result};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::utils::SvnInfo;
@@ -63,6 +64,7 @@ impl ReviewConf {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct CompdbConf {
+    pub(crate) defines: Option<IndexMap<String, String>>,
     pub(crate) engine: Option<String>,
     pub(crate) bear_path: Option<String>,
     pub(crate) intercept_build_path: Option<String>,
@@ -72,6 +74,7 @@ impl CompdbConf {
     #[allow(dead_code)]
     pub(crate) fn new() -> CompdbConf {
         CompdbConf {
+            defines: None,
             engine: None,
             bear_path: None,
             intercept_build_path: None,
@@ -79,6 +82,7 @@ impl CompdbConf {
     }
 
     pub(crate) fn merge(mut self, other: &Self) -> Self {
+        self.defines = self.defines.or_else(|| other.defines.clone());
         self.engine = self.engine.or_else(|| other.engine.clone());
         self.bear_path = self.bear_path.or_else(|| other.bear_path.clone());
         self.intercept_build_path = self
