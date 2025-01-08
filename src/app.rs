@@ -2,10 +2,11 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anstyle::{AnsiColor, Color, Style};
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::builder::styling;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
+use indexmap::IndexMap;
 
 use crate::config::RuaConf;
 use crate::submods::compdb::{self, CompdbEngine};
@@ -114,6 +115,14 @@ pub(crate) enum Comm {
 
         #[arg(value_name = "TARGET", help = "Target to make, such as 'aws'")]
         make_target: String,
+
+        #[arg(
+            short = 'D',
+            long = "define",
+            value_name = "KEY=VAL",
+            help = "Define a variable"
+        )]
+        definitions: Vec<String>,
 
         #[arg(
             short = 'e',
@@ -348,6 +357,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
         Comm::Compdb {
             product_dir,
             make_target,
+            mut definitions,
             mut engine,
             mut intercept_build_path,
             mut bear_path,
@@ -388,7 +398,16 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
             }
 
+            let mut macro_map: IndexMap<String, String> = IndexMap::new();
+            for item in definitions.iter() {
+                let (k, v) = item
+                    .split_once("=")
+                    .context("Expect key-value pairs with an equal sign in between")?;
+                macro_map.insert(k.to_owned(), v.to_owned());
+            }
+
             let compdb_options = compdb::CompdbOptions {
+                macros: macro_map,
                 engine,
                 bear_path,
                 intercept_build_path,

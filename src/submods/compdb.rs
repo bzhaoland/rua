@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use anyhow::{bail, Context};
 use clap::ValueEnum;
+use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -34,6 +35,7 @@ impl fmt::Display for CompdbEngine {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct CompdbOptions {
+    pub(crate) macros: IndexMap<String, String>,
     pub(crate) engine: Option<CompdbEngine>,
     pub(crate) intercept_build_path: Option<String>,
     pub(crate) bear_path: Option<String>,
@@ -79,6 +81,7 @@ const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
 pub(crate) fn gen_compdb_using_builtin_method(
     make_directory: &str,
     make_target: &str,
+    macros: &IndexMap<String, String>,
 ) -> anyhow::Result<()> {
     const NSTEPS: usize = 5;
 
@@ -200,9 +203,15 @@ pub(crate) fn gen_compdb_using_builtin_method(
     );
     pb2.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
+    let vars = macros
+        .iter()
+        .map(|(k, v)| format!("{}={}", k, v))
+        .collect::<Vec<String>>()
+        .join(" ");
     let mut child = command
         .arg(
-            format!("make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_SHELL_PASSWORD=0 HS_BUILD_COVERITY=0 >{} 2>&1", make_directory, make_target, BUILDLOG_PATH), // This will be treated as a normal arg and passed into hsdocker7
+             // This whole line will be treated as a normal arg and passed into hsdocker7
+            format!("make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_BUILD_COVERITY=0 {} >{} 2>&1", make_directory, make_target, vars, BUILDLOG_PATH),
         )
         .spawn()
         .context("Failed to execute hsdocker7")?;
@@ -397,7 +406,9 @@ pub(crate) fn gen_compdb(
     let engine = options.engine.unwrap_or(CompdbEngine::BuiltIn);
 
     match engine {
-        CompdbEngine::BuiltIn => gen_compdb_using_builtin_method(make_directory, make_target),
+        CompdbEngine::BuiltIn => {
+            gen_compdb_using_builtin_method(make_directory, make_target, &options.macros)
+        }
         CompdbEngine::InterceptBuild => {
             let intercept_build_path = options
                 .intercept_build_path
