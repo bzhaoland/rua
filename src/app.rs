@@ -398,11 +398,11 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
             }
 
-            let mut defines_imap: IndexMap<String, String> = IndexMap::new();
+            let mut defines_map: IndexMap<String, String> = IndexMap::new();
             // Add defines provided as command line arguments
             for item in defines.iter() {
                 if let Some((k, v)) = item.split_once("=") {
-                    defines_imap.insert(k.to_owned(), v.to_owned());
+                    defines_map.insert(k.to_owned(), v.to_owned());
                 } else {
                     bail!("Invalid key-value pair: {}", item);
                 }
@@ -412,14 +412,14 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
                     if let Some(defines_conf) = compdb_conf.defines.as_ref() {
                         for (k, v) in defines_conf {
-                            defines_imap.insert(k.to_owned(), v.to_owned());
+                            defines_map.insert(k.to_owned(), v.to_owned());
                         }
                     }
                 }
             }
 
             let compdb_options = compdb::CompdbOptions {
-                defines: defines_imap,
+                defines: defines_map,
                 engine,
                 bear_path,
                 intercept_build_path,
