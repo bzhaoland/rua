@@ -147,11 +147,7 @@ pub(crate) enum Comm {
   rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern"#))]
     Mkinfo {
         /// Build with only IPv4 enabled
-        #[arg(
-            short = '4',
-            long = "ipv4",
-            default_value_t = true,
-        )]
+        #[arg(short = '4', long = "ipv4", default_value_t = true)]
         ipv4: bool,
 
         /// Build with IPv6 enabled
@@ -159,24 +155,16 @@ pub(crate) enum Comm {
             short = '6',
             long = "ipv6",
             default_value_t = false,
-            conflicts_with = "ipv4",
+            conflicts_with = "ipv4"
         )]
         ipv6: bool,
 
         /// Run coverage
-        #[arg(
-            short = 'g',
-            long = "coverage",
-            default_value_t = false,
-        )]
+        #[arg(short = 'g', long = "coverage", default_value_t = false)]
         coverage: bool,
 
         /// Run coverity
-        #[arg(
-            short = 'c',
-            long = "coverity",
-            default_value_t = false,
-        )]
+        #[arg(short = 'c', long = "coverity", default_value_t = false)]
         coverity: bool,
 
         /// Build in debug mode (default is release mode)
@@ -246,63 +234,63 @@ pub(crate) enum Comm {
         bug_id: u32,
 
         #[arg(
-            value_name = "REVIEW-ID",
             short = 'r',
             long = "review-id",
+            value_name = "REVIEW-ID",
             help = "Existing review id"
         )]
         review_id: Option<u32>,
 
-        #[arg(value_name = "FILE", help = "Files to be reviewed")]
-        files: Option<Vec<String>>,
-
         #[arg(
-            value_name = "DIFF-FILE",
             short = 'd',
             long = "diff-file",
+            value_name = "DIFF-FILE",
             help = "Diff file to be used"
         )]
         diff_file: Option<String>,
 
         #[arg(
-            value_name = "REVIEWERS",
             short = 'u',
             long = "reviewers",
+            value_name = "REVIEWERS",
             help = "Reviewers"
         )]
         reviewers: Option<Vec<String>>,
 
         #[arg(
-            value_name = "BRANCH",
             short = 'b',
             long = "branch",
+            value_name = "BRANCH",
             help = "Branch name for this commit"
         )]
         branch_name: Option<String>,
 
         #[arg(
-            value_name = "REPO",
             short = 'p',
             long = "repo",
+            value_name = "REPO",
             help = "Repository name"
         )]
         repo_name: Option<String>,
 
         #[arg(
-            value_name = "REVISION",
             short = 's',
             long = "revision",
+            value_name = "REVISION",
             help = "Revision to be used"
         )]
         revisions: Option<String>,
 
         #[arg(
-            value_name = "FILE",
             short = 't',
             long = "template-file",
+            value_name = "TEMPLATE-FILE",
             help = "Use customized template file (please ensure it can run through svn commit hooks)"
         )]
         template_file: Option<String>,
+
+        #[arg(value_name = "FILE", help = "Files to be reviewed")]
+        files: Option<Vec<String>>,
     },
 
     /// Show all possible compile commands for filename (based on compilation database)
