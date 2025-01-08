@@ -39,7 +39,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.19.1",
+    version = "0.20.0",
     styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
@@ -120,7 +120,7 @@ pub(crate) enum Comm {
             short = 'D',
             long = "define",
             value_name = "KEY=VAL",
-            help = "Define a variable"
+            help = "Define a variable which will pass to make for building"
         )]
         defines: Vec<String>,
 
