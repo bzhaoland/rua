@@ -84,28 +84,29 @@ pub(crate) fn gen_compdb_using_builtin_method(
     macros: &IndexMap<String, String>,
 ) -> anyhow::Result<()> {
     const NSTEPS: usize = 5;
+    const LAST_RULES_MAKEFILE: &str = "scripts/last-rules.mk";
+    const RULES_MAKEFILE: &str = "scripts/rules.mk";
+    const TOP_MAKEFILE: &str = "Makefile";
 
     // Check if current working directory is svn repo root
     let svninfo = utils::SvnInfo::new()?;
     let at_proj_root = env::current_dir()? == svninfo.working_copy_root_path();
 
     // Check necessary files
-    let lastrules_path = svninfo
-        .working_copy_root_path()
-        .join("scripts/last-rules.mk");
+    let lastrules_path = svninfo.working_copy_root_path().join(LAST_RULES_MAKEFILE);
     if !lastrules_path.is_file() {
-        bail!(r#"File not found: "{}""#, lastrules_path.display());
+        bail!(r#"File unavailable: "{}""#, lastrules_path.display());
     }
 
-    let rules_path = svninfo.working_copy_root_path().join("scripts/rules.mk");
+    let rules_path = svninfo.working_copy_root_path().join(RULES_MAKEFILE);
     if !rules_path.is_file() {
-        bail!(r#"File not found: "{}""#, rules_path.display());
+        bail!(r#"File unavailable: "{}""#, rules_path.display());
     }
 
     // Optional, only needed for running at project root
-    let top_makefile = svninfo.working_copy_root_path().join("Makefile");
+    let top_makefile = svninfo.working_copy_root_path().join(TOP_MAKEFILE);
     if at_proj_root && !top_makefile.is_file() {
-        bail!(r#"File not found: "{}""#, top_makefile.display());
+        bail!(r#"File unavailable: "{}""#, top_makefile.display());
     }
 
     let mut step: usize = 1;
