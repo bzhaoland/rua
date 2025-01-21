@@ -89,16 +89,16 @@ pub(crate) enum Comm {
   run compdb --engine=intercept-build . a-dnv # For A1000/A2000... using intercept-build at submodule directory
 
 {}Caution:{:#}
-  Several files will be hacked while running with default engine (built-in):
+  Several files are modified while running with the built-in method (default) which is faster:
   1. When running at project root dir:
-     scripts/last-rules.mk
-     scripts/rules.mk
-     Makefile
+     - scripts/last-rules.mk
+     - scripts/rules.mk
+     - Makefile
   2. When running at submodule dir:
-     scripts/last-rules.mk
-     scripts/rules.mk
-  These files may be left dirty if compdb aborted unexpectedly. You could use
-  the following command to manually restore them:
+     - scripts/last-rules.mk
+     - scripts/rules.mk
+  These files may be left dirty if compdb aborted unexpectedly. You could manually restore them
+  by execute:
   {}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{:#}"#,
       STYLE_YELLOW,
       STYLE_YELLOW,
@@ -109,7 +109,7 @@ pub(crate) enum Comm {
     Compdb {
         #[arg(
             value_name = "PATH",
-            help = "Make path for the target, such as 'products/vfw'"
+            help = "Path for the target where platform-specific makefiles reside, such as 'products/vfw'"
         )]
         product_dir: String,
 
@@ -120,7 +120,7 @@ pub(crate) enum Comm {
             short = 'D',
             long = "define",
             value_name = "KEY=VAL",
-            help = "Define a variable which will pass to make for building"
+            help = "Define a variable which will be passed to the underlying make command"
         )]
         defines: Vec<String>,
 
@@ -128,7 +128,7 @@ pub(crate) enum Comm {
             short = 'e',
             long = "engine",
             value_name = "ENGINE",
-            help = "Engine used to generate compilation database"
+            help = "Engine used to generate compilation database (defaults to built-in)"
         )]
         engine: Option<CompdbEngine>,
 
@@ -136,7 +136,7 @@ pub(crate) enum Comm {
             short = 'b',
             long = "bear-path",
             value_name = "BEAR",
-            help = "Path to bear (defaults to /devel/sw/bear/bin/bear)"
+            help = "Path to bear binary (defaults to /devel/sw/bear/bin/bear)"
         )]
         bear_path: Option<String>,
 
@@ -144,7 +144,7 @@ pub(crate) enum Comm {
             short = 'i',
             long = "intercept-build-path",
             value_name = "INTERCEPT-BUILD",
-            help = "Path to intercept-build (defaults to /devel/sw/llvm/bin/intercept-build)"
+            help = "Path to intercept-build binary (defaults to /devel/sw/llvm/bin/intercept-build)"
         )]
         intercept_build_path: Option<String>,
     },
