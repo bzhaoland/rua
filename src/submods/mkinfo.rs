@@ -394,36 +394,6 @@ pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<V
     anyhow::Ok(compile_infos)
 }
 
-/// Dump mkinfo records as csv
-fn dump_csv(infos: &[CompileInfo]) -> anyhow::Result<()> {
-    let mut writer = csv::Writer::from_writer(std::io::stdout());
-
-    writer.write_record([
-        "Product",
-        "Model",
-        "Family",
-        "Platform",
-        "Target",
-        "Directory",
-        "Command",
-    ])?;
-    for info in infos.iter() {
-        writer.write_record([
-            &info.product_name,
-            &info.product_model,
-            &info.product_family,
-            &info.platform_model,
-            &info.make_target,
-            &info.make_directory,
-            &info.make_command,
-        ])?;
-    }
-
-    writer.flush()?;
-
-    anyhow::Ok(())
-}
-
 fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     let mut output: Value = json!([]);
     for item in compile_infos.iter() {
@@ -491,9 +461,9 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
-fn dump_tsv(infos: &[CompileInfo]) -> anyhow::Result<()> {
+fn dump_csv(infos: &[CompileInfo], delimiter: u8) -> anyhow::Result<()> {
     let mut writer = csv::WriterBuilder::new()
-        .delimiter(b'\t')
+        .delimiter(delimiter)
         .quote_style(csv::QuoteStyle::NonNumeric)
         .from_writer(std::io::stdout());
 
@@ -522,12 +492,11 @@ fn dump_tsv(infos: &[CompileInfo]) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
-/// Dump the make information to the screen.
 pub fn dump_mkinfo(infos: &[CompileInfo], format: DumpFormat) -> anyhow::Result<()> {
     match format {
-        DumpFormat::Csv => dump_csv(infos),
+        DumpFormat::Csv => dump_csv(infos, b','),
         DumpFormat::Json => dump_json(infos),
         DumpFormat::List => dump_list(infos),
-        DumpFormat::Tsv => dump_tsv(infos),
+        DumpFormat::Tsv => dump_csv(infos, b'\t'),
     }
 }
