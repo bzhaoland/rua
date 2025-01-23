@@ -24,7 +24,7 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
     let mut stdout = io::stdout();
 
     // Generate FILELIST
-    println!("GENERATING FILELIST...");
+    println!("Generating filelist...");
     let extensions = [
         "c".to_string(),
         "cc".to_string(),
@@ -40,7 +40,7 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
     let repo_root_on_winbuilder = PathBuf::from(prefix);
 
     // Search over src directory
-    println!(r#"\x1B[1A\x1B[2K\rGENERATING FILELIST..."#);
+    println!(r#"\x1B[1A\x1B[2K\rGenerating filelist..."#);
     for entry in walkdir::WalkDir::new("src") {
         if entry.is_err() {
             continue;
@@ -75,7 +75,7 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
         print!(
-            r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{}{}{:#} FILES FOUND"#,
+            r#"\x1B[1A\x1B[2K\rGenerating filelist...{}{}{:#} found"#,
             COLOR_ANSI_GRN,
             files.len(),
             COLOR_ANSI_GRN
@@ -118,7 +118,7 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
         let entry_on_winbuilder = repo_root_on_winbuilder.join(entry_relative);
         files.push(entry_on_winbuilder.to_string_lossy().to_string());
         print!(
-            r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{}{}{:#} FILES FOUND"#,
+            r#"\x1B[1A\x1B[2K\rGenerating filelist...{}{}{:#} found"#,
             COLOR_ANSI_GRN,
             files.len(),
             COLOR_ANSI_GRN
@@ -129,7 +129,7 @@ pub fn gen_silist(prefix: &str) -> anyhow::Result<()> {
     let filelist = files.join("\r\n");
     fs::write("filelist.txt", filelist)?;
     println!(
-        r#"\x1B[1A\x1B[2K\rGENERATING FILELIST...{}DONE{:#}"#,
+        r#"\x1B[1A\x1B[2K\rGenerating filelist...{}ok{:#}"#,
         COLOR_ANSI_GRN, COLOR_ANSI_GRN
     );
 
