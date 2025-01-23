@@ -123,7 +123,7 @@ pub(crate) fn gen_compdb_using_builtin_method(
     let pb1 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
             format!(
-                "[{}/{}] INJECTING MKFILES ({}) {{spinner:.green}}",
+                "[{}/{}] Injecting mkfiles ({}) {{spinner:.green}}",
                 step, NSTEPS, modified_files_hint
             )
             .as_str(),
@@ -188,16 +188,16 @@ pub(crate) fn gen_compdb_using_builtin_method(
             .context(format!("Can't write file: '{}'", top_makefile.display()))?;
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] INJECTING MKFILES ({} MODIFIED)...{{msg:.green}}",
+        "[{}/{}] Injecting makefiles ({} modified)...{{msg:.green}}",
         step, NSTEPS, modified_files_hint
     ))?);
-    pb1.finish_with_message("OK");
+    pb1.finish_with_message("ok");
 
     // Build the target (pseudoly)
     step += 1;
     let pb2 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] BUILDING PSEUDOLY {{spinner:.green}} [{{elapsed_precise}}]",
+            "[{}/{}] Building pseudoly {{spinner:.green}} [{{elapsed_precise}}]",
             step, NSTEPS
         ))?
         .tick_chars(TICK_CHARS),
@@ -229,16 +229,16 @@ pub(crate) fn gen_compdb_using_builtin_method(
         bail!("Pseudo building failed ({:?})", status.code());
     }
     pb2.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] BUILDING PSEUDOLY...{{msg:.green}}",
+        "[{}/{}] Building pseudoly...{{msg:.green}}",
         step, NSTEPS
     ))?);
-    pb2.finish_with_message("OK");
+    pb2.finish_with_message("ok");
 
     // Restore the original makefiles
     step += 1;
     let pb3 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] RESTORING MKFILES ({}) {{spinner:.green}}",
+            "[{}/{}] Restoring mkfiles ({}) {{spinner:.green}}",
             step, NSTEPS, modified_files_hint
         ))?
         .tick_chars(TICK_CHARS),
@@ -255,16 +255,16 @@ pub(crate) fn gen_compdb_using_builtin_method(
             .context(format!(r#"Restoring "{}" failed"#, top_makefile.display()))?;
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] RESTORING MKFILES ({} RESTORED)...{{msg:.green}}",
+        "[{}/{}] Restoring mkfiles ({} restored)...{{msg:.green}}",
         step, NSTEPS, modified_files_hint
     ))?);
-    pb3.finish_with_message("OK");
+    pb3.finish_with_message("ok");
 
     // Parse the build log
     step += 1;
     let pb4 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] PARSING BUILDLOG {{spinner:.green}}",
+            "[{}/{}] Parsing buildlog {{spinner:.green}}",
             step, NSTEPS
         ))?
         .tick_chars(TICK_CHARS),
@@ -287,16 +287,16 @@ pub(crate) fn gen_compdb_using_builtin_method(
         });
     }
     pb4.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] PARSING BUILDLOG...{{msg:.green}}",
+        "[{}/{}] Parsing buildlog...{{msg:.green}}",
         step, NSTEPS
     ))?);
-    pb4.finish_with_message("OK");
+    pb4.finish_with_message("ok");
 
     // Generate JCDB
     step += 1;
     let pb5 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] GENERATING JCDB {{spinner:.green}}",
+            "[{}/{}] Generating JCDB {{spinner:.green}}",
             step, NSTEPS
         ))?
         .tick_chars(TICK_CHARS),
@@ -315,10 +315,10 @@ pub(crate) fn gen_compdb_using_builtin_method(
         serde_json::to_string_pretty(&jcdb)?,
     )?;
     pb5.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] GENERATING JCDB...{{msg:.green}}",
+        "[{}/{}] Generating JCDB...{{msg:.green}}",
         step, NSTEPS
     ))?);
-    pb5.finish_with_message("OK");
+    pb5.finish_with_message("ok");
 
     Ok(())
 }
@@ -330,7 +330,7 @@ pub(crate) fn gen_compdb_using_intercept_build(
 ) -> anyhow::Result<()> {
     let pb = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
-            "GENERATING JCDB USING INTERCEPT-BUILD {spinner:.green} [{elapsed_precise}]",
+            "Generating JCDB using intercept-build {spinner:.green} [{elapsed_precise}]",
         )?
         .tick_chars(TICK_CHARS),
     );
@@ -355,9 +355,9 @@ pub(crate) fn gen_compdb_using_intercept_build(
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "GENERATING JCDB USING INTERCEPT-BUILD...{msg:.green}",
+        "Generating JCDB using intercept-build...{msg:.green}",
     )?);
-    pb.finish_with_message("OK");
+    pb.finish_with_message("ok");
     Ok(())
 }
 
@@ -368,7 +368,7 @@ pub(crate) fn gen_compdb_using_bear(
 ) -> anyhow::Result<()> {
     let pb = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
-            "GENERATING JCDB USING BEAR {spinner:.green} [{elapsed_precise}]",
+            "Generating JCDB using bear {spinner:.green} [{elapsed_precise}]",
         )?
         .tick_chars(TICK_CHARS),
     );
@@ -393,9 +393,9 @@ pub(crate) fn gen_compdb_using_bear(
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "GENERATING JCDB USING BEAR...{msg:.green}",
+        "Generating JCDB using bear...{msg:.green}",
     )?);
-    pb.finish_with_message("OK");
+    pb.finish_with_message("ok");
     Ok(())
 }
 

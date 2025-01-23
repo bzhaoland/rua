@@ -63,7 +63,7 @@ pub fn clean_build(
     // Cleaning the objects generated in building process
     step += 1;
     let pb1 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING TARGET OBJS: {{msg:.green}}",
+        "[{}/{}] Cleaning target objs: {{msg:.green}}",
         step, num_steps
     ))?);
     let target_dir = normalize_path("target");
@@ -89,15 +89,15 @@ pub fn clean_build(
         }
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING TARGET OBJS...{{msg:.green}}",
+        "[{}/{}] Cleaning target objs...{{msg:.green}}",
         step, num_steps
     ))?);
-    pb1.finish_with_message("OK");
+    pb1.finish_with_message("ok");
 
     // Clean UI files
     step += 1;
     let pb2 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING WEBUI OBJS: {{msg:.green}}",
+        "[{}/{}] Cleaning webui objs: {{msg:.green}}",
         step, num_steps
     ))?);
     let webui_dir = normalize_path(svn_info.branch_name()); // UI directory name is the same as the branch name
@@ -123,16 +123,16 @@ pub fn clean_build(
         }
     }
     pb2.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING WEBUI OBJS...{{msg:.green}}",
+        "[{}/{}] Cleaning webui objs...{{msg:.green}}",
         step, num_steps
     ))?);
-    pb2.finish_with_message("OK");
+    pb2.finish_with_message("ok");
 
     // Clean unversioned entries
     step += 1;
     let pb3 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] LISTING UNVERSIONEDS {{spinner:.green}}",
+            "[{}/{}] Listing unversioneds {{spinner:.green}}",
             step, num_steps
         ))?
         .tick_chars(TICK_CHARS),
@@ -149,7 +149,7 @@ pub fn clean_build(
     }
     pb3.disable_steady_tick();
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING UNVERSIONEDS: {{msg:.green}}",
+        "[{}/{}] Cleaning unversioneds: {{msg:.green}}",
         step, num_steps,
     ))?);
     let pattern_for_unversioneds = Regex::new(r#"^\?[[:blank:]]+(.+)[[:blank:]]*$"#)
@@ -173,10 +173,10 @@ pub fn clean_build(
         }
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] CLEANING UNVERSIONEDS...{{msg:.green}}",
+        "[{}/{}] Cleaning unversioneds...{{msg:.green}}",
         step, num_steps
     ))?);
-    pb3.finish_with_message("OK");
+    pb3.finish_with_message("ok");
 
     Ok(())
 }
