@@ -113,7 +113,7 @@ pub(crate) enum Comm {
         )]
         product_dir: String,
 
-        #[arg(value_name = "TARGET", help = "Target to make, such as 'aws'")]
+        #[arg(value_name = "TARGET", help = "Target to build, such as 'a-dnv'")]
         make_target: String,
 
         #[arg(
@@ -128,7 +128,7 @@ pub(crate) enum Comm {
             short = 'e',
             long = "engine",
             value_name = "ENGINE",
-            help = "Engine used to generate compilation database (defaults to built-in)"
+            help = "Engine for generating compilation database (defaults to built-in)"
         )]
         engine: Option<CompdbEngine>,
 
@@ -136,7 +136,7 @@ pub(crate) enum Comm {
             short = 'b',
             long = "bear-path",
             value_name = "BEAR",
-            help = "Path to bear binary (defaults to /devel/sw/bear/bin/bear)"
+            help = "Path to the bear binary (defaults to /devel/sw/bear/bin/bear)"
         )]
         bear_path: Option<String>,
 
@@ -144,7 +144,7 @@ pub(crate) enum Comm {
             short = 'i',
             long = "intercept-build-path",
             value_name = "INTERCEPT-BUILD",
-            help = "Path to intercept-build binary (defaults to /devel/sw/llvm/bin/intercept-build)"
+            help = "Path to the intercept-build binary (defaults to /devel/sw/llvm/bin/intercept-build)"
         )]
         intercept_build_path: Option<String>,
     },
