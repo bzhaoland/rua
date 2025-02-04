@@ -50,7 +50,6 @@ pub struct SvnInfo {
 }
 
 impl SvnInfo {
-    /// Return an empty template of SvnInfo
     pub fn new() -> anyhow::Result<Self> {
         let result = Command::new("svn")
             .arg("info")
