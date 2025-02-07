@@ -6,15 +6,19 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
+use anstyle::Style;
 use anyhow::{bail, Context};
+use chrono::TimeZone;
 use clap::ValueEnum;
 use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
+use rusqlite::{self, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
+use zstd::{decode_all, encode_all};
 
-use crate::utils;
+use crate::utils::SvnInfo;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum)]
 pub(crate) enum CompdbEngine {
@@ -79,6 +83,7 @@ const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
 const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
 
 pub(crate) fn gen_compdb_using_builtin_method(
+    svninfo: &SvnInfo,
     make_directory: &str,
     make_target: &str,
     macros: &IndexMap<String, String>,
@@ -89,7 +94,6 @@ pub(crate) fn gen_compdb_using_builtin_method(
     const TOP_MAKEFILE: &str = "Makefile";
 
     // Check if current working directory is svn repo root
-    let svninfo = utils::SvnInfo::new()?;
     let at_proj_root = env::current_dir()? == svninfo.working_copy_root_path();
 
     // Check necessary files
@@ -324,6 +328,7 @@ pub(crate) fn gen_compdb_using_builtin_method(
 }
 
 pub(crate) fn gen_compdb_using_intercept_build(
+    _svninfo: &SvnInfo,
     intercept_build_path: &str,
     make_directory: &str,
     make_target: &str,
@@ -362,6 +367,7 @@ pub(crate) fn gen_compdb_using_intercept_build(
 }
 
 pub(crate) fn gen_compdb_using_bear(
+    _svninfo: &SvnInfo,
     bear_path: &str,
     make_directory: &str,
     make_target: &str,
@@ -400,26 +406,149 @@ pub(crate) fn gen_compdb_using_bear(
 }
 
 pub(crate) fn gen_compdb(
+    conn: &Connection,
     make_directory: &str,
     make_target: &str,
     options: CompdbOptions,
 ) -> anyhow::Result<()> {
     let engine = options.engine.unwrap_or(CompdbEngine::BuiltIn);
+    let svninfo = SvnInfo::new()?;
 
     match engine {
         CompdbEngine::BuiltIn => {
-            gen_compdb_using_builtin_method(make_directory, make_target, &options.defines)
+            gen_compdb_using_builtin_method(&svninfo, make_directory, make_target, &options.defines)
         }
         CompdbEngine::InterceptBuild => {
             let intercept_build_path = options
                 .intercept_build_path
                 .as_deref()
                 .unwrap_or(DEFAULT_INTERCEPT_BUILD_PATH);
-            gen_compdb_using_intercept_build(intercept_build_path, make_directory, make_target)
+            gen_compdb_using_intercept_build(
+                &svninfo,
+                intercept_build_path,
+                make_directory,
+                make_target,
+            )
         }
         CompdbEngine::Bear => {
             let bear_path = options.bear_path.as_deref().unwrap_or(DEFAULT_BEAR_PATH);
-            gen_compdb_using_bear(bear_path, make_directory, make_target)
+            gen_compdb_using_bear(&svninfo, bear_path, make_directory, make_target)
         }
+    }?;
+
+    // Register the newly generated compilation datahhhhbase
+    println!("Registering the newly generated compilation database...");
+    let content = fs::read_to_string("compile_commands.json")?;
+    let compressed = encode_all(content.as_bytes(), 0)?;
+    add_compdb(conn, &svninfo, make_target, &compressed)?;
+    println!("\rRegistering the newly generated compilation database...ok");
+
+    Ok(())
+}
+
+#[derive(Clone, Debug)]
+struct CompdbItem {
+    generation: usize,
+    branch: String,
+    revision: usize,
+    target: String,
+    timestamp: i64,
+    compdb: Vec<u8>,
+}
+
+pub(crate) const DB_FOR_COMPDB: &str = ".rua/compdbs.db3";
+
+pub(crate) fn create_table_for_compdbs(conn: &Connection) -> anyhow::Result<()> {
+    conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY, branch TEXT NOT NULL, revision INTEGER NOT NULL, platform TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL)", ())?;
+    Ok(())
+}
+
+pub(crate) fn add_compdb(
+    conn: &Connection,
+    svninfo: &SvnInfo,
+    target: &str,
+    compdb: &[u8],
+) -> anyhow::Result<usize> {
+    let timestamp = chrono::Utc::now().timestamp();
+    let count = conn.execute("INSERT INTO compdbs (branch, revision, platform, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![
+        svninfo.branch_name(), svninfo.revision(), target, timestamp, compdb
+    ])?;
+
+    Ok(count)
+}
+
+const COLOR_BOLD: Style = Style::new().bold();
+
+pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
+    let mut stmt = conn.prepare("SELECT * FROM compdbs ORDER BY generation DESC")?;
+    let data_iter = stmt.query_map([], |row| {
+        Ok(CompdbItem {
+            generation: row.get(0)?,
+            branch: row.get(1)?,
+            revision: row.get(2)?,
+            target: row.get(3)?,
+            timestamp: row.get(4)?, // In seconds
+            compdb: row.get(5)?,
+        })
+    })?;
+
+    println!(
+        r#"{COLOR_BOLD}Generation   Branch                           Revision     Target       Date               {COLOR_BOLD:#}
+{COLOR_BOLD}------------+--------------------------------+------------+------------+-------------------{COLOR_BOLD}"#
+    );
+    for item in data_iter {
+        let item = item?;
+        println!(
+            "{:<12} {:<32} {:<12} {:<12} {:<19}",
+            item.generation,
+            item.branch,
+            item.revision,
+            item.target,
+            chrono::Local
+                .timestamp_opt(item.timestamp, 0)
+                .unwrap()
+                .format("%Y-%m-%d %H:%M:%S")
+        );
     }
+
+    Ok(())
+}
+
+pub(crate) fn use_compdb(conn: &Connection, generation: usize) -> anyhow::Result<()> {
+    println!("Switching to generation {}...", generation);
+    let item = conn.query_row(
+        "SELECT * FROM compdbs WHERE generation=?1",
+        [generation],
+        |row| {
+            Ok(CompdbItem {
+                generation: row.get(0)?,
+                branch: row.get(1)?,
+                revision: row.get(2)?,
+                target: row.get(3)?,
+                timestamp: row.get(4)?,
+                compdb: row.get(5)?,
+            })
+        },
+    )?;
+    let decompressed = decode_all(&item.compdb[..])?;
+    fs::write("compile_commands.json", decompressed)?;
+
+    println!("Switching to generation {}...ok", generation);
+
+    Ok(())
+}
+
+pub(crate) fn remove_compdb(conn: &Connection, generation: usize) -> anyhow::Result<()> {
+    let rows = if generation > 0 {
+        conn.execute("DELETE FROM compdbs WHERE generation = ?1", [generation])?
+    } else {
+        conn.execute("DELETE FROM compdbs", ())?
+    };
+    println!(
+        "Deleted {} compilation database generation{}",
+        rows,
+        if rows > 1 { "s" } else { "" }
+    );
+    conn.execute("VACUUM", ())?;
+    Ok(())
 }

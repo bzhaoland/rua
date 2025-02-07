@@ -224,7 +224,6 @@ const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Gre
 const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
 
 /// Generate the make information for the given platform.
-/// This function must run under the project root which is a valid svn repo.
 pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
@@ -299,7 +298,8 @@ pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<V
     });
 
     // Timestamp
-    imagename_suffix.push_str(&chrono::Local::now().format("%m%d").to_string());
+    let current_date = chrono::Local::now().format("%m%d").to_string();
+    imagename_suffix.push_str(&current_date);
 
     // Username
     let username = utils::get_current_username().context("Failed to get username")?;

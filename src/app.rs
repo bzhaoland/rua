@@ -1,12 +1,14 @@
+use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use anstyle::{AnsiColor, Color, Style};
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::builder::styling;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use indexmap::IndexMap;
+use rusqlite::Connection;
 
 use crate::config::RuaConf;
 use crate::submods::compdb::{self, CompdbEngine};
@@ -35,45 +37,8 @@ const STYLES: styling::Styles = styling::Styles::styled()
     .literal(STYLE_GREEN)
     .placeholder(STYLE_CYAN);
 
-#[derive(Clone, Debug, Parser)]
-#[command(
-    name = "rua",
-    author = "bzhao",
-    version = "0.20.1",
-    styles = STYLES,
-    about = "Devbox for StoneOS project",
-    long_about = "Devbox for StoneOS project",
-    after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs."#
-)]
-pub(crate) struct Cli {
-    #[command(subcommand)]
-    command: Comm,
-
-    #[arg(short = 'd', long = "debug", help = "Enable debug option")]
-    debug: bool,
-}
-
 #[derive(Clone, Debug, Subcommand)]
-pub(crate) enum Comm {
-    /// Clean build files (run under project root)
-    #[command(after_help = format!("{STYLE_YELLOW}Examples:{STYLE_YELLOW:#}
-  rua clean  # Clean the entire project"))]
-    Clean {
-        #[arg(
-            value_name = "ENTRY",
-            help = "Files or directories to be cleaned ('target' is always included even if not specified)"
-        )]
-        dirs: Option<Vec<String>>,
-
-        #[arg(
-            short = 'n',
-            long = "ignores",
-            value_name = "IGNORES",
-            help = "List of files and directories seperated by commas to be ignored"
-        )]
-        ignores: Option<Vec<String>>,
-    },
-
+pub(crate) enum CompdbCommand {
     /// Generate JSON compilation database (JCDB) for a specific target.
     ///
     /// You may run this command at either project root directory or submodule
@@ -97,8 +62,7 @@ pub(crate) enum Comm {
   2. When running at submodule dir:
      - scripts/last-rules.mk
      - scripts/rules.mk
-  These files may be left dirty if compdb aborted unexpectedly. You could manually restore them
-  by execute:
+  These files may be left dirty if compdb aborted unexpectedly. You could manually restore them by execute:
   {}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{:#}"#,
       STYLE_YELLOW,
       STYLE_YELLOW,
@@ -106,7 +70,7 @@ pub(crate) enum Comm {
       STYLE_RED,
       STYLE_YELLOW,
       STYLE_YELLOW))]
-    Compdb {
+    Gen {
         #[arg(
             value_name = "PATH",
             help = "Path for the target where platform-specific makefiles reside, such as 'products/vfw'"
@@ -147,6 +111,59 @@ pub(crate) enum Comm {
             help = "Path to the intercept-build binary (defaults to /devel/sw/llvm/bin/intercept-build)"
         )]
         intercept_build_path: Option<String>,
+    },
+
+    /// Select one of the compilation database generations for use
+    Use {
+        #[arg(
+            value_name = "GENERATION",
+            help = "Use this generation as compilation database"
+        )]
+        generation: usize,
+    },
+
+    /// List all available compilation database generations
+    Ls,
+
+    /// Remove one or all compilation database generations
+    Rm {
+        #[arg(
+            value_name = "GENERATION",
+            help = "Remove a specific generation (0 indicates all)",
+            conflicts_with = "all"
+        )]
+        generation: Option<usize>,
+
+        #[arg(short = 'a', long = "all", help = "Remove all generations")]
+        all: bool,
+    },
+}
+
+#[derive(Clone, Debug, Subcommand)]
+pub(crate) enum Comm {
+    /// Clean build files (run under project root)
+    #[command(after_help = format!("{STYLE_YELLOW}Examples:{STYLE_YELLOW:#}
+  rua clean  # Clean the entire project"))]
+    Clean {
+        #[arg(
+            value_name = "ENTRY",
+            help = "Files or directories to be cleaned ('target' is always included even if not specified)"
+        )]
+        dirs: Option<Vec<String>>,
+
+        #[arg(
+            short = 'n',
+            long = "ignores",
+            value_name = "IGNORES",
+            help = "List of files and directories seperated by commas to be ignored"
+        )]
+        ignores: Option<Vec<String>>,
+    },
+
+    /// Manipulate compilation database.
+    Compdb {
+        #[clap(subcommand)]
+        compdb_comm: CompdbCommand,
     },
 
     /// Get all matched makeinfos for product
@@ -337,10 +354,28 @@ pub(crate) enum Comm {
     },
 }
 
+#[derive(Clone, Debug, Parser)]
+#[command(
+    name = "rua",
+    author = "bzhao",
+    version = "0.21.0",
+    styles = STYLES,
+    about = "Devbox for StoneOS project",
+    long_about = "Devbox for StoneOS project",
+    after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs."#
+)]
+pub(crate) struct Cli {
+    #[command(subcommand)]
+    command: Comm,
+
+    #[arg(short = 'd', long = "debug", help = "Enable debug option")]
+    debug: bool,
+}
+
 pub(crate) fn run_app(args: &Cli) -> Result<()> {
+    let conf = RuaConf::load()?;
     match args.command.clone() {
         Comm::Clean { dirs, ignores } => {
-            let conf = RuaConf::load()?;
             let ignores = if ignores.is_some() {
                 ignores.as_ref()
             } else if let Some(conf) = conf.as_ref() {
@@ -354,77 +389,93 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             };
             clean::clean_build(dirs.as_ref(), ignores)
         }
-        Comm::Compdb {
-            product_dir,
-            make_target,
-            defines,
-            mut engine,
-            mut intercept_build_path,
-            mut bear_path,
-        } => {
-            let conf = RuaConf::load()?;
+        Comm::Compdb { compdb_comm } => {
+            fs::create_dir_all(".rua")?;
+            let conn = Connection::open(compdb::DB_FOR_COMPDB)?;
+            compdb::create_table_for_compdbs(&conn)?;
 
-            if bear_path.is_none() {
-                if let Some(rua_conf) = conf.as_ref() {
-                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                        if let Some(v) = compdb_conf.bear_path.as_ref() {
-                            bear_path = Some(v.to_owned());
+            match compdb_comm {
+                CompdbCommand::Gen {
+                    product_dir,
+                    make_target,
+                    defines,
+                    mut engine,
+                    mut bear_path,
+                    mut intercept_build_path,
+                } => {
+                    if bear_path.is_none() {
+                        if let Some(rua_conf) = conf.as_ref() {
+                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                                if let Some(v) = compdb_conf.bear_path.as_ref() {
+                                    bear_path = Some(v.to_owned());
+                                }
+                            }
                         }
                     }
-                }
-            }
-            if intercept_build_path.is_none() {
-                if let Some(rua_conf) = conf.as_ref() {
-                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                        if let Some(v) = compdb_conf.intercept_build_path.as_ref() {
-                            intercept_build_path = Some(v.to_owned());
+                    if intercept_build_path.is_none() {
+                        if let Some(rua_conf) = conf.as_ref() {
+                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                                if let Some(v) = compdb_conf.intercept_build_path.as_ref() {
+                                    intercept_build_path = Some(v.to_owned());
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            if engine.is_none() {
-                if let Some(rua_conf) = conf.as_ref() {
-                    if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                        if let Some(engine_key) = compdb_conf.engine.as_ref() {
-                            engine = match engine_key.as_str() {
-                                "built-in" => Some(CompdbEngine::BuiltIn),
-                                "bear" => Some(CompdbEngine::Bear),
-                                "intercept-build" => Some(CompdbEngine::InterceptBuild),
-                                _ => bail!("Invalid config: engine = {}", engine_key),
-                            };
+                    if engine.is_none() {
+                        if let Some(rua_conf) = conf.as_ref() {
+                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                                if let Some(engine_key) = compdb_conf.engine.as_ref() {
+                                    engine = match engine_key.as_str() {
+                                        "built-in" => Some(CompdbEngine::BuiltIn),
+                                        "bear" => Some(CompdbEngine::Bear),
+                                        "intercept-build" => Some(CompdbEngine::InterceptBuild),
+                                        _ => bail!("Invalid config: engine = {}", engine_key),
+                                    };
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            let mut defines_map: IndexMap<String, String> = IndexMap::new();
-            // Add defines provided as command line arguments
-            for item in defines.iter() {
-                if let Some((k, v)) = item.split_once("=") {
-                    defines_map.insert(k.to_owned(), v.to_owned());
-                } else {
-                    bail!("Invalid key-value pair: {}", item);
-                }
-            }
-            // Add defines defined in configuration file
-            if let Some(rua_conf) = conf.as_ref() {
-                if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                    if let Some(defines_conf) = compdb_conf.defines.as_ref() {
-                        for (k, v) in defines_conf {
+                    let mut defines_map: IndexMap<String, String> = IndexMap::new();
+                    // Add defines provided as command line arguments
+                    for item in defines.iter() {
+                        if let Some((k, v)) = item.split_once("=") {
                             defines_map.insert(k.to_owned(), v.to_owned());
+                        } else {
+                            bail!("Invalid key-value pair: {}", item);
                         }
                     }
+                    // Add defines defined in configuration file
+                    if let Some(rua_conf) = conf.as_ref() {
+                        if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
+                            if let Some(defines_conf) = compdb_conf.defines.as_ref() {
+                                for (k, v) in defines_conf {
+                                    defines_map.insert(k.to_owned(), v.to_owned());
+                                }
+                            }
+                        }
+                    }
+
+                    let compdb_options = compdb::CompdbOptions {
+                        defines: defines_map,
+                        engine,
+                        bear_path,
+                        intercept_build_path,
+                    };
+                    compdb::gen_compdb(&conn, &product_dir, &make_target, compdb_options)
+                }
+                CompdbCommand::Ls => compdb::list_compdbs(&conn),
+                CompdbCommand::Use { generation } => compdb::use_compdb(&conn, generation),
+                CompdbCommand::Rm { generation, all } => {
+                    let generation = if all {
+                        0usize
+                    } else {
+                        generation.context("Neither <GENERATION> nor --all option is specified")?
+                    };
+                    compdb::remove_compdb(&conn, generation)
                 }
             }
-
-            let compdb_options = compdb::CompdbOptions {
-                defines: defines_map,
-                engine,
-                bear_path,
-                intercept_build_path,
-            };
-            compdb::gen_compdb(&product_dir, &make_target, compdb_options)
         }
         Comm::Showcc { comp_unit, comp_db } => {
             let compilation_db = match comp_db {
@@ -446,7 +497,6 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             image_server,
             output_format,
         } => {
-            let conf = RuaConf::load()?;
             let image_server = if let Some(image_server) = image_server {
                 Some(image_server)
             } else if let Some(conf) = conf.as_ref() {
@@ -522,7 +572,6 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             revisions,
             template_file,
         } => {
-            let conf = RuaConf::load()?;
             let template_file = if let Some(v) = template_file {
                 Some(v)
             } else if let Some(conf) = conf.as_ref() {
