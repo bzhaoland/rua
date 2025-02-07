@@ -448,7 +448,7 @@ pub(crate) fn gen_compdb(
 
 #[derive(Clone, Debug)]
 struct CompdbItem {
-    generation: usize,
+    generation: i64,
     branch: String,
     revision: usize,
     target: String,
@@ -514,7 +514,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn use_compdb(conn: &Connection, generation: usize) -> anyhow::Result<()> {
+pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<()> {
     println!("Switching to generation {}...", generation);
     let item = conn.query_row(
         "SELECT * FROM compdbs WHERE generation=?1",
@@ -538,7 +538,7 @@ pub(crate) fn use_compdb(conn: &Connection, generation: usize) -> anyhow::Result
     Ok(())
 }
 
-pub(crate) fn remove_compdb(conn: &Connection, generation: usize) -> anyhow::Result<()> {
+pub(crate) fn remove_compdb(conn: &Connection, generation: i64) -> anyhow::Result<()> {
     let rows = if generation > 0 {
         conn.execute("DELETE FROM compdbs WHERE generation = ?1", [generation])?
     } else {

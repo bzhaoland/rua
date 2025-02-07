@@ -119,7 +119,7 @@ pub(crate) enum CompdbCommand {
             value_name = "GENERATION",
             help = "Use this generation as compilation database"
         )]
-        generation: usize,
+        generation: i64,
     },
 
     /// List all available compilation database generations
@@ -129,10 +129,10 @@ pub(crate) enum CompdbCommand {
     Rm {
         #[arg(
             value_name = "GENERATION",
-            help = "Remove a specific generation (0 indicates all)",
+            help = "Remove a specific generation",
             conflicts_with = "all"
         )]
-        generation: Option<usize>,
+        generation: Option<i64>,
 
         #[arg(short = 'a', long = "all", help = "Remove all generations")]
         all: bool,
@@ -469,7 +469,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 CompdbCommand::Use { generation } => compdb::use_compdb(&conn, generation),
                 CompdbCommand::Rm { generation, all } => {
                     let generation = if all {
-                        0usize
+                        0
                     } else {
                         generation.context("Neither <GENERATION> nor --all option is specified")?
                     };
