@@ -113,7 +113,7 @@ pub(crate) enum CompdbCommand {
         intercept_build_path: Option<String>,
     },
 
-    /// Take one compilation database generation into use
+    /// Take a compilation database generation into use
     Use {
         #[arg(value_name = "GENERATION", help = "Compilation database generation id")]
         generation: i64,
