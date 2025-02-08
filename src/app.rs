@@ -47,11 +47,11 @@ pub(crate) enum CompdbCommand {
     /// running at submodule directory.
     #[command(after_help = format!(
         r#"{}Examples:{:#}
-  rua compdb products/ngfw_as a-dnv           # For A1000/A2000...
-  rua compdb products/ngfw_as a-dnv-ipv6      # For A1000/A2000... with IPv6 support
-  rua compdb . a-dnv                          # For A1000/A2000... at submodule directory
-  rua compdb --engine=bear . a-dnv            # For A1000/A2000... using bear at submodule directory
-  run compdb --engine=intercept-build . a-dnv # For A1000/A2000... using intercept-build at submodule directory
+  rua compdb gen products/ngfw_as a-dnv           # For A1000/A2000...
+  rua compdb gen products/ngfw_as a-dnv-ipv6      # For A1000/A2000... with IPv6 support
+  rua compdb gen . a-dnv                          # For A1000/A2000... at submodule directory
+  rua compdb gen --engine=bear . a-dnv            # For A1000/A2000... using bear at submodule directory
+  run compdb gen --engine=intercept-build . a-dnv # For A1000/A2000... using intercept-build at submodule directory
 
 {}Caution:{:#}
   Several files are modified while running with the built-in method (default) which is faster:
