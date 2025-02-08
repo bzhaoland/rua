@@ -126,8 +126,8 @@ pub(crate) enum CompdbCommand {
     #[command(visible_alias = "rm")]
     Del {
         #[arg(
-            value_name = "GENERATION",
-            help = "Remove a generation",
+            value_name = "GENERATION-ID",
+            help = "Generation to delete",
             conflicts_with = "all"
         )]
         generation: Option<i64>,
@@ -136,11 +136,11 @@ pub(crate) enum CompdbCommand {
         all: bool,
     },
 
-    /// Add the currently used compilation database into store
+    /// Archive the currently used compilation database into store
     Ark {
         #[arg(
             value_name = "TARGET",
-            help = "The target corresponding to the compilation database used now (compile_commands.json)"
+            help = "Target used to archive the compilation database"
         )]
         target: String,
     },
