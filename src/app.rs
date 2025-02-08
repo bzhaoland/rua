@@ -122,8 +122,9 @@ pub(crate) enum CompdbCommand {
     /// List all compilation database generations
     Ls,
 
-    /// Remove compilation database generation(s)
-    Rm {
+    /// Delete compilation database generation(s)
+    #[command(visible_alias = "rm")]
+    Del {
         #[arg(
             value_name = "GENERATION",
             help = "Remove a generation",
@@ -133,6 +134,27 @@ pub(crate) enum CompdbCommand {
 
         #[arg(short = 'a', long = "all", help = "Remove all generations")]
         all: bool,
+    },
+
+    /// Add the compilation database currently used into store
+    Ark {
+        #[arg(
+            value_name = "TARGET",
+            help = "The target corresponding to the compilation database used now (compile_commands.json)"
+        )]
+        target: String,
+    },
+
+    /// Tag a comment for the specified compilation database generation
+    Tag {
+        #[arg(
+            value_name = "GENERATION",
+            help = "The compilation database generation to be tagged"
+        )]
+        generation: i64,
+
+        #[arg(value_name = "COMMENT", help = "Comment for the compilation database")]
+        comment: String,
     },
 }
 
@@ -460,17 +482,44 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         bear_path,
                         intercept_build_path,
                     };
-                    compdb::gen_compdb(&conn, &product_dir, &make_target, compdb_options)
+                    compdb::gen_compdb(&product_dir, &make_target, compdb_options)?;
+
+                    // Archive the newly generated compilation database
+                    println!("Registering the newly generated compilation database...");
+                    compdb::ark_compdb(&conn, make_target.as_str())?;
+                    println!("\rRegistering the newly generated compilation database...ok");
+                    Ok(())
                 }
                 CompdbCommand::Ls => compdb::list_compdbs(&conn),
                 CompdbCommand::Use { generation } => compdb::use_compdb(&conn, generation),
-                CompdbCommand::Rm { generation, all } => {
-                    let generation = if all {
-                        0
+                CompdbCommand::Del { generation, all } => {
+                    if all {
+                        println!("Deleting all generations...");
+                        compdb::del_compdb(&conn, 0)?;
+                        println!("Deleting all generations...ok");
                     } else {
-                        generation.context("Neither <GENERATION> nor --all option is specified")?
+                        let generation = generation
+                            .context("Neither <GENERATION> nor --all option is specified")?;
+                        println!("Deleting generation {}...", generation);
+                        compdb::del_compdb(&conn, 0)?;
+                        println!("Deleting generation {}...ok", generation);
                     };
-                    compdb::remove_compdb(&conn, generation)
+                    Ok(())
+                }
+                CompdbCommand::Ark { target } => {
+                    println!("Registering the currently used compilation database...");
+                    compdb::ark_compdb(&conn, target.as_str())?;
+                    println!("Registering the currently used compilation database...ok");
+                    Ok(())
+                }
+                CompdbCommand::Tag {
+                    generation,
+                    comment,
+                } => {
+                    println!("Tagging the currently used compilation database...");
+                    compdb::tag_compdb(&conn, generation, comment.as_str())?;
+                    println!("Tagging the currently used compilation database...ok");
+                    Ok(())
                 }
             }
         }

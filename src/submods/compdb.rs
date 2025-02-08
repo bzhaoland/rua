@@ -13,6 +13,7 @@ use clap::ValueEnum;
 use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
+use rusqlite::params;
 use rusqlite::OptionalExtension;
 use rusqlite::{self, Connection};
 use serde::{Deserialize, Serialize};
@@ -407,13 +408,12 @@ pub(crate) fn gen_compdb_using_bear(
 }
 
 pub(crate) fn gen_compdb(
-    conn: &Connection,
     make_directory: &str,
     make_target: &str,
     options: CompdbOptions,
 ) -> anyhow::Result<()> {
-    let engine = options.engine.unwrap_or(CompdbEngine::BuiltIn);
     let svninfo = SvnInfo::new()?;
+    let engine = options.engine.unwrap_or(CompdbEngine::BuiltIn);
 
     match engine {
         CompdbEngine::BuiltIn => {
@@ -437,13 +437,6 @@ pub(crate) fn gen_compdb(
         }
     }?;
 
-    // Register the newly generated compilation datahhhhbase
-    println!("Registering the newly generated compilation database...");
-    let content = fs::read_to_string("compile_commands.json")?;
-    let compressed = encode_all(content.as_bytes(), 0)?;
-    add_compdb(conn, &svninfo, make_target, &compressed)?;
-    println!("\rRegistering the newly generated compilation database...ok");
-
     Ok(())
 }
 
@@ -460,11 +453,11 @@ struct CompdbItem {
 pub(crate) const DB_FOR_COMPDB: &str = ".rua/compdbs.db3";
 
 pub(crate) fn create_table_for_compdbs(conn: &Connection) -> anyhow::Result<()> {
-    conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, platform TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL)", ())?;
+    conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, platform TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, comment TEXT)", ())?;
     Ok(())
 }
 
-pub(crate) fn add_compdb(
+fn add_compdb(
     conn: &Connection,
     svninfo: &SvnInfo,
     target: &str,
@@ -590,17 +583,31 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
     Ok(())
 }
 
-pub(crate) fn remove_compdb(conn: &Connection, generation: i64) -> anyhow::Result<()> {
+/// Archive the compilation database into snapshort base
+pub(crate) fn ark_compdb(conn: &Connection, target: &str) -> anyhow::Result<()> {
+    let svninfo = SvnInfo::new()?;
+    let content = fs::read_to_string("compile_commands.json")?;
+    let compressed = encode_all(content.as_bytes(), 0)?;
+    add_compdb(conn, &svninfo, target, &compressed)?;
+    Ok(())
+}
+
+/// Tag a comment for the specified compilation database
+pub(crate) fn tag_compdb(conn: &Connection, generation: i64, comment: &str) -> anyhow::Result<()> {
+    conn.execute(
+        "UPDATE compdbs SET comment = ?1 WHERE generation = ?2",
+        params![comment, generation],
+    )?;
+    Ok(())
+}
+
+/// Delete a compilation database generation
+pub(crate) fn del_compdb(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
     let rows = if generation > 0 {
         conn.execute("DELETE FROM compdbs WHERE generation = ?1", [generation])?
     } else {
         conn.execute("DELETE FROM compdbs", ())?
     };
-    println!(
-        "Removed {} compilation database generation{}",
-        rows,
-        if rows > 1 { "s" } else { "" }
-    );
     conn.execute("VACUUM", ())?;
-    Ok(())
+    Ok(rows)
 }
