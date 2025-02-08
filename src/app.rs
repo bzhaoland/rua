@@ -113,23 +113,20 @@ pub(crate) enum CompdbCommand {
         intercept_build_path: Option<String>,
     },
 
-    /// Select one of the compilation database generations for use
+    /// Take one compilation database generation into use
     Use {
-        #[arg(
-            value_name = "GENERATION",
-            help = "Use this generation as compilation database"
-        )]
+        #[arg(value_name = "GENERATION", help = "Compilation database generation id")]
         generation: i64,
     },
 
-    /// List all available compilation database generations
+    /// List all compilation database generations
     Ls,
 
-    /// Remove one or all compilation database generations
+    /// Remove compilation database generation(s)
     Rm {
         #[arg(
             value_name = "GENERATION",
-            help = "Remove a specific generation",
+            help = "Remove a generation",
             conflicts_with = "all"
         )]
         generation: Option<i64>,
