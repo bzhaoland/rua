@@ -136,7 +136,7 @@ pub(crate) enum CompdbCommand {
         all: bool,
     },
 
-    /// Add the compilation database currently used into store
+    /// Add the currently used compilation database into store
     Ark {
         #[arg(
             value_name = "TARGET",
