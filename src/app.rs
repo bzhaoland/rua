@@ -113,14 +113,11 @@ pub(crate) enum CompdbCommand {
         intercept_build_path: Option<String>,
     },
 
-    /// Take a compilation database generation into use
-    Use {
-        #[arg(value_name = "GENERATION", help = "Compilation database generation id")]
-        generation: i64,
+    /// Add the currently used compilation database into store as a new generation
+    Add {
+        #[arg(value_name = "TARGET", help = "Target for the compilation database")]
+        target: String,
     },
-
-    /// List all compilation database generations in store
-    Ls,
 
     /// Delete compilation database generation(s) from store
     #[command(visible_alias = "rm")]
@@ -136,10 +133,13 @@ pub(crate) enum CompdbCommand {
         all: bool,
     },
 
-    /// Add the currently used compilation database into store as a new generation
-    Add {
-        #[arg(value_name = "TARGET", help = "Target for the compilation database")]
-        target: String,
+    /// List all compilation database generations in store
+    Ls,
+
+    /// Select a compilation database generation from store to use
+    Use {
+        #[arg(value_name = "GENERATION", help = "Compilation database generation id")]
+        generation: i64,
     },
 
     /// Rename a compilation database generation
@@ -391,9 +391,8 @@ pub(crate) enum Comm {
     author = "bzhao",
     version = "0.22.0",
     styles = STYLES,
-    about = "Devbox for StoneOS project",
-    long_about = "Devbox for StoneOS project",
-    after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs."#
+    about = "A toolbox for StoneOS project",
+    after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs"#
 )]
 pub(crate) struct Cli {
     #[command(subcommand)]
