@@ -1,3 +1,4 @@
+use std::cmp;
 use std::env;
 use std::fmt;
 use std::fs;
@@ -440,6 +441,7 @@ pub(crate) fn gen_compdb(
     Ok(())
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 struct CompdbItem {
     generation: i64,
@@ -448,6 +450,7 @@ struct CompdbItem {
     target: String,
     timestamp: i64,
     compdb: Vec<u8>,
+    comment: Option<String>,
 }
 
 pub(crate) const DB_FOR_COMPDB: &str = ".rua/compdbs.db3";
@@ -471,19 +474,32 @@ fn add_compdb(
     Ok(count)
 }
 
-const STYLE_BOLD: Style = Style::new().bold();
+#[derive(Clone, Debug)]
+struct DisplayedCompdbItem {
+    generation: i64,
+    branch: String,
+    revision: usize,
+    target: String,
+    date: String,
+    comment: String,
+}
 
+const STYLE_BOLD: Style = Style::new().bold();
 pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     // Database querying
     let mut stmt = conn.prepare("SELECT * FROM compdbs ORDER BY generation DESC")?;
     let data_iter = stmt.query_map([], |row| {
-        Ok(CompdbItem {
+        Ok(DisplayedCompdbItem {
             generation: row.get(0)?,
             branch: row.get(1)?,
             revision: row.get(2)?,
             target: row.get(3)?,
-            timestamp: row.get(4)?, // In seconds
-            compdb: row.get(5)?,
+            date: chrono::Local
+                .timestamp_opt(row.get(4)?, 0)
+                .unwrap()
+                .format("+") // ISO 8601/RFC 3339 date&time format
+                .to_string(),
+            comment: row.get(6)?,
         })
     })?;
 
@@ -493,41 +509,30 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     const TITLE_REVISION: &str = "Revision";
     const TITLE_TARGET: &str = "Target";
     const TITLE_DATE: &str = "Date";
+    const TITLE_COMMENT: &str = "Comment";
     let mut generation_col_width = TITLE_GENERATION.len();
     let mut branch_col_width = TITLE_BRANCH.len();
     let mut revision_col_width = TITLE_REVISION.len();
     let mut target_col_width = TITLE_TARGET.len();
     let mut date_col_width = TITLE_DATE.len();
-    let mut compdb_items: Vec<CompdbItem> = Vec::new();
+    let mut comment_col_width = TITLE_COMMENT.len();
+
+    let mut compdb_items: Vec<DisplayedCompdbItem> = Vec::new();
     for item in data_iter {
         let item = item?;
 
-        let generation_field_len = item.generation.to_string().chars().count();
-        let branch_field_len = item.branch.chars().count();
-        let revision_field_len = item.revision.to_string().chars().count();
-        let target_field_len = item.target.chars().count();
-        let date_field = chrono::Local
-            .timestamp_opt(item.timestamp, 0)
-            .unwrap()
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string();
-        let date_field_len = date_field.chars().count();
-
-        if generation_field_len > generation_col_width {
-            generation_col_width = generation_field_len;
-        }
-        if branch_field_len > branch_col_width {
-            branch_col_width = branch_field_len;
-        }
-        if revision_field_len > revision_col_width {
-            revision_col_width = revision_field_len;
-        }
-        if target_field_len > target_col_width {
-            target_col_width = target_field_len;
-        }
-        if date_field_len > date_col_width {
-            date_col_width = date_field_len;
-        }
+        generation_col_width = cmp::max(
+            item.generation.to_string().chars().count(),
+            generation_col_width,
+        );
+        branch_col_width = cmp::max(item.branch.chars().count(), branch_col_width);
+        revision_col_width = cmp::max(
+            item.revision.to_string().chars().count(),
+            revision_col_width,
+        );
+        target_col_width = cmp::max(item.target.chars().count(), target_col_width);
+        date_col_width = cmp::max(item.date.chars().count(), date_col_width);
+        comment_col_width = cmp::max(item.comment.chars().count(), comment_col_width);
 
         compdb_items.push(item);
     }
@@ -538,18 +543,20 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     }
 
     println!(
-        "{}{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}{:#}",
-        STYLE_BOLD, TITLE_GENERATION, TITLE_BRANCH, TITLE_REVISION, TITLE_TARGET, TITLE_DATE, STYLE_BOLD
+        "{}{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<comment_col_width$}{:#}",
+        STYLE_BOLD,
+        TITLE_GENERATION,
+        TITLE_BRANCH,
+        TITLE_REVISION,
+        TITLE_TARGET,
+        TITLE_DATE,
+        TITLE_COMMENT,
+        STYLE_BOLD
     );
     for item in compdb_items {
-        let date_field = chrono::Local
-            .timestamp_opt(item.timestamp, 0)
-            .unwrap()
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string();
         println!(
-        "{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}",
-            item.generation, item.branch, item.revision, item.target, date_field
+        "{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<comment_col_width$}",
+            item.generation, item.branch, item.revision, item.target, item.date, item.comment
         );
     }
 
@@ -569,16 +576,23 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
                     target: row.get(3)?,
                     timestamp: row.get(4)?,
                     compdb: row.get(5)?,
+                    comment: row.get(6)?,
                 })
             },
         )
         .optional()?;
 
     let item = item.context("Invalid generation id")?;
-    println!("Switching to generation {}...", generation);
+    println!(
+        "Switching to generation {} ({})...",
+        item.generation, item.target
+    );
     let compile_commands = decode_all(&item.compdb[..])?;
     fs::write("compile_commands.json", compile_commands)?;
-    println!("Switching to generation {}...ok", generation);
+    println!(
+        "Switching to generation {} ({})...ok",
+        item.generation, item.target
+    );
 
     Ok(())
 }
