@@ -5,9 +5,8 @@ use std::{env, fs};
 use anyhow::{anyhow, bail, Context};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
-use std::time::Duration;
 
-use crate::utils::SvnInfo;
+use crate::utils::{SvnInfo, TICK_CHARS, TICK_INTERVAL};
 
 fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
     let mut normalized = PathBuf::new();
@@ -53,9 +52,6 @@ pub fn clean_build(
                 .collect::<Vec<PathBuf>>()
         })
         .unwrap_or_default();
-
-    const TICK_INTERVAL: Duration = Duration::from_millis(200);
-    const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
     let num_steps = 3;
     let mut step: usize = 0;

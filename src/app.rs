@@ -136,25 +136,37 @@ pub(crate) enum CompdbCommand {
         all: bool,
     },
 
-    /// Archive the currently used compilation database into store
-    Ark {
-        #[arg(
-            value_name = "TARGET",
-            help = "Target used to archive the compilation database"
-        )]
+    /// Add the currently used compilation database into store as a new generation
+    Add {
+        #[arg(value_name = "TARGET", help = "Target for the compilation database")]
         target: String,
     },
 
-    /// Tag a comment for the specified compilation database generation
-    Tag {
+    /// Rename a compilation database generation
+    Rename {
         #[arg(
             value_name = "GENERATION",
-            help = "The compilation database generation to be tagged"
+            help = "The compilation database generation"
         )]
         generation: i64,
 
-        #[arg(value_name = "COMMENT", help = "Comment for the compilation database")]
-        comment: String,
+        #[arg(value_name = "NAME", help = "Name for the compilation database")]
+        name: String,
+    },
+
+    /// Remark a compilation database generation
+    Remark {
+        #[arg(
+            value_name = "GENERATION",
+            help = "The compilation database generation"
+        )]
+        generation: i64,
+
+        #[arg(
+            value_name = "REMARK",
+            help = "Remark for the compilation database generation"
+        )]
+        remark: String,
     },
 }
 
@@ -377,7 +389,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.21.0",
+    version = "0.22.0",
     styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
@@ -392,9 +404,9 @@ pub(crate) struct Cli {
 }
 
 pub(crate) fn run_app(args: &Cli) -> Result<()> {
-    let conf = RuaConf::load()?;
     match args.command.clone() {
         Comm::Clean { dirs, ignores } => {
+            let conf = RuaConf::load()?;
             let ignores = if ignores.is_some() {
                 ignores.as_ref()
             } else if let Some(conf) = conf.as_ref() {
@@ -422,6 +434,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     mut bear_path,
                     mut intercept_build_path,
                 } => {
+                    let conf = RuaConf::load()?;
                     if bear_path.is_none() {
                         if let Some(rua_conf) = conf.as_ref() {
                             if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
@@ -506,19 +519,34 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     };
                     Ok(())
                 }
-                CompdbCommand::Ark { target } => {
+                CompdbCommand::Add { target } => {
                     println!("Registering the currently used compilation database...");
                     compdb::ark_compdb(&conn, target.as_str())?;
                     println!("Registering the currently used compilation database...ok");
                     Ok(())
                 }
-                CompdbCommand::Tag {
-                    generation,
-                    comment,
-                } => {
-                    println!("Tagging the currently used compilation database...");
-                    compdb::tag_compdb(&conn, generation, comment.as_str())?;
-                    println!("Tagging the currently used compilation database...ok");
+                CompdbCommand::Rename { generation, name } => {
+                    println!(
+                        "Renaming compilation database generation {} to {}...",
+                        generation, name
+                    );
+                    compdb::rename_compdb(&conn, generation, name.as_str())?;
+                    println!(
+                        "Renaming compilation database generation {} to {}...ok",
+                        generation, name
+                    );
+                    Ok(())
+                }
+                CompdbCommand::Remark { generation, remark } => {
+                    println!(
+                        "Remarking compilation database generation {}...",
+                        generation
+                    );
+                    compdb::remark_compdb(&conn, generation, remark.as_str())?;
+                    println!(
+                        "Remarking compilation database generation {}...ok",
+                        generation
+                    );
                     Ok(())
                 }
             }
@@ -543,6 +571,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             image_server,
             output_format,
         } => {
+            let conf = RuaConf::load()?;
             let image_server = if let Some(image_server) = image_server {
                 Some(image_server)
             } else if let Some(conf) = conf.as_ref() {
@@ -618,6 +647,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             revisions,
             template_file,
         } => {
+            let conf = RuaConf::load()?;
             let template_file = if let Some(v) = template_file {
                 Some(v)
             } else if let Some(conf) = conf.as_ref() {

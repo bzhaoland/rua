@@ -5,7 +5,6 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::thread;
-use std::time::Duration;
 
 use anstyle::Style;
 use anyhow::{bail, Context};
@@ -21,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use zstd::{decode_all, encode_all};
 
-use crate::utils::SvnInfo;
+use crate::utils::{SvnInfo, TICK_CHARS, TICK_INTERVAL};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum)]
 pub(crate) enum CompdbEngine {
@@ -79,8 +78,6 @@ impl fmt::Display for CompdbRecord {
     }
 }
 
-const TICK_INTERVAL: Duration = Duration::from_millis(200);
-const TICK_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
 const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
 const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
@@ -445,18 +442,19 @@ pub(crate) fn gen_compdb(
 #[derive(Clone, Debug)]
 struct CompdbItem {
     generation: i64,
+    name: Option<String>,
     branch: String,
-    revision: usize,
+    revision: i64,
     target: String,
     timestamp: i64,
     compdb: Vec<u8>,
-    comment: Option<String>,
+    remark: Option<String>,
 }
 
 pub(crate) const DB_FOR_COMPDB: &str = ".rua/compdbs.db3";
 
 pub(crate) fn create_table_for_compdbs(conn: &Connection) -> anyhow::Result<()> {
-    conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, platform TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, comment TEXT)", ())?;
+    conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, target TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, name TEXT UNIQUE, remark TEXT)", ())?;
     Ok(())
 }
 
@@ -467,59 +465,58 @@ fn add_compdb(
     compdb: &[u8],
 ) -> anyhow::Result<usize> {
     let timestamp = chrono::Utc::now().timestamp();
-    let count = conn.execute("INSERT INTO compdbs (branch, revision, platform, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![
+    let count = conn.execute("INSERT INTO compdbs (branch, revision, target, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![
         svninfo.branch_name(), svninfo.revision(), target, timestamp, compdb
     ])?;
 
     Ok(count)
 }
 
-#[derive(Clone, Debug)]
-struct DisplayedCompdbItem {
-    generation: i64,
-    branch: String,
-    revision: usize,
-    target: String,
-    date: String,
-    comment: String,
-}
-
 const STYLE_BOLD: Style = Style::new().bold();
 pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     // Database querying
-    let mut stmt = conn.prepare("SELECT * FROM compdbs ORDER BY generation DESC")?;
+    let mut stmt = conn.prepare("SELECT generation, branch, revision, target, timestamp, name, remark FROM compdbs ORDER BY generation DESC")?;
     let data_iter = stmt.query_map([], |row| {
-        Ok(DisplayedCompdbItem {
+        Ok(CompdbItem {
             generation: row.get(0)?,
             branch: row.get(1)?,
             revision: row.get(2)?,
             target: row.get(3)?,
-            date: chrono::Local
-                .timestamp_opt(row.get(4)?, 0)
-                .unwrap()
-                .format("+") // ISO 8601/RFC 3339 date&time format
-                .to_string(),
-            comment: row.get(6)?,
+            timestamp: row.get(4)?,
+            compdb: Vec::new(), // Fake content as the content in this field is huge
+            name: row.get(5)?,
+            remark: row.get(6)?,
         })
     })?;
 
     // Formatting
-    const TITLE_GENERATION: &str = "Generation";
-    const TITLE_BRANCH: &str = "Branch";
-    const TITLE_REVISION: &str = "Revision";
-    const TITLE_TARGET: &str = "Target";
-    const TITLE_DATE: &str = "Date";
-    const TITLE_COMMENT: &str = "Comment";
-    let mut generation_col_width = TITLE_GENERATION.len();
-    let mut branch_col_width = TITLE_BRANCH.len();
-    let mut revision_col_width = TITLE_REVISION.len();
-    let mut target_col_width = TITLE_TARGET.len();
-    let mut date_col_width = TITLE_DATE.len();
-    let mut comment_col_width = TITLE_COMMENT.len();
+    const HEADERS: (&str, &str, &str, &str, &str, &str, &str) = (
+        "Generation",
+        "Branch",
+        "Revision",
+        "Target",
+        "Date",
+        "Name",
+        "Remark",
+    );
+    let mut generation_col_width = HEADERS.0.len();
+    let mut branch_col_width = HEADERS.1.len();
+    let mut revision_col_width = HEADERS.2.len();
+    let mut target_col_width = HEADERS.3.len();
+    let mut date_col_width = HEADERS.4.len();
+    let mut name_col_width = HEADERS.5.len();
+    let mut remark_col_width = HEADERS.6.len();
 
-    let mut compdb_items: Vec<DisplayedCompdbItem> = Vec::new();
+    let mut displayed_entries: Vec<(i64, String, i64, String, String, String, String)> = Vec::new();
     for item in data_iter {
         let item = item?;
+        let date = chrono::Local
+            .timestamp_opt(item.timestamp, 0)
+            .unwrap()
+            .format("%+")
+            .to_string();
+        let name = item.name.unwrap_or_else(|| "".to_string());
+        let remark = item.remark.unwrap_or_else(|| "".to_string());
 
         generation_col_width = cmp::max(
             item.generation.to_string().chars().count(),
@@ -531,67 +528,76 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
             revision_col_width,
         );
         target_col_width = cmp::max(item.target.chars().count(), target_col_width);
-        date_col_width = cmp::max(item.date.chars().count(), date_col_width);
-        comment_col_width = cmp::max(item.comment.chars().count(), comment_col_width);
+        date_col_width = cmp::max(date.chars().count(), date_col_width);
+        name_col_width = cmp::max(name.chars().count(), name_col_width);
+        remark_col_width = cmp::max(remark.chars().count(), remark_col_width);
 
-        compdb_items.push(item);
+        displayed_entries.push((
+            item.generation,
+            item.branch,
+            item.revision,
+            item.target,
+            date,
+            name,
+            remark,
+        ));
     }
 
-    if compdb_items.len() == 0 {
+    if displayed_entries.len() == 0 {
         println!("No compilation database generation found");
         return Ok(());
     }
 
     println!(
-        "{}{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<comment_col_width$}{:#}",
-        STYLE_BOLD,
-        TITLE_GENERATION,
-        TITLE_BRANCH,
-        TITLE_REVISION,
-        TITLE_TARGET,
-        TITLE_DATE,
-        TITLE_COMMENT,
-        STYLE_BOLD
+        "{}{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<name_col_width$}   {:<remark_col_width$}{:#}",
+        STYLE_BOLD, HEADERS.0, HEADERS.1, HEADERS.2, HEADERS.3, HEADERS.4, HEADERS.5, HEADERS.6, STYLE_BOLD
     );
-    for item in compdb_items {
+    for item in displayed_entries {
         println!(
-        "{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<comment_col_width$}",
-            item.generation, item.branch, item.revision, item.target, item.date, item.comment
+        "{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<name_col_width$}   {:<remark_col_width$}",
+            item.0, item.1, item.2, item.3, item.4, item.5, item.6
         );
     }
 
     Ok(())
 }
 
+/// Delete a compilation database generation
+pub(crate) fn del_compdb(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
+    let rows = if generation > 0 {
+        conn.execute("DELETE FROM compdbs WHERE generation = ?1", [generation])?
+    } else {
+        conn.execute("DELETE FROM compdbs", ())?
+    };
+    conn.execute("VACUUM", ())?;
+    Ok(rows)
+}
+
 pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<()> {
-    let item = conn
+    let item: Option<(Option<String>, Vec<u8>)> = conn
         .query_row(
-            "SELECT * FROM compdbs WHERE generation=?1",
+            "SELECT name, compdb FROM compdbs WHERE generation=?1",
             [generation],
-            |row| {
-                Ok(CompdbItem {
-                    generation: row.get(0)?,
-                    branch: row.get(1)?,
-                    revision: row.get(2)?,
-                    target: row.get(3)?,
-                    timestamp: row.get(4)?,
-                    compdb: row.get(5)?,
-                    comment: row.get(6)?,
-                })
-            },
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()?;
 
     let item = item.context("Invalid generation id")?;
     println!(
-        "Switching to generation {} ({})...",
-        item.generation, item.target
+        "Switching to generation {}{}...",
+        generation,
+        item.0
+            .as_ref()
+            .map_or_else(|| "".to_string(), |x| format!("({})", x))
     );
-    let compile_commands = decode_all(&item.compdb[..])?;
+    let compile_commands = decode_all(&item.1[..])?;
     fs::write("compile_commands.json", compile_commands)?;
     println!(
-        "Switching to generation {} ({})...ok",
-        item.generation, item.target
+        "Switching to generation {}{}...ok",
+        generation,
+        item.0
+            .as_ref()
+            .map_or_else(|| "".to_string(), |x| format!("({})", x))
     );
 
     Ok(())
@@ -606,22 +612,24 @@ pub(crate) fn ark_compdb(conn: &Connection, target: &str) -> anyhow::Result<()> 
     Ok(())
 }
 
-/// Tag a comment for the specified compilation database
-pub(crate) fn tag_compdb(conn: &Connection, generation: i64, comment: &str) -> anyhow::Result<()> {
+/// Rename a compilation database generation
+pub(crate) fn rename_compdb(conn: &Connection, generation: i64, name: &str) -> anyhow::Result<()> {
     conn.execute(
-        "UPDATE compdbs SET comment = ?1 WHERE generation = ?2",
-        params![comment, generation],
+        "UPDATE compdbs SET name = ?1 WHERE generation = ?2",
+        params![name, generation],
     )?;
     Ok(())
 }
 
-/// Delete a compilation database generation
-pub(crate) fn del_compdb(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
-    let rows = if generation > 0 {
-        conn.execute("DELETE FROM compdbs WHERE generation = ?1", [generation])?
-    } else {
-        conn.execute("DELETE FROM compdbs", ())?
-    };
-    conn.execute("VACUUM", ())?;
-    Ok(rows)
+/// Make a remark for the specified compilation database
+pub(crate) fn remark_compdb(
+    conn: &Connection,
+    generation: i64,
+    remark: &str,
+) -> anyhow::Result<()> {
+    conn.execute(
+        "UPDATE compdbs SET remark = ?1 WHERE generation = ?2",
+        params![remark, generation],
+    )?;
+    Ok(())
 }

@@ -2,9 +2,13 @@ use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::Path;
 use std::process::Command;
+use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context};
 use regex::Regex;
+
+pub(crate) const TICK_INTERVAL: Duration = Duration::from_millis(100);
+pub(crate) const TICK_CHARS: &str = "⣧⣶⣼⣹⢻⠿⡟⣏";
 
 /// Get current username using `id -un`.
 /// Unfortunately, neither `whoami` or `users` work correctly under company's
