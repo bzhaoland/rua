@@ -453,7 +453,7 @@ struct CompdbItem {
 
 pub(crate) const DB_FOR_COMPDB: &str = ".rua/compdbs.db3";
 
-pub(crate) fn create_table_for_compdbs(conn: &Connection) -> anyhow::Result<()> {
+pub(crate) fn create_compdbs_table(conn: &Connection) -> anyhow::Result<()> {
     conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, target TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, name TEXT UNIQUE, remark TEXT)", ())?;
     Ok(())
 }
@@ -463,13 +463,12 @@ fn add_compdb(
     svninfo: &SvnInfo,
     target: &str,
     compdb: &[u8],
-) -> anyhow::Result<usize> {
+) -> anyhow::Result<()> {
     let timestamp = chrono::Utc::now().timestamp();
-    let count = conn.execute("INSERT INTO compdbs (branch, revision, target, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![
+    conn.execute("INSERT INTO compdbs (branch, revision, target, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![
         svninfo.branch_name(), svninfo.revision(), target, timestamp, compdb
     ])?;
-
-    Ok(count)
+    Ok(())
 }
 
 const STYLE_BOLD: Style = Style::new().bold();
@@ -562,7 +561,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Delete a compilation database generation
+/// Delete a compilation database generation from the store
 pub(crate) fn del_compdb(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
     let rows = if generation > 0 {
         conn.execute("DELETE FROM compdbs WHERE generation = ?1", [generation])?
@@ -603,17 +602,16 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
     Ok(())
 }
 
-/// Archive the compilation database into snapshort base
+/// Archive the compilation database into base
 pub(crate) fn ark_compdb(conn: &Connection, target: &str) -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
     let content = fs::read_to_string("compile_commands.json")?;
     let compressed = encode_all(content.as_bytes(), 0)?;
-    add_compdb(conn, &svninfo, target, &compressed)?;
-    Ok(())
+    add_compdb(conn, &svninfo, target, &compressed)
 }
 
-/// Rename a compilation database generation
-pub(crate) fn rename_compdb(conn: &Connection, generation: i64, name: &str) -> anyhow::Result<()> {
+/// Name a compilation database generation
+pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> anyhow::Result<()> {
     conn.execute(
         "UPDATE compdbs SET name = ?1 WHERE generation = ?2",
         params![name, generation],
@@ -621,7 +619,7 @@ pub(crate) fn rename_compdb(conn: &Connection, generation: i64, name: &str) -> a
     Ok(())
 }
 
-/// Make a remark for the specified compilation database
+/// Remark a compilation database generation
 pub(crate) fn remark_compdb(
     conn: &Connection,
     generation: i64,

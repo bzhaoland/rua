@@ -39,30 +39,36 @@ const STYLES: styling::Styles = styling::Styles::styled()
 
 #[derive(Clone, Debug, Subcommand)]
 pub(crate) enum CompdbCommand {
-    /// Generate JSON compilation database (JCDB) for a specific target.
+    /// Generate a JSON compilation database (JCDB) for the given target.
     ///
-    /// You may run this command at either project root directory or submodule
-    /// directory.
-    /// However, you may have to compile the target completely first before
-    /// running at submodule directory.
+    /// Run this command under either project root or submod dir. If you want a
+    /// a compilation database for a specific module, run under submod dir. You
+    /// may have to compile the target first before generating the compilation
+    /// database under submod dir.
+    ///
+    /// Note that compilation database generated under submod dir only covers
+    /// files in this module.
     #[command(after_help = format!(
         r#"{}Examples:{:#}
-  rua compdb gen products/ngfw_as a-dnv           # For A1000/A2000...
-  rua compdb gen products/ngfw_as a-dnv-ipv6      # For A1000/A2000... with IPv6 support
-  rua compdb gen . a-dnv                          # For A1000/A2000... at submodule directory
-  rua compdb gen --engine=bear . a-dnv            # For A1000/A2000... using bear at submodule directory
-  run compdb gen --engine=intercept-build . a-dnv # For A1000/A2000... using intercept-build at submodule directory
+  rua compdb gen products/ngfw_as a-dnv                    # For A1000/A2000...
+  rua compdb gen products/ngfw_as a-dnv-ipv6               # For A1000/A2000... with IPv6 support
+  rua compdb gen -e intercept-build products/ngfw_as a-dnv # For A1000/A2000... using intercept-build
+  rua compdb gen . a-dnv                                   # For A1000/A2000... under submod dir
+  rua compdb gen -e bear . a-dnv                           # For A1000/A2000... under submod dir using bear 
+  run compdb gen -e intercept-build . a-dnv                # For A1000/A2000... under submod dir using intercept-build
 
 {}Caution:{:#}
-  Several files are modified while running with the built-in method (default) which is faster:
-  1. When running at project root dir:
+  Some files are modified while running in built-in mode which is the default
+  and faster:
+  1. When running under project root dir:
      - scripts/last-rules.mk
      - scripts/rules.mk
      - Makefile
-  2. When running at submodule dir:
+  2. When running under submod dir:
      - scripts/last-rules.mk
      - scripts/rules.mk
-  These files may be left dirty if compdb aborted unexpectedly. You could manually restore them by execute:
+  These files may be left dirty if compdb process aborted unexpectedly. You
+  could manually restore them by execute:
   {}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{:#}"#,
       STYLE_YELLOW,
       STYLE_YELLOW,
@@ -142,8 +148,8 @@ pub(crate) enum CompdbCommand {
         generation: i64,
     },
 
-    /// Rename a compilation database generation
-    Rename {
+    /// Name a compilation database generation
+    Name {
         #[arg(
             value_name = "GENERATION",
             help = "The compilation database generation"
@@ -422,7 +428,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
         Comm::Compdb { compdb_comm } => {
             fs::create_dir_all(".rua")?;
             let conn = Connection::open(compdb::DB_FOR_COMPDB)?;
-            compdb::create_table_for_compdbs(&conn)?;
+            compdb::create_compdbs_table(&conn)?;
 
             match compdb_comm {
                 CompdbCommand::Gen {
@@ -513,7 +519,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         let generation = generation
                             .context("Neither <GENERATION> nor --all option is specified")?;
                         println!("Deleting generation {}...", generation);
-                        compdb::del_compdb(&conn, 0)?;
+                        compdb::del_compdb(&conn, generation)?;
                         println!("Deleting generation {}...ok", generation);
                     };
                     Ok(())
@@ -524,14 +530,14 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     println!("Registering the currently used compilation database...ok");
                     Ok(())
                 }
-                CompdbCommand::Rename { generation, name } => {
+                CompdbCommand::Name { generation, name } => {
                     println!(
-                        "Renaming compilation database generation {} to {}...",
+                        "Naming compilation database generation {} {}...",
                         generation, name
                     );
-                    compdb::rename_compdb(&conn, generation, name.as_str())?;
+                    compdb::name_compdb(&conn, generation, name.as_str())?;
                     println!(
-                        "Renaming compilation database generation {} to {}...ok",
+                        "Naming compilation database generation {} {}...ok",
                         generation, name
                     );
                     Ok(())
