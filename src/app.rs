@@ -119,10 +119,10 @@ pub(crate) enum CompdbCommand {
         generation: i64,
     },
 
-    /// List all compilation database generations
+    /// List all compilation database generations in store
     Ls,
 
-    /// Delete compilation database generation(s)
+    /// Delete compilation database generation(s) from store
     #[command(visible_alias = "rm")]
     Del {
         #[arg(
