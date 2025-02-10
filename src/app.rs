@@ -355,7 +355,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.21.0",
+    version = "0.21.1",
     styles = STYLES,
     about = "Devbox for StoneOS project",
     long_about = "Devbox for StoneOS project",
@@ -370,9 +370,9 @@ pub(crate) struct Cli {
 }
 
 pub(crate) fn run_app(args: &Cli) -> Result<()> {
-    let conf = RuaConf::load()?;
     match args.command.clone() {
         Comm::Clean { dirs, ignores } => {
+            let conf = RuaConf::load()?;
             let ignores = if ignores.is_some() {
                 ignores.as_ref()
             } else if let Some(conf) = conf.as_ref() {
@@ -400,6 +400,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     mut bear_path,
                     mut intercept_build_path,
                 } => {
+                    let conf = RuaConf::load()?;
                     if bear_path.is_none() {
                         if let Some(rua_conf) = conf.as_ref() {
                             if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
@@ -494,6 +495,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             image_server,
             output_format,
         } => {
+            let conf = RuaConf::load()?;
             let image_server = if let Some(image_server) = image_server {
                 Some(image_server)
             } else if let Some(conf) = conf.as_ref() {
@@ -569,6 +571,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             revisions,
             template_file,
         } => {
+            let conf = RuaConf::load()?;
             let template_file = if let Some(v) = template_file {
                 Some(v)
             } else if let Some(conf) = conf.as_ref() {
