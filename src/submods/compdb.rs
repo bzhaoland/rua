@@ -587,7 +587,7 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
         generation,
         item.0
             .as_ref()
-            .map_or_else(|| "".to_string(), |x| format!("({})", x))
+            .map_or_else(|| String::new(), |x| format!(" ({})", x))
     );
     let compile_commands = decode_all(&item.1[..])?;
     fs::write("compile_commands.json", compile_commands)?;
@@ -596,13 +596,13 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
         generation,
         item.0
             .as_ref()
-            .map_or_else(|| "".to_string(), |x| format!("({})", x))
+            .map_or_else(|| String::new(), |x| format!(" ({})", x))
     );
 
     Ok(())
 }
 
-/// Archive the compilation database into base
+/// Archive the compilation database into store as a new generation
 pub(crate) fn ark_compdb(conn: &Connection, target: &str) -> anyhow::Result<()> {
     let svninfo = SvnInfo::new()?;
     let content = fs::read_to_string("compile_commands.json")?;
@@ -610,7 +610,7 @@ pub(crate) fn ark_compdb(conn: &Connection, target: &str) -> anyhow::Result<()> 
     add_compdb(conn, &svninfo, target, &compressed)
 }
 
-/// Name a compilation database generation
+/// Name a compilation database generation in the store
 pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> anyhow::Result<()> {
     conn.execute(
         "UPDATE compdbs SET name = ?1 WHERE generation = ?2",
