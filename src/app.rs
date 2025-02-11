@@ -427,7 +427,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             clean::clean_build(dirs.as_ref(), ignores)
         }
         Comm::Compdb { compdb_comm } => {
-            let rua_cache = Path::new(compdb::DB_FOR_COMPDB);
+            let rua_cache = Path::new(compdb::COMPDB_STORE);
             if !rua_cache.is_file() {
                 print!("The compilation database store does not exist, create it? [Y/n]: ");
                 io::stdout().flush()?;
@@ -442,7 +442,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
             }
 
-            let conn = Connection::open(compdb::DB_FOR_COMPDB)?;
+            let conn = Connection::open(compdb::COMPDB_STORE)?;
             compdb::create_compdbs_table(&conn)?;
 
             match compdb_comm {
@@ -518,31 +518,47 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     compdb::gen_compdb(&product_dir, &make_target, compdb_options)?;
 
                     // Archive the newly generated compilation database
-                    println!("Registering the newly generated compilation database...");
-                    compdb::ark_compdb(&conn, make_target.as_str())?;
-                    println!("\rRegistering the newly generated compilation database...ok");
+                    eprint!("Adding the newly generated compilation database to store...");
+                    io::stderr().flush()?;
+                    let rows = compdb::ark_compdb_into_store(&conn, make_target.as_str())?;
+                    if rows == 0 {
+                        eprintln!(
+                            "\rAdding the newly generated compilation database to store...err"
+                        );
+                        bail!("Add compilation database into store failed");
+                    }
+                    eprintln!("\rAdding the newly generated compilation database to store...ok");
                     Ok(())
                 }
                 CompdbCommand::Ls => compdb::list_compdbs(&conn),
-                CompdbCommand::Use { generation } => compdb::use_compdb(&conn, generation),
+                CompdbCommand::Use { generation } => {
+                    eprint!("Switching to generation {}...", generation);
+                    io::stderr().flush()?;
+                    compdb::use_compdb(&conn, generation)?;
+                    eprintln!("\rSwitching to generation {}...ok", generation);
+                    Ok(())
+                }
                 CompdbCommand::Del { generation, all } => {
                     if all {
-                        println!("Deleting all generations...");
-                        compdb::del_compdb(&conn, 0)?;
-                        println!("Deleting all generations...ok");
+                        eprint!("Deleting all generations...");
+                        io::stderr().flush()?;
+                        compdb::del_compdb_from_store(&conn, 0)?;
+                        eprintln!("\rDeleting all generations...ok");
                     } else {
                         let generation = generation
                             .context("Neither <GENERATION> nor --all option is specified")?;
-                        println!("Deleting generation {}...", generation);
-                        compdb::del_compdb(&conn, generation)?;
-                        println!("Deleting generation {}...ok", generation);
+                        eprint!("Deleting generation {}...", generation);
+                        io::stderr().flush()?;
+                        compdb::del_compdb_from_store(&conn, generation)?;
+                        eprintln!("\rDeleting generation {}...ok", generation);
                     };
                     Ok(())
                 }
                 CompdbCommand::Add { target } => {
-                    println!("Registering the currently used compilation database...");
-                    compdb::ark_compdb(&conn, target.as_str())?;
-                    println!("Registering the currently used compilation database...ok");
+                    eprint!("Adding the currently used compilation database into store...");
+                    io::stderr().flush()?;
+                    compdb::ark_compdb_into_store(&conn, target.as_str())?;
+                    eprintln!("\rAdding the currently used compilation database into store...ok");
                     Ok(())
                 }
                 CompdbCommand::Name { generation, name } => {
@@ -551,7 +567,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         generation, name
                     );
                     io::stderr().flush()?;
-                    let rows = compdb::name_compdb(&conn, generation, name.as_str())?;
+                    let rows = compdb::name_compdb_in_store(&conn, generation, name.as_str())?;
                     if rows == 0 {
                         eprintln!(
                             "\rNaming compilation database generation {} {}...err",
@@ -571,7 +587,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         generation
                     );
                     io::stderr().flush()?;
-                    let rows = compdb::remark_compdb(&conn, generation, remark.as_str())?;
+                    let rows = compdb::remark_compdb_in_store(&conn, generation, remark.as_str())?;
                     if rows == 0 {
                         eprintln!(
                             "\rRemarking compilation database generation {}...",

@@ -451,7 +451,7 @@ struct CompdbItem {
     remark: Option<String>,
 }
 
-pub(crate) const DB_FOR_COMPDB: &str = ".rua/compdbs.db3";
+pub(crate) const COMPDB_STORE: &str = ".rua/compdbs.db3";
 
 pub(crate) fn create_compdbs_table(conn: &Connection) -> anyhow::Result<()> {
     conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, target TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, name TEXT UNIQUE, remark TEXT)", ())?;
@@ -463,12 +463,12 @@ fn add_compdb(
     svninfo: &SvnInfo,
     target: &str,
     compdb: &[u8],
-) -> anyhow::Result<()> {
+) -> anyhow::Result<usize> {
     let timestamp = chrono::Utc::now().timestamp();
-    conn.execute("INSERT INTO compdbs (branch, revision, target, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![
+    let rows = conn.execute("INSERT INTO compdbs (branch, revision, target, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![
         svninfo.branch_name(), svninfo.revision(), target, timestamp, compdb
     ])?;
-    Ok(())
+    Ok(rows)
 }
 
 const STYLE_BOLD: Style = Style::new().bold();
@@ -512,7 +512,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
         let date = chrono::Local
             .timestamp_opt(item.timestamp, 0)
             .unwrap()
-            .format("%+")
+            .format("%Y-%m-%dT%H:%M:%S")
             .to_string();
         let name = item.name.unwrap_or_else(|| "".to_string());
         let remark = item.remark.unwrap_or_else(|| "".to_string());
@@ -562,7 +562,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
 }
 
 /// Delete a compilation database generation from the store
-pub(crate) fn del_compdb(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
+pub(crate) fn del_compdb_from_store(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
     let rows = if generation > 0 {
         conn.execute("DELETE FROM compdbs WHERE generation = ?1", [generation])?
     } else {
@@ -580,40 +580,29 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()?;
-
     let item = item.context("Invalid generation id")?;
-    println!(
-        "Switching to generation {}{}...",
-        generation,
-        item.0
-            .as_ref()
-            .map_or_else(String::new, |x| format!(" ({})", x))
-    );
     let compile_commands = decode_all(&item.1[..])?;
     fs::write("compile_commands.json", compile_commands)?;
-    println!(
-        "Switching to generation {}{}...ok",
-        generation,
-        item.0
-            .as_ref()
-            .map_or_else(String::new, |x| format!(" ({})", x))
-    );
-
     Ok(())
 }
 
 /// Archive the compilation database into store as a new generation
-pub(crate) fn ark_compdb(conn: &Connection, target: &str) -> anyhow::Result<()> {
+pub(crate) fn ark_compdb_into_store(conn: &Connection, target: &str) -> anyhow::Result<usize> {
     let svninfo = SvnInfo::new()?;
     let content = fs::read_to_string("compile_commands.json")?;
     let compressed = encode_all(content.as_bytes(), 0)?;
-    add_compdb(conn, &svninfo, target, &compressed)
+    let rows = add_compdb(conn, &svninfo, target, &compressed)?;
+    Ok(rows)
 }
 
 /// Name a compilation database generation in the store
 ///
 /// Returns the number of rows that were changed, 1 on success, 0 on failure.
-pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> anyhow::Result<usize> {
+pub(crate) fn name_compdb_in_store(
+    conn: &Connection,
+    generation: i64,
+    name: &str,
+) -> anyhow::Result<usize> {
     let rows = conn.execute(
         "UPDATE compdbs SET name = ?1 WHERE generation = ?2",
         params![name, generation],
@@ -624,7 +613,7 @@ pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> any
 /// Remark a compilation database generation
 ///
 /// Returns the number of affected rows, 1 on success, 0 on failure
-pub(crate) fn remark_compdb(
+pub(crate) fn remark_compdb_in_store(
     conn: &Connection,
     generation: i64,
     remark: &str,
