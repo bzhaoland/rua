@@ -562,7 +562,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
 }
 
 /// Delete a compilation database generation from the store
-pub(crate) fn del_compdb_from_store(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
+pub(crate) fn del_compdb(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
     let rows = if generation > 0 {
         conn.execute("DELETE FROM compdbs WHERE generation = ?1", [generation])?
     } else {
@@ -587,7 +587,7 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
 }
 
 /// Archive the compilation database into store as a new generation
-pub(crate) fn ark_compdb_into_store(conn: &Connection, target: &str) -> anyhow::Result<usize> {
+pub(crate) fn ark_compdb(conn: &Connection, target: &str) -> anyhow::Result<usize> {
     let svninfo = SvnInfo::new()?;
     let content = fs::read_to_string("compile_commands.json")?;
     let compressed = encode_all(content.as_bytes(), 0)?;
@@ -598,11 +598,7 @@ pub(crate) fn ark_compdb_into_store(conn: &Connection, target: &str) -> anyhow::
 /// Name a compilation database generation in the store
 ///
 /// Returns the number of rows that were changed, 1 on success, 0 on failure.
-pub(crate) fn name_compdb_in_store(
-    conn: &Connection,
-    generation: i64,
-    name: &str,
-) -> anyhow::Result<usize> {
+pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> anyhow::Result<usize> {
     let rows = conn.execute(
         "UPDATE compdbs SET name = ?1 WHERE generation = ?2",
         params![name, generation],
@@ -613,7 +609,7 @@ pub(crate) fn name_compdb_in_store(
 /// Remark a compilation database generation
 ///
 /// Returns the number of affected rows, 1 on success, 0 on failure
-pub(crate) fn remark_compdb_in_store(
+pub(crate) fn remark_compdb(
     conn: &Connection,
     generation: i64,
     remark: &str,
