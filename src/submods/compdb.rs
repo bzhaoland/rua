@@ -542,8 +542,8 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
         ));
     }
 
-    if displayed_entries.len() == 0 {
-        println!("No compilation database generation found");
+    if displayed_entries.is_empty() {
+        println!("No compilation database generation available");
         return Ok(());
     }
 
@@ -587,7 +587,7 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
         generation,
         item.0
             .as_ref()
-            .map_or_else(|| String::new(), |x| format!(" ({})", x))
+            .map_or_else(String::new, |x| format!(" ({})", x))
     );
     let compile_commands = decode_all(&item.1[..])?;
     fs::write("compile_commands.json", compile_commands)?;
@@ -596,7 +596,7 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
         generation,
         item.0
             .as_ref()
-            .map_or_else(|| String::new(), |x| format!(" ({})", x))
+            .map_or_else(String::new, |x| format!(" ({})", x))
     );
 
     Ok(())
@@ -611,23 +611,27 @@ pub(crate) fn ark_compdb(conn: &Connection, target: &str) -> anyhow::Result<()> 
 }
 
 /// Name a compilation database generation in the store
-pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> anyhow::Result<()> {
-    conn.execute(
+///
+/// Returns the number of rows that were changed, 1 on success, 0 on failure.
+pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> anyhow::Result<usize> {
+    let rows = conn.execute(
         "UPDATE compdbs SET name = ?1 WHERE generation = ?2",
         params![name, generation],
     )?;
-    Ok(())
+    Ok(rows)
 }
 
 /// Remark a compilation database generation
+///
+/// Returns the number of affected rows, 1 on success, 0 on failure
 pub(crate) fn remark_compdb(
     conn: &Connection,
     generation: i64,
     remark: &str,
-) -> anyhow::Result<()> {
-    conn.execute(
+) -> anyhow::Result<usize> {
+    let rows = conn.execute(
         "UPDATE compdbs SET remark = ?1 WHERE generation = ?2",
         params![remark, generation],
     )?;
-    Ok(())
+    Ok(rows)
 }

@@ -1,6 +1,7 @@
-use std::fs;
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::{fs, io};
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{bail, Context, Result};
@@ -426,7 +427,21 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             clean::clean_build(dirs.as_ref(), ignores)
         }
         Comm::Compdb { compdb_comm } => {
-            fs::create_dir_all(".rua")?;
+            let rua_cache = Path::new(compdb::DB_FOR_COMPDB);
+            if !rua_cache.is_file() {
+                print!("The compilation database store does not exist, create it? [Y/n]: ");
+                io::stdout().flush()?;
+                let mut input_buf = String::new();
+                io::stdin().read_line(&mut input_buf)?;
+                let input = input_buf.trim();
+                match input.trim().to_lowercase().as_str() {
+                    "y" | "yes" | "" => {
+                        fs::create_dir_all(".rua")?;
+                    }
+                    _ => return Ok(()),
+                }
+            }
+
             let conn = Connection::open(compdb::DB_FOR_COMPDB)?;
             compdb::create_compdbs_table(&conn)?;
 
@@ -531,25 +546,41 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     Ok(())
                 }
                 CompdbCommand::Name { generation, name } => {
-                    println!(
+                    eprint!(
                         "Naming compilation database generation {} {}...",
                         generation, name
                     );
-                    compdb::name_compdb(&conn, generation, name.as_str())?;
-                    println!(
-                        "Naming compilation database generation {} {}...ok",
+                    io::stderr().flush()?;
+                    let rows = compdb::name_compdb(&conn, generation, name.as_str())?;
+                    if rows == 0 {
+                        eprintln!(
+                            "\rNaming compilation database generation {} {}...err",
+                            generation, name
+                        );
+                        bail!("No such generation");
+                    }
+                    eprintln!(
+                        "\rNaming compilation database generation {} {}...ok",
                         generation, name
                     );
                     Ok(())
                 }
                 CompdbCommand::Remark { generation, remark } => {
-                    println!(
+                    eprint!(
                         "Remarking compilation database generation {}...",
                         generation
                     );
-                    compdb::remark_compdb(&conn, generation, remark.as_str())?;
-                    println!(
-                        "Remarking compilation database generation {}...ok",
+                    io::stderr().flush()?;
+                    let rows = compdb::remark_compdb(&conn, generation, remark.as_str())?;
+                    if rows == 0 {
+                        eprintln!(
+                            "\rRemarking compilation database generation {}...",
+                            generation
+                        );
+                        bail!("No such generation");
+                    }
+                    eprintln!(
+                        "\rRemarking compilation database generation {}...ok",
                         generation
                     );
                     Ok(())
