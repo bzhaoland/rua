@@ -38,9 +38,9 @@ chmod +x ./rua
 == Changes
 
 + 功能变更:
-  - compdbs 的 table schema 变动（新增 name & remark 字段），需删除原 store (.rua/compdbs.db3)
+  - compdbs 的 table schema 变动，新增 name 和 remark 列
 + 功能新增:
-  - `rua compdb add`: 将当前使用的编译数据库添加到store中
+  - `rua compdb add`: 将当前目录中正在使用的编译数据库加到store
   - `rua compdb name`: 为store中的某个编译数据库命名，名字要求必须唯一
   - `rua compdb remark`: 为store中的某个编译数据库添加备注
 
@@ -64,6 +64,10 @@ chmod +x ./rua
       添加编译数据库备注
     ]
   )
+
+== Notes
+
++ table schema 变动，需删除原 store (.rua/compdbs.db3) 后重新生成
 
 #pagebreak()
 
