@@ -575,10 +575,10 @@ pub(crate) fn del_compdb(conn: &Connection, opt: DelOpt) -> anyhow::Result<usize
         }
         DelOpt::All => conn.execute("DELETE FROM compdbs", ())?,
         DelOpt::Newest(n) => {
-            conn.execute("DELETE FROM compdbs WHERE generation in (SELECT generation FROM compdbs ORDER BY generation DESC LIMIT ?1)", [n])?
+            conn.execute("DELETE FROM compdbs WHERE timestamp in (SELECT timestamp FROM compdbs ORDER BY generation DESC LIMIT ?1)", [n])?
         }
         DelOpt::Oldest(n) => {
-            conn.execute("DELETE FROM compdbs WHERE generation in (SELECT generation FROM compdbs ORDER BY generation ASC LIMIT ?1)", [n])?
+            conn.execute("DELETE FROM compdbs WHERE timestamp in (SELECT timestamp FROM compdbs ORDER BY generation ASC LIMIT ?1)", [n])?
         }
     };
     conn.execute("VACUUM", ())?;

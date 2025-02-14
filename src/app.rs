@@ -587,13 +587,13 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         eprint!("Deleting {} oldest generations...", n);
                         compdb::del_compdb(&conn, compdb::DelOpt::Oldest(n))?;
                         io::stderr().flush()?;
-                        eprint!("Deleting {} oldest generations...ok", n);
+                        eprintln!("\rDeleting {} oldest generations...ok", n);
                     } else if new.is_some() {
                         let n = new.unwrap();
                         eprint!("Deleting {} newest generations...", n);
                         compdb::del_compdb(&conn, compdb::DelOpt::Newest(n))?;
                         io::stderr().flush()?;
-                        eprint!("Deleting {} newest generations...ok", n);
+                        eprintln!("\rDeleting {} newest generations...ok", n);
                     } else if all {
                         eprint!("Deleting all generations...");
                         io::stderr().flush()?;
