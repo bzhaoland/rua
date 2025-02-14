@@ -43,11 +43,19 @@ chmod +x ./rua
   - `rua compdb add`: 将当前目录中正在使用的编译数据库加到store
   - `rua compdb name`: 为store中的某个编译数据库命名，名字要求必须唯一
   - `rua compdb remark`: 为store中的某个编译数据库添加备注
++ 功能增强:
+  - `rua compdb del`: 新增 `--new/--old` 选项，用于删除较新或较旧的编译数据库
 
 == Examples
 
 - `rua compdb add`:\
-  将当前使用的编译数据库（compile_commands.json）添加到store中
+  将当前使用的编译数据库（compile_commands.json）添加到store中\
+  #figure(
+    image(".assets/changelog.0_22_0.compdb_add.png"),
+    caption: [
+      添加编译数据库
+    ]
+  )
 - `rua compdb name 1 A1600-A`:\
   为store中的编译数据库 generation 1 添加一个名字，默认没有名字\
    #figure(
@@ -64,11 +72,18 @@ chmod +x ./rua
       添加编译数据库备注
     ]
   )
+- `rua compdb del --new 2`:\
+  删除store中较新的两个编译数据库\
+  #figure(
+    image(".assets/changelog.0_22_0.compdb_del_recent_2.png"),
+    caption: [
+      删除较新的两个编译数据库
+    ]
+  )
 
 == Notes
 
-+ table schema 变动，需删除原 store (.rua/compdbs.db3) 后重新生成
-
++ store schema 变动，需删除原 store (.rua/compdbs.db3) 后再运行该版本
 #pagebreak()
 
 = rua v0.21.1

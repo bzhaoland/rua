@@ -611,10 +611,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     let compdb_path = compdb_path
                         .as_ref()
                         .map_or_else(|| compdb::COMPDB_FILE, |x| x.as_str());
-                    eprint!(
-                        "Archiving compilation database ({}) into store as a new generation...",
-                        compdb_path
-                    );
+                    eprint!("Archiving compilation database into store...");
                     io::stderr().flush()?;
                     let revision = revision.unwrap_or_else(|| svninfo.revision());
                     compdb::ark_compdb(
@@ -624,10 +621,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         revision,
                         compdb_path,
                     )?;
-                    eprintln!(
-                        "\rArchiving compilation database ({}) into store as a new generation...ok",
-                        compdb_path
-                    );
+                    eprintln!("\rArchiving compilation database for into store...ok");
                     Ok(())
                 }
                 CompdbCommand::Name { generation, name } => {
