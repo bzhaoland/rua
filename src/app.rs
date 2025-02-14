@@ -124,6 +124,14 @@ pub(crate) enum CompdbCommand {
     Add {
         #[arg(value_name = "TARGET", help = "Target for the compilation database")]
         target: String,
+
+        #[arg(
+            short = 'f',
+            long = "compilation-database",
+            value_name = "COMPILATION-DATABASE",
+            help = "Use this compilation database other than the default (compile_commands.json)"
+        )]
+        compdb_path: Option<String>,
     },
 
     /// Delete compilation database generation(s) from store
@@ -520,7 +528,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     // Archive the newly generated compilation database
                     eprint!("Adding the newly generated compilation database to store...");
                     io::stderr().flush()?;
-                    let rows = compdb::ark_compdb(&conn, make_target.as_str())?;
+                    let rows =
+                        compdb::ark_compdb(&conn, make_target.as_str(), "compile_commands.json")?;
                     if rows == 0 {
                         eprintln!(
                             "\rAdding the newly generated compilation database to store...err"
@@ -554,11 +563,23 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     };
                     Ok(())
                 }
-                CompdbCommand::Add { target } => {
-                    eprint!("Adding the currently used compilation database into store...");
+                CompdbCommand::Add {
+                    target,
+                    compdb_path,
+                } => {
+                    let compdb_path = compdb_path
+                        .as_ref()
+                        .map_or_else(|| compdb::COMPDB_FILE, |x| x.as_str());
+                    eprint!(
+                        "Archiving compilation database ({}) into store as a new generation...",
+                        compdb_path
+                    );
                     io::stderr().flush()?;
-                    compdb::ark_compdb(&conn, target.as_str())?;
-                    eprintln!("\rAdding the currently used compilation database into store...ok");
+                    compdb::ark_compdb(&conn, target.as_str(), compdb_path)?;
+                    eprintln!(
+                        "\rArchiving compilation database ({}) into store as a new generation...ok",
+                        compdb_path
+                    );
                     Ok(())
                 }
                 CompdbCommand::Name { generation, name } => {

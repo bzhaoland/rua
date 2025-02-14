@@ -78,6 +78,8 @@ impl fmt::Display for CompdbRecord {
     }
 }
 
+pub(crate) const COMPDB_FILE: &str = "compile_commands.json";
+pub(crate) const COMPDB_STORE: &str = ".rua/compdbs.db3";
 const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
 const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
 const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
@@ -314,10 +316,7 @@ pub(crate) fn gen_compdb_using_builtin_method(
             "file": item.file,
         }));
     }
-    fs::write(
-        "compile_commands.json",
-        serde_json::to_string_pretty(&jcdb)?,
-    )?;
+    fs::write(COMPDB_FILE, serde_json::to_string_pretty(&jcdb)?)?;
     pb5.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Generating JCDB...{{msg:.green}}",
         step, NSTEPS
@@ -451,8 +450,6 @@ struct CompdbItem {
     remark: Option<String>,
 }
 
-pub(crate) const COMPDB_STORE: &str = ".rua/compdbs.db3";
-
 pub(crate) fn create_compdbs_table(conn: &Connection) -> anyhow::Result<()> {
     conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, target TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, name TEXT UNIQUE, remark TEXT)", ())?;
     Ok(())
@@ -582,14 +579,17 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
         .optional()?;
     let item = item.context("Invalid generation id")?;
     let compile_commands = decode_all(&item.1[..])?;
-    fs::write("compile_commands.json", compile_commands)?;
+    fs::write(COMPDB_FILE, compile_commands)?;
     Ok(())
 }
 
 /// Archive the compilation database into store as a new generation
-pub(crate) fn ark_compdb(conn: &Connection, target: &str) -> anyhow::Result<usize> {
+pub(crate) fn ark_compdb<P>(conn: &Connection, target: &str, compdb: P) -> anyhow::Result<usize>
+where
+    P: AsRef<Path>,
+{
     let svninfo = SvnInfo::new()?;
-    let content = fs::read_to_string("compile_commands.json")?;
+    let content = fs::read_to_string(compdb)?;
     let compressed = encode_all(content.as_bytes(), 0)?;
     let rows = add_compdb(conn, &svninfo, target, &compressed)?;
     Ok(rows)
