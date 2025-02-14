@@ -4,9 +4,9 @@ use std::str::FromStr;
 use std::{fs, io};
 
 use anstyle::{AnsiColor, Color, Style};
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use clap::builder::styling;
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{ArgGroup, CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use indexmap::IndexMap;
 use rusqlite::Connection;
@@ -19,6 +19,7 @@ use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
 use crate::submods::{clean, initsh};
+use crate::utils;
 
 const STYLE_YELLOW: Style = Style::new()
     .fg_color(Some(Color::Ansi(AnsiColor::Yellow)))
@@ -32,6 +33,7 @@ const STYLE_CYAN: Style = Style::new()
 const STYLE_RED: Style = Style::new()
     .fg_color(Some(Color::Ansi(AnsiColor::Red)))
     .bold();
+const STYLE_ITALIC: Style = Style::new().italic();
 const STYLES: styling::Styles = styling::Styles::styled()
     .header(STYLE_YELLOW)
     .usage(STYLE_YELLOW)
@@ -126,6 +128,14 @@ pub(crate) enum CompdbCommand {
         target: String,
 
         #[arg(
+            short = 'r',
+            long = "revision",
+            value_name = "REVISION",
+            help = "Revision for compilation database (defaults to current repo revision)"
+        )]
+        revision: Option<i64>,
+
+        #[arg(
             short = 'f',
             long = "compilation-database",
             value_name = "COMPILATION-DATABASE",
@@ -135,17 +145,29 @@ pub(crate) enum CompdbCommand {
     },
 
     /// Delete compilation database generation(s) from store
-    #[command(visible_alias = "rm")]
+    #[command(visible_alias = "rm", group = ArgGroup::new("number").args(["generation", "all", "new", "old"]))]
     Del {
-        #[arg(
-            value_name = "GENERATION-ID",
-            help = "Generation to delete",
-            conflicts_with = "all"
-        )]
-        generation: Option<i64>,
+        #[arg(value_name = "GENERATION-ID", help = "Generation to delete")]
+        one: Option<i64>,
 
         #[arg(short = 'a', long = "all", help = "Remove all generations")]
         all: bool,
+
+        #[arg(
+            short = 'n',
+            long = "new",
+            value_name = "N",
+            help = format!("Remove {}N{:#} newest generations", STYLE_ITALIC, STYLE_ITALIC)
+        )]
+        new: Option<usize>,
+
+        #[arg(
+            short = 'o',
+            long = "old",
+            value_name = "N",
+            help = format!("Remove {}N{:#} oldest generations", STYLE_ITALIC, STYLE_ITALIC)
+        )]
+        old: Option<usize>,
     },
 
     /// List all compilation database generations in store
@@ -463,6 +485,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     mut intercept_build_path,
                 } => {
                     let conf = RuaConf::load()?;
+                    let svninfo = utils::SvnInfo::new()?;
                     if bear_path.is_none() {
                         if let Some(rua_conf) = conf.as_ref() {
                             if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
@@ -523,13 +546,18 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         bear_path,
                         intercept_build_path,
                     };
-                    compdb::gen_compdb(&product_dir, &make_target, compdb_options)?;
+                    compdb::gen_compdb(&svninfo, &product_dir, &make_target, compdb_options)?;
 
                     // Archive the newly generated compilation database
                     eprint!("Adding the newly generated compilation database to store...");
                     io::stderr().flush()?;
-                    let rows =
-                        compdb::ark_compdb(&conn, make_target.as_str(), "compile_commands.json")?;
+                    let rows = compdb::ark_compdb(
+                        &conn,
+                        svninfo.branch_name(),
+                        make_target.as_str(),
+                        svninfo.revision(),
+                        "compile_commands.json",
+                    )?;
                     if rows == 0 {
                         eprintln!(
                             "\rAdding the newly generated compilation database to store...err"
@@ -547,26 +575,39 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     eprintln!("\rSwitching to generation {}...ok", generation);
                     Ok(())
                 }
-                CompdbCommand::Del { generation, all } => {
-                    if all {
-                        eprint!("Deleting all generations...");
-                        io::stderr().flush()?;
-                        compdb::del_compdb(&conn, 0)?;
-                        eprintln!("\rDeleting all generations...ok");
-                    } else {
-                        let generation = generation
-                            .context("Neither <GENERATION> nor --all option is specified")?;
+                CompdbCommand::Del { one, old, new, all } => {
+                    if one.is_some() {
+                        let generation = one.unwrap();
                         eprint!("Deleting generation {}...", generation);
                         io::stderr().flush()?;
-                        compdb::del_compdb(&conn, generation)?;
+                        compdb::del_compdb(&conn, compdb::DelOpt::Generation(generation))?;
                         eprintln!("\rDeleting generation {}...ok", generation);
+                    } else if old.is_some() {
+                        let n = new.unwrap();
+                        eprint!("Deleting {} oldest generations...", n);
+                        compdb::del_compdb(&conn, compdb::DelOpt::Oldest(n))?;
+                        io::stderr().flush()?;
+                        eprint!("Deleting {} oldest generations...ok", n);
+                    } else if new.is_some() {
+                        let n = new.unwrap();
+                        eprint!("Deleting {} newest generations...", n);
+                        compdb::del_compdb(&conn, compdb::DelOpt::Newest(n))?;
+                        io::stderr().flush()?;
+                        eprint!("Deleting {} newest generations...ok", n);
+                    } else if all {
+                        eprint!("Deleting all generations...");
+                        io::stderr().flush()?;
+                        compdb::del_compdb(&conn, compdb::DelOpt::All)?;
+                        eprintln!("\rDeleting all generations...ok");
                     };
                     Ok(())
                 }
                 CompdbCommand::Add {
                     target,
+                    revision,
                     compdb_path,
                 } => {
+                    let svninfo = utils::SvnInfo::new()?;
                     let compdb_path = compdb_path
                         .as_ref()
                         .map_or_else(|| compdb::COMPDB_FILE, |x| x.as_str());
@@ -575,7 +616,14 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         compdb_path
                     );
                     io::stderr().flush()?;
-                    compdb::ark_compdb(&conn, target.as_str(), compdb_path)?;
+                    let revision = revision.unwrap_or_else(|| svninfo.revision());
+                    compdb::ark_compdb(
+                        &conn,
+                        target.as_str(),
+                        svninfo.branch_name(),
+                        revision,
+                        compdb_path,
+                    )?;
                     eprintln!(
                         "\rArchiving compilation database ({}) into store as a new generation...ok",
                         compdb_path

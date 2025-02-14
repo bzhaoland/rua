@@ -405,16 +405,16 @@ pub(crate) fn gen_compdb_using_bear(
 }
 
 pub(crate) fn gen_compdb(
+    svninfo: &SvnInfo,
     make_directory: &str,
     make_target: &str,
     options: CompdbOptions,
 ) -> anyhow::Result<()> {
-    let svninfo = SvnInfo::new()?;
     let engine = options.engine.unwrap_or(CompdbEngine::BuiltIn);
 
     match engine {
         CompdbEngine::BuiltIn => {
-            gen_compdb_using_builtin_method(&svninfo, make_directory, make_target, &options.defines)
+            gen_compdb_using_builtin_method(svninfo, make_directory, make_target, &options.defines)
         }
         CompdbEngine::InterceptBuild => {
             let intercept_build_path = options
@@ -422,7 +422,7 @@ pub(crate) fn gen_compdb(
                 .as_deref()
                 .unwrap_or(DEFAULT_INTERCEPT_BUILD_PATH);
             gen_compdb_using_intercept_build(
-                &svninfo,
+                svninfo,
                 intercept_build_path,
                 make_directory,
                 make_target,
@@ -430,7 +430,7 @@ pub(crate) fn gen_compdb(
         }
         CompdbEngine::Bear => {
             let bear_path = options.bear_path.as_deref().unwrap_or(DEFAULT_BEAR_PATH);
-            gen_compdb_using_bear(&svninfo, bear_path, make_directory, make_target)
+            gen_compdb_using_bear(svninfo, bear_path, make_directory, make_target)
         }
     }?;
 
@@ -457,13 +457,14 @@ pub(crate) fn create_compdbs_table(conn: &Connection) -> anyhow::Result<()> {
 
 fn add_compdb(
     conn: &Connection,
-    svninfo: &SvnInfo,
+    branch: &str,
+    revision: i64,
     target: &str,
     compdb: &[u8],
 ) -> anyhow::Result<usize> {
     let timestamp = chrono::Utc::now().timestamp();
     let rows = conn.execute("INSERT INTO compdbs (branch, revision, target, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![
-        svninfo.branch_name(), svninfo.revision(), target, timestamp, compdb
+        branch, revision, target, timestamp, compdb
     ])?;
     Ok(rows)
 }
@@ -558,12 +559,27 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum DelOpt {
+    Generation(i64),
+    Oldest(usize),
+    Newest(usize),
+    All,
+}
+
 /// Delete a compilation database generation from the store
-pub(crate) fn del_compdb(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
-    let rows = if generation > 0 {
-        conn.execute("DELETE FROM compdbs WHERE generation = ?1", [generation])?
-    } else {
-        conn.execute("DELETE FROM compdbs", ())?
+pub(crate) fn del_compdb(conn: &Connection, opt: DelOpt) -> anyhow::Result<usize> {
+    let rows = match opt {
+        DelOpt::Generation(v) => {
+            conn.execute("DELETE FROM compdbs WHERE generation = ?1", [v])?
+        }
+        DelOpt::All => conn.execute("DELETE FROM compdbs", ())?,
+        DelOpt::Newest(n) => {
+            conn.execute("DELETE FROM compdbs WHERE generation in (SELECT generation FROM compdbs ORDER BY generation DESC LIMIT ?1)", [n])?
+        }
+        DelOpt::Oldest(n) => {
+            conn.execute("DELETE FROM compdbs WHERE generation in (SELECT generation FROM compdbs ORDER BY generation ASC LIMIT ?1)", [n])?
+        }
     };
     conn.execute("VACUUM", ())?;
     Ok(rows)
@@ -584,14 +600,19 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
 }
 
 /// Archive the compilation database into store as a new generation
-pub(crate) fn ark_compdb<P>(conn: &Connection, target: &str, compdb: P) -> anyhow::Result<usize>
+pub(crate) fn ark_compdb<P>(
+    conn: &Connection,
+    target: &str,
+    branch: &str,
+    revision: i64,
+    compdb: P,
+) -> anyhow::Result<usize>
 where
     P: AsRef<Path>,
 {
-    let svninfo = SvnInfo::new()?;
     let content = fs::read_to_string(compdb)?;
     let compressed = encode_all(content.as_bytes(), 0)?;
-    let rows = add_compdb(conn, &svninfo, target, &compressed)?;
+    let rows = add_compdb(conn, branch, revision, target, &compressed)?;
     Ok(rows)
 }
 

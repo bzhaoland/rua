@@ -45,7 +45,7 @@ pub struct SvnInfo {
     relative_url: String,
     repo_root: String,
     repo_uuid: String,
-    revision: usize,
+    revision: i64,
     node_kind: String,
     schedule: String,
     last_changed_author: String,
@@ -152,7 +152,7 @@ Last Changed Date: ([^\n]+)"#,
     }
 
     #[allow(dead_code)]
-    pub fn revision(&self) -> usize {
+    pub fn revision(&self) -> i64 {
         self.revision
     }
 
