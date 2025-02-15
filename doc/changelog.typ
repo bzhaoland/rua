@@ -1,6 +1,6 @@
 #set page(height: auto)
 #set text(font: ("Monaspace Neon", "Noto Sans CJK SC"), lang: "zh")
-#show raw: set text(font: "Monaspace Neon")
+#show raw: set text(font: ("Monaspace Neon", "Noto Sans CJK SC"))
 #set heading(offset: 0)
 
 #page(
