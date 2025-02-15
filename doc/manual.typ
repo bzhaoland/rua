@@ -121,8 +121,9 @@ rua compdb add <构建目标>
 === 删除编译数据库
 
 ```bash
-rua compdb del <GENERATION-ID>
+rua compdb del [OPTIONS] [GENERATION-ID]
 ```
+
 #figure(
   image(".assets/manual.compdbdelhelp.png")
 )
@@ -132,6 +133,7 @@ rua compdb del <GENERATION-ID>
 ```bash
 rua compdb ls
 ```
+
 #figure(
   image(".assets/manual.compdblshelp.png")
 )
