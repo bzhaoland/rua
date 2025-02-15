@@ -3,7 +3,7 @@ use std::path;
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{Context, Result};
-use crossterm::terminal;
+use console::Term;
 use serde::{Deserialize, Serialize};
 
 const STYLE_GREEN: Style = Style::new()
@@ -54,7 +54,7 @@ pub(crate) fn show_compile_command(filename: &str, compdb: &path::Path) -> Resul
         return Ok(());
     }
 
-    let width = terminal::window_size()?.columns;
+    let width = Term::stdout().size().1;
     let head_decor = format!("{STYLE_GREEN}{}{STYLE_GREEN:#}", "=".repeat(width as usize));
     let data_decor = format!("{STYLE_GREEN}{}{STYLE_GREEN:#}", "-".repeat(width as usize));
 

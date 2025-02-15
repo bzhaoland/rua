@@ -8,6 +8,7 @@ use anstyle::{AnsiColor, Color, Style};
 use anyhow::{self, bail, Context, Result};
 use bitflags::bitflags;
 use clap::ValueEnum;
+use console::Term;
 use regex::Regex;
 use rustix::system::uname;
 use serde_json::{json, Value};
@@ -414,7 +415,7 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
 
 fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     // Style control
-    let term_size = crossterm::terminal::window_size()?;
+    let term_cols = Term::stdout().size().1;
 
     if compile_infos.is_empty() {
         println!("No matched info.");
@@ -424,11 +425,11 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     // Decorations
     let outer_decor = format!(
         "{COLOR_GREEN}{}{COLOR_GREEN:#}",
-        "=".repeat(term_size.columns as usize)
+        "=".repeat(term_cols as usize)
     );
     let inner_decor = format!(
         "{COLOR_GREEN}{}{COLOR_GREEN:#}",
-        "-".repeat(term_size.columns as usize)
+        "-".repeat(term_cols as usize)
     );
 
     println!(
