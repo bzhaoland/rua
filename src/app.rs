@@ -583,7 +583,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         compdb::del_compdb(&conn, compdb::DelOpt::Generation(generation))?;
                         eprintln!("\rDeleting generation {}...ok", generation);
                     } else if old.is_some() {
-                        let n = new.unwrap();
+                        let n = old.unwrap();
                         eprint!("Deleting {} oldest generations...", n);
                         compdb::del_compdb(&conn, compdb::DelOpt::Oldest(n))?;
                         io::stderr().flush()?;
