@@ -1,16 +1,16 @@
 use std::fs;
 use std::path;
 
-use anstyle::{AnsiColor, Color, Style};
+use anstyle::{Ansi256Color, Color, Style};
 use anyhow::{Context, Result};
 use console::Term;
 use serde::{Deserialize, Serialize};
 
 const STYLE_GREEN: Style = Style::new()
-    .fg_color(Some(Color::Ansi(AnsiColor::Green)))
+    .fg_color(Some(Color::Ansi256(Ansi256Color(2))))
     .bold();
 const STYLE_YELLOW: Style = Style::new()
-    .fg_color(Some(Color::Ansi(AnsiColor::Yellow)))
+    .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

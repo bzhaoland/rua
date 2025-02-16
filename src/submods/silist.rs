@@ -4,10 +4,11 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 
+use anstyle::{Ansi256Color, Color, Style};
 use anyhow::anyhow;
 
 const COLOR_ANSI_GRN: anstyle::Style =
-    anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green)));
+    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
 
 /// Generate filelist for SourceInsight editor.
 ///

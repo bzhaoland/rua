@@ -4,7 +4,7 @@ use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader};
 
-use anstyle::{AnsiColor, Color, Style};
+use anstyle::{Ansi256Color, Color, Style};
 use anyhow::{self, bail, Context, Result};
 use bitflags::bitflags;
 use clap::ValueEnum;
@@ -221,8 +221,8 @@ pub(crate) fn load_makeinfo_table(svninfo: &SvnInfo) -> Result<HashMap<String, V
     Ok(mkinfos)
 }
 
-const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
-const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
+const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
+const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 
 /// Generate the make information for the given platform.
 pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<Vec<CompileInfo>> {

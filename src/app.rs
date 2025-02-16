@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fs, io};
 
-use anstyle::{AnsiColor, Color, Style};
+use anstyle::{Ansi256Color, Color, Style};
 use anyhow::{bail, Result};
 use clap::builder::styling;
 use clap::{ArgGroup, CommandFactory, Parser, Subcommand};
@@ -18,20 +18,21 @@ use crate::submods::perfan;
 use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
-use crate::submods::{clean, initsh};
+use crate::submods::clean;
+use crate::submods::initsh;
 use crate::utils;
 
 const STYLE_YELLOW: Style = Style::new()
-    .fg_color(Some(Color::Ansi(AnsiColor::Yellow)))
+    .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
 const STYLE_GREEN: Style = Style::new()
-    .fg_color(Some(Color::Ansi(AnsiColor::Green)))
+    .fg_color(Some(Color::Ansi256(Ansi256Color(2))))
     .bold();
 const STYLE_CYAN: Style = Style::new()
-    .fg_color(Some(Color::Ansi(AnsiColor::Cyan)))
+    .fg_color(Some(Color::Ansi256(Ansi256Color(6))))
     .bold();
 const STYLE_RED: Style = Style::new()
-    .fg_color(Some(Color::Ansi(AnsiColor::Red)))
+    .fg_color(Some(Color::Ansi256(Ansi256Color(1))))
     .bold();
 const STYLE_ITALIC: Style = Style::new().italic();
 const STYLES: styling::Styles = styling::Styles::styled()
