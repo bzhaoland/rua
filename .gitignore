@@ -1,3 +1,5 @@
 target/**
 .vscode/**
+rua.fossil
+.fslckout
 compile_commands.json
