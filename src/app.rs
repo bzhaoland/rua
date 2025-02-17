@@ -12,14 +12,14 @@ use indexmap::IndexMap;
 use rusqlite::Connection;
 
 use crate::config::RuaConf;
+use crate::submods::clean;
 use crate::submods::compdb::{self, CompdbEngine};
 use crate::submods::mkinfo::{self, MakeOpts};
 use crate::submods::perfan;
 use crate::submods::review;
+use crate::submods::shinit;
 use crate::submods::showcc;
 use crate::submods::silist;
-use crate::submods::clean;
-use crate::submods::shinit;
 use crate::utils;
 
 const STYLE_YELLOW: Style = Style::new()
@@ -521,8 +521,9 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         }
                     }
 
+                    // Add defines from command line and configuration.
+                    // If a define appears multiplely, use the last one.
                     let mut defines_map: IndexMap<String, String> = IndexMap::new();
-                    // Add defines provided as command line arguments
                     for item in defines.iter() {
                         if let Some((k, v)) = item.split_once("=") {
                             defines_map.insert(k.to_owned(), v.to_owned());
@@ -530,12 +531,16 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             bail!("Invalid key-value pair: {}", item);
                         }
                     }
-                    // Add defines defined in configuration file
+
+                    // Add defines from configuration, repsect the defines from command line.
+                    // If a define appears multiplely, use the first one.
                     if let Some(rua_conf) = conf.as_ref() {
                         if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
                             if let Some(defines_conf) = compdb_conf.defines.as_ref() {
                                 for (k, v) in defines_conf {
-                                    defines_map.insert(k.to_owned(), v.to_owned());
+                                    defines_map
+                                        .entry(k.to_owned())
+                                        .or_insert_with(|| v.to_owned());
                                 }
                             }
                         }
@@ -550,7 +555,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     compdb::gen_compdb(&svninfo, &product_dir, &make_target, compdb_options)?;
 
                     // Archive the newly generated compilation database
-                    eprint!("Adding the newly generated compilation database to store...");
+                    eprint!("Archiving the newly generated compilation database to store...");
                     io::stderr().flush()?;
                     let rows = compdb::ark_compdb(
                         &conn,
@@ -560,12 +565,12 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         "compile_commands.json",
                     )?;
                     if rows == 0 {
-                        eprintln!(
-                            "\rAdding the newly generated compilation database to store...err"
+                        eprintln!();
+                        bail!(
+                            "\rFailed to archive the newly generated compilation database to store"
                         );
-                        bail!("Add compilation database into store failed");
                     }
-                    eprintln!("\rAdding the newly generated compilation database to store...ok");
+                    eprintln!("\rArchiving the newly generated compilation database to store...ok");
                     Ok(())
                 }
                 CompdbCommand::Ls => compdb::list_compdbs(&conn),
@@ -577,27 +582,28 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     Ok(())
                 }
                 CompdbCommand::Del { one, old, new, all } => {
+                    let mut stderr_ = io::stderr();
                     if one.is_some() {
                         let generation = one.unwrap();
                         eprint!("Deleting generation {}...", generation);
-                        io::stderr().flush()?;
+                        stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::Generation(generation))?;
                         eprintln!("\rDeleting generation {}...ok", generation);
                     } else if old.is_some() {
                         let n = old.unwrap();
                         eprint!("Deleting {} oldest generations...", n);
+                        stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::Oldest(n))?;
-                        io::stderr().flush()?;
                         eprintln!("\rDeleting {} oldest generations...ok", n);
                     } else if new.is_some() {
                         let n = new.unwrap();
                         eprint!("Deleting {} newest generations...", n);
+                        stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::Newest(n))?;
-                        io::stderr().flush()?;
                         eprintln!("\rDeleting {} newest generations...ok", n);
                     } else if all {
                         eprint!("Deleting all generations...");
-                        io::stderr().flush()?;
+                        stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::All)?;
                         eprintln!("\rDeleting all generations...ok");
                     };
