@@ -19,7 +19,7 @@ use crate::submods::review;
 use crate::submods::showcc;
 use crate::submods::silist;
 use crate::submods::clean;
-use crate::submods::initsh;
+use crate::submods::shinit;
 use crate::utils;
 
 const STYLE_YELLOW: Style = Style::new()
@@ -789,7 +789,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             tokio::runtime::Runtime::new()?.block_on(review::review(&options))
         }
         Comm::Init { shell } => {
-            initsh::gen_completion(&mut Cli::command(), shell);
+            shinit::gen_completion(&mut Cli::command(), shell);
             Ok(())
         }
     }
