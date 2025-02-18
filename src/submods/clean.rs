@@ -1,11 +1,14 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::str::FromStr;
 use std::{env, fs};
 
 use anyhow::{anyhow, bail, Context};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
+use crate::config::RUA_DIR_OF_PROJ;
+use crate::submods::compdb::COMPDB_FILE;
 use crate::utils::{SvnInfo, TICK_CHARS, TICK_INTERVAL};
 
 fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
@@ -45,13 +48,16 @@ pub fn clean_build(
         );
     }
 
-    let ignores = ignores
+    let mut ignores = ignores
         .map(|x| {
             x.iter()
                 .map(|p| normalize_path(Path::new(p)))
                 .collect::<Vec<PathBuf>>()
         })
         .unwrap_or_default();
+    ignores.push(PathBuf::from_str(RUA_DIR_OF_PROJ)?);
+    ignores.push(PathBuf::from_str(".cache")?); // clangd cache
+    ignores.push(PathBuf::from_str(COMPDB_FILE)?);
 
     let num_steps = 3;
     let mut step: usize = 0;

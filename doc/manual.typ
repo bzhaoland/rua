@@ -4,7 +4,6 @@
 #set heading(numbering: "1.1")
 
 #page(
-  height: auto,
   margin: 2cm,
   header: none,
   footer: none,

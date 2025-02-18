@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::SvnInfo;
 
+pub(crate) const RUA_DIR_OF_PROJ: &str = ".rua";
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CleanConf {
     pub ignores: Option<Vec<String>>,
