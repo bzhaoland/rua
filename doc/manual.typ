@@ -106,66 +106,102 @@ rua compdb gen <构建路径> <构建目标>
 === 归档编译数据库
 
 ```bash
-rua compdb add <构建目标>
+❯ rua compdb add -h
+Add the currently used compilation database into store as a new generation
+
+Usage: rua compdb add [OPTIONS] <TARGET>
+
+Arguments:
+  <TARGET>  Target for the compilation database
+
+Options:
+  -r, --revision <REVISION>
+          Revision for compilation database (defaults to current repo revision)
+  -f, --compilation-database <COMPILATION-DATABASE>
+          Use this compilation database other than the default (compile_commands.json)
+  -h, --help
+          Print help
 ```
 
 - 构建目标: `a-dnv` or `hygon`...
 
-#figure(
-  image(
-    ".assets/manual.compdbaddhelp.png"
-  )
-)
-
 === 删除编译数据库
 
 ```bash
-rua compdb del [OPTIONS] [GENERATION-ID]
-```
+❯ rua compdb del -h
+Delete compilation database generation(s) from store
 
-#figure(
-  image(".assets/manual.compdbdelhelp.png")
-)
+Usage: rua compdb del [OPTIONS] [GENERATION-ID]
+
+Arguments:
+  [GENERATION-ID]  Generation to delete
+
+Options:
+  -a, --all      Remove all generations
+  -n, --new <N>  Remove N newest generations
+  -o, --old <N>  Remove N oldest generations
+  -h, --help     Print help
+```
 
 === 列出编译数据库
 
 ```bash
-rua compdb ls
-```
+❯ rua compdb ls -h
+List all compilation database generations in store
 
-#figure(
-  image(".assets/manual.compdblshelp.png")
-)
+Usage: rua compdb ls
+
+Options:
+  -h, --help  Print help
+```
 
 === 选择编译数据库
 
 ```bash
-rua compdb use <GENERATION-ID>
-```
+❯ rua compdb use -h
+Select a compilation database generation from store to use
 
-#figure(
-  image(".assets/manual.compdbusehelp.png")
-)
+Usage: rua compdb use <GENERATION>
+
+Arguments:
+  <GENERATION>  Compilation database generation id
+
+Options:
+  -h, --help  Print help
+```
 
 === 命名编译数据库
 
 ```bash
-rua compdb name <GENERATION-ID> <名字>
-```
+❯ rua compdb name -h
+Name a compilation database generation
 
-#figure(
-  image(".assets/manual.compdbnamehelp.png")
-)
+Usage: rua compdb name <GENERATION> <NAME>
+
+Arguments:
+  <GENERATION>  The compilation database generation
+  <NAME>        Name for the compilation database
+
+Options:
+  -h, --help  Print help
+```
 
 === 备注编译数据库
 
 ```bash
+❯ rua compdb remark -h
 rua compdb remark <GENERATION-ID> <备注>
-```
+Remark a compilation database generation
 
-#figure(
-  image(".assets/manual.compdbremarkhelp.png")
-)
+Usage: rua compdb remark <GENERATION> <REMARK>
+
+Arguments:
+  <GENERATION>  The compilation database generation
+  <REMARK>      Remark for the compilation database generation
+
+Options:
+  -h, --help  Print help
+```
 
 == 示例
 
@@ -215,9 +251,19 @@ rua compdb remark <GENERATION-ID> <备注>
 
 用户可通过 `rua showcc -h` 查看帮助信息：
 
-#figure(
-  image(".assets/manual.showcchelp.png")
-)
+```bash
+❯ rua showcc -h
+Show all possible compile commands for filename (based on compilation database)
+
+Usage: rua showcc [OPTIONS] <SOURCE-FILE>
+
+Arguments:
+  <SOURCE-FILE>  Source file name for which to fetch all the available compile commands
+
+Options:
+  -c, --compdb <COMPDB>  Compilation database (defaults to file "compile_commands.json" in the current directory)
+  -h, --help             Print help
+```
 
 == 示例
 
@@ -245,12 +291,25 @@ rua compdb remark <GENERATION-ID> <备注>
 == 用法
 
 ```bash
-rua review -h
-```
+⬢ [podman] ❯ rua review -h
+Start a new review request or refresh the existing one if review-id provided
 
-#figure(
-  image(".assets/manual.reviewhelp.png")
-)
+Usage: rua review [OPTIONS] --bug <BUG> [FILE]...
+
+Arguments:
+  [FILE]...  Files to be reviewed
+
+Options:
+  -n, --bug <BUG>                      Bug id for this review request (required)
+  -r, --review-id <REVIEW-ID>          Existing review id
+  -d, --diff-file <DIFF-FILE>          Diff file to be used
+  -u, --reviewers <REVIEWERS>          Reviewers
+  -b, --branch <BRANCH>                Branch name for this commit
+  -p, --repo <REPO>                    Repository name
+  -s, --revision <REVISION>            Revision to be used
+  -t, --template-file <TEMPLATE-FILE>  Use customized template file (please ensure it can run through svn commit hooks)
+  -h, --help                           Print help
+```
 
 == 示例
 
@@ -264,7 +323,25 @@ rua review -h
 
 = perfan
 
+`rua perfan` 用于对 profiling text 进行指令地址映射。
+
 == 用法
+
+```bash
+❯ rua perfan -h
+Extensively map instructions to file locations (inline expanded)
+
+Usage: rua perfan [OPTIONS] --daemon <DAEMON> --bin <BIN> <FILE>
+
+Arguments:
+  <FILE>  File to process (perf annotate output)
+
+Options:
+  -d, --daemon <DAEMON>  Only resolve addresses owned by this daemon
+  -o, --outfmt <OUTFMT>  Output format [default: table] [possible values: json, table]
+  -b, --bin <BIN>        The binary file used to resolve the addresses
+  -h, --help             Print help
+```
 
 == 示例
 
@@ -272,6 +349,50 @@ rua review -h
 
 = init
 
+rua 可以在 bash/zsh/fish 等 shell 中自动补全。
+
 == 用法
 
+用户可以通过 `rua init -h` 查看帮助信息：
+
+```bash
+❯ rua init -h
+Generate completion for the given shell
+
+Usage: rua init <SHELL>
+
+Arguments:
+  <SHELL>  Shell type [possible values: bash, elvish, fish, powershell, zsh]
+
+Options:
+  -h, --help  Print help
+
+Note:
+  eval "$(rua init bash)"  # Append this line to ~/.bashrc
+  eval "$(rua init zsh)"   # Append this line to ~/.zshrc
+```
+
 == 示例
+
++ 在 bash 中自动补全:
+  ```bash
+  eval "$(rua init bash)"
+  ```
++ 在 zsh 中自动补全:
+  ```bash
+  eval "$(rua init zsh)"
+  ```
++ 在 fish 中自动补全:
+  ```bash
+  eval (rua init fish)
+  ```
++ 在 powershell 中自动补全:
+  ```bash
+  rua init powershell | Out-String | Invoke-Expression
+  ```
++ 在 elvish 中自动补全:
+  ```bash
+  eval (rua init elvish)
+  ```
+#pagebreak()
+
