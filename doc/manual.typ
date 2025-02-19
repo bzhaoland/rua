@@ -394,5 +394,3 @@ Note:
   ```bash
   eval (rua init elvish)
   ```
-#pagebreak()
-
