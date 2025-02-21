@@ -192,9 +192,12 @@ pub(crate) fn load_product_infos(svninfo: &SvnInfo) -> Result<Vec<ProductInfo>> 
     Ok(product_info_list)
 }
 
-pub(crate) fn load_makeinfo_table(svninfo: &SvnInfo) -> Result<HashMap<String, Vec<MakeInfo>>> {
-    let proj_root = svninfo.working_copy_root_path();
-    let makeinfo_path = proj_root.join("scripts/platform_table");
+/// Read the registry about making target into a vec
+#[allow(unused)]
+pub(crate) fn load_mkinfo_registry(svninfo: &SvnInfo) -> anyhow::Result<Vec<MakeInfo>> {
+    let makeinfo_path = svninfo
+        .working_copy_root_path()
+        .join("scripts/platform_table");
     if !makeinfo_path.is_file() {
         bail!(r#"File "{}" not available"#, makeinfo_path.display());
     }
@@ -206,7 +209,7 @@ pub(crate) fn load_makeinfo_table(svninfo: &SvnInfo) -> Result<HashMap<String, V
     Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
         .context("Failed to build pattern for makeinfo")?;
     let mut line = String::with_capacity(512);
-    let mut mkinfos: HashMap<String, Vec<MakeInfo>> = HashMap::with_capacity(256);
+    let mut mkinfos: Vec<MakeInfo> = Vec::with_capacity(128);
     while makeinfo_reader.read_line(&mut line)? != 0 {
         if let Some(captures) = makeinfo_pattern.captures(&line) {
             let makeinfo_item = MakeInfo {
@@ -215,15 +218,8 @@ pub(crate) fn load_makeinfo_table(svninfo: &SvnInfo) -> Result<HashMap<String, V
                 make_target: captures.get(2).unwrap().as_str().to_string(),
                 make_directory: captures.get(3).unwrap().as_str().to_string(),
             };
-
-            mkinfos
-                .entry(makeinfo_item.platform_model.clone())
-                .or_insert(Vec::with_capacity(1));
-
-            let v = mkinfos.get_mut(&makeinfo_item.platform_model).unwrap();
-            v.push(makeinfo_item);
+            mkinfos.push(makeinfo_item);
         }
-
         line.clear()
     }
     mkinfos.shrink_to_fit();
@@ -231,11 +227,27 @@ pub(crate) fn load_makeinfo_table(svninfo: &SvnInfo) -> Result<HashMap<String, V
     Ok(mkinfos)
 }
 
+pub(crate) fn load_makeinfo_hashtable(svninfo: &SvnInfo) -> Result<HashMap<String, Vec<MakeInfo>>> {
+    let mut mkinfo_hashtable: HashMap<String, Vec<MakeInfo>> = HashMap::with_capacity(256);
+    for item in load_mkinfo_registry(svninfo)? {
+        mkinfo_hashtable
+            .entry(item.platform_model.clone())
+            .or_insert(Vec::with_capacity(1));
+        let v = mkinfo_hashtable
+            .get_mut(item.platform_model.as_str())
+            .unwrap();
+        v.push(item);
+    }
+    mkinfo_hashtable.shrink_to_fit();
+
+    Ok(mkinfo_hashtable)
+}
+
 const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
 const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 
 /// Generate the make information for the given platform.
-pub(crate) fn gen_mkinfo_with_nickname(
+pub(crate) fn gen_mkinfo_by_nickname(
     nickname: &str,
     makeopts: MakeOpts,
 ) -> anyhow::Result<Vec<CompileInfo>> {
@@ -255,7 +267,7 @@ pub(crate) fn gen_mkinfo_with_nickname(
         .into_iter()
         .filter(|x| nickname_pattern.is_match(x.product_name_long.as_str()))
         .collect::<Vec<ProductInfo>>();
-    let mkinfos = load_makeinfo_table(&svninfo)?;
+    let mkinfos = load_makeinfo_hashtable(&svninfo)?;
 
     let has_family_field_in_plattable = match svninfo
         .branch_name()
@@ -412,7 +424,7 @@ pub(crate) fn gen_mkinfo_with_nickname(
     anyhow::Ok(compile_infos)
 }
 
-pub(crate) fn gen_mkinfo_with_target(
+pub(crate) fn gen_mkinfo_by_target(
     target: &str,
     makeopts: MakeOpts,
 ) -> anyhow::Result<Vec<CompileInfo>> {
@@ -427,8 +439,8 @@ pub(crate) fn gen_mkinfo_with_target(
         );
     }
 
-    let mkinfos = load_makeinfo_table(&svninfo)?;
-    let product_infos = load_product_infos(&svninfo)?;
+    let mkinfo_list = load_mkinfo_registry(&svninfo)?;
+    let product_list = load_product_infos(&svninfo)?;
 
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let mut imagename_suffix = String::with_capacity(32);
@@ -476,86 +488,84 @@ pub(crate) fn gen_mkinfo_with_target(
 
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     let imagename_prodname = "SG6000";
-    for item in mkinfos.values() {
-        for mkinfo in item
-            .iter()
-            .filter(|x| x.make_target == target.strip_suffix("-ipv6").unwrap_or(target))
-        {
-            let imagename_target = pattern_nonalnum.replace_all(target, "").to_uppercase();
-            let imagename = format!(
-                "{}-{}-{}-{}",
-                imagename_prodname, branch_nickname, imagename_target, imagename_suffix
-            );
+    for mkinfo in mkinfo_list
+        .iter()
+        .filter(|x| x.make_target == target.strip_suffix("-ipv6").unwrap_or(target))
+    {
+        let imagename_target = pattern_nonalnum.replace_all(target, "").to_uppercase();
+        let imagename = format!(
+            "{}-{}-{}-{}",
+            imagename_prodname, branch_nickname, imagename_target, imagename_suffix
+        );
 
-            let make_comm = format!(
-                r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
-                mkinfo.make_directory,
-                target,
-                if makeopts.flag.contains(MakeFlag::RELEASE) {
-                    1
-                } else {
-                    0
-                },
-                if makeopts.flag.contains(MakeFlag::WEBUI) {
-                    0
-                } else {
-                    1
-                },
-                if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
-                    1
-                } else {
-                    0
-                },
-                if makeopts.flag.contains(MakeFlag::COVERAGE) {
-                    1
-                } else {
-                    0
-                },
-                if makeopts.flag.contains(MakeFlag::COVERITY) {
-                    1
-                } else {
-                    0
-                },
-                makeopts.image_server.map_or(
-                    {
-                        let nodename = uname().nodename().to_string_lossy().to_string();
-                        if nodename.ends_with("-sz") {
-                            "10.200.6.10".to_string()
-                        } else {
-                            "10.100.6.10".to_string()
-                        }
-                    },
-                    |v| match v {
-                        ImageServer::B => "10.100.6.10".to_string(),
-                        ImageServer::S => "10.200.6.10".to_string(),
+        let make_comm = format!(
+            r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
+            mkinfo.make_directory,
+            target,
+            if makeopts.flag.contains(MakeFlag::RELEASE) {
+                1
+            } else {
+                0
+            },
+            if makeopts.flag.contains(MakeFlag::WEBUI) {
+                0
+            } else {
+                1
+            },
+            if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
+                1
+            } else {
+                0
+            },
+            if makeopts.flag.contains(MakeFlag::COVERAGE) {
+                1
+            } else {
+                0
+            },
+            if makeopts.flag.contains(MakeFlag::COVERITY) {
+                1
+            } else {
+                0
+            },
+            makeopts.image_server.map_or(
+                {
+                    let nodename = uname().nodename().to_string_lossy().to_string();
+                    if nodename.ends_with("-sz") {
+                        "10.200.6.10".to_string()
+                    } else {
+                        "10.100.6.10".to_string()
                     }
-                ),
-                imagename
-            );
-            for item in product_infos.iter() {
-                if item.platform_model != mkinfo.platform_model {
+                },
+                |v| match v {
+                    ImageServer::B => "10.100.6.10".to_string(),
+                    ImageServer::S => "10.200.6.10".to_string(),
+                }
+            ),
+            imagename
+        );
+
+        for item in product_list
+            .iter()
+            .filter(|x| x.platform_model == mkinfo.platform_model)
+        {
+            if let Some(family) = mkinfo.product_family.clone() {
+                if family != item.product_family {
                     continue;
                 }
-
-                if let Some(family) = mkinfo.product_family.clone() {
-                    if family != item.product_family {
-                        continue;
-                    }
-                }
-
-                compile_infos.push(CompileInfo {
-                    product_name: item.product_name_long.clone(),
-                    product_model: item.product_model.clone(),
-                    product_family: mkinfo
-                        .product_family
-                        .clone()
-                        .unwrap_or_else(|| item.product_family.clone()),
-                    platform_model: mkinfo.platform_model.clone(),
-                    make_target: target.to_string(),
-                    make_directory: mkinfo.make_directory.clone(),
-                    make_command: make_comm.clone(),
-                });
             }
+
+            compile_infos.push(CompileInfo {
+                product_name: item.product_name_long.clone(),
+                product_model: item.product_model.clone(),
+                product_family: mkinfo
+                    .product_family
+                    .clone()
+                    .unwrap_or_else(|| item.product_family.clone()),
+                platform_model: mkinfo.platform_model.clone(),
+                make_target: target.to_string(),
+                make_directory: mkinfo.make_directory.clone(),
+                make_command: make_comm.clone(),
+            });
         }
     }
 

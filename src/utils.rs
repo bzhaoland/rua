@@ -113,7 +113,7 @@ Last Changed Date: ([^\n]+)"#,
 
     #[allow(dead_code)]
     pub fn working_copy_root_path(&self) -> &Path {
-        Path::new(&self.working_copy_root_path)
+        Path::new(self.working_copy_root_path.as_str())
     }
 
     #[allow(dead_code)]

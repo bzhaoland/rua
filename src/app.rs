@@ -438,7 +438,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.22.1",
+    version = "0.23.0",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs"#
@@ -757,9 +757,9 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 image_server,
             };
             let mkinfos = if let Some(product_name) = product_name {
-                mkinfo::gen_mkinfo_with_nickname(&product_name, makeopts)?
+                mkinfo::gen_mkinfo_by_nickname(&product_name, makeopts)?
             } else if let Some(build_target) = build_target {
-                mkinfo::gen_mkinfo_with_target(&build_target, makeopts)?
+                mkinfo::gen_mkinfo_by_target(&build_target, makeopts)?
             } else {
                 bail!("Neither product-name nor --target is provided");
             };
