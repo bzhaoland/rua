@@ -236,10 +236,12 @@ pub(crate) enum Comm {
     },
 
     /// Get all matched makeinfos for product
-    #[command(after_help = format!(r#"{STYLE_YELLOW}Examples:{STYLE_YELLOW:#}
+    #[command(
+        after_help = format!(r#"{STYLE_YELLOW}Examples:{STYLE_YELLOW:#}
   rua mkinfo A1000      # Makeinfo for A1000 without extra features
   rua mkinfo -6 A1000   # Makeinfo for A1000 with IPv6 enabled
-  rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern"#))]
+  rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern"#)
+    )]
     Mkinfo {
         /// Build with only IPv4 enabled
         #[arg(short = '4', long = "ipv4", default_value_t = true)]
@@ -283,8 +285,17 @@ pub(crate) enum Comm {
         image_server: Option<mkinfo::ImageServer>,
 
         /// Product name, such as 'A1000'. Regex is also supported, e.g. 'X\d+80'
-        #[arg(value_name = "PRODUCT")]
-        product_name: String,
+        #[arg(value_name = "PRODUCT", required = true)]
+        product_name: Option<String>,
+
+        /// Query makeinfo with build target other than product name
+        #[arg(
+            long = "target",
+            value_name = "TARGET",
+            conflicts_with = "product_name",
+            required = true
+        )]
+        build_target: Option<String>,
     },
 
     /// Extensively map instructions to file locations (inline expanded)
@@ -692,6 +703,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             webui,
             image_server,
             output_format,
+            build_target,
         } => {
             let conf = RuaConf::load()?;
             let image_server = if let Some(image_server) = image_server {
@@ -739,15 +751,19 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             if coverity {
                 makeflag |= mkinfo::MakeFlag::COVERITY;
             }
-            let printinfos = mkinfo::gen_mkinfo(
-                &product_name,
-                MakeOpts {
-                    flag: makeflag,
-                    image_server,
-                },
-            )?;
 
-            mkinfo::dump_mkinfo(&printinfos, output_format)
+            let makeopts = MakeOpts {
+                flag: makeflag,
+                image_server,
+            };
+            let mkinfos = if let Some(product_name) = product_name {
+                mkinfo::gen_mkinfo_with_nickname(&product_name, makeopts)?
+            } else if let Some(build_target) = build_target {
+                mkinfo::gen_mkinfo_with_target(&build_target, makeopts)?
+            } else {
+                bail!("Neither product-name nor --target is provided");
+            };
+            mkinfo::dump_mkinfo(&mkinfos, output_format)
         }
         Comm::Perfan {
             file,

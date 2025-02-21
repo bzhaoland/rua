@@ -86,19 +86,19 @@ impl fmt::Display for DumpFormat {
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub(crate) struct ProductInfo {
-    pub(crate) platform_code: String,
-    pub(crate) model: String,
+    pub(crate) platform_model: String,
+    pub(crate) product_model: String,
     pub(crate) name_id: usize,
     pub(crate) oem_id: String,
-    pub(crate) family: String,
-    pub(crate) short_name: String,
-    pub(crate) long_name: String,
+    pub(crate) product_family: String,
+    pub(crate) product_name_short: String,
+    pub(crate) product_name_long: String,
     pub(crate) snmp_descr: String,
     pub(crate) snmp_oid: String,
-    pub(crate) icon_path: Option<String>,
+    pub(crate) product_icon_path: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MakeInfo {
     pub(crate) platform_model: String,
     pub(crate) product_family: Option<String>,
@@ -106,7 +106,22 @@ pub struct MakeInfo {
     pub(crate) make_directory: String,
 }
 
-#[derive(Debug)]
+impl fmt::Display for MakeInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            r#"MakeInfo {{
+  platform_model: "{}",
+  product_family: "{:?}",
+  target: "{}",
+  directory: "{}",
+}}"#,
+            self.platform_model, self.product_family, self.make_target, self.make_directory,
+        )
+    }
+}
+
+#[derive(Clone, Debug)]
 pub(crate) struct CompileInfo {
     pub(crate) product_name: String,
     pub(crate) product_model: String,
@@ -117,36 +132,31 @@ pub(crate) struct CompileInfo {
     pub(crate) make_command: String,
 }
 
-impl fmt::Display for MakeInfo {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            r#"MakeInfo {{
-  platform_model: "{}",
-  target: "{}",
-  directory: "{}",
-}}"#,
-            self.platform_model, self.make_target, self.make_directory,
-        )
-    }
-}
-
 impl fmt::Display for CompileInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            r#"CompileInfo {{
+            r#"CompileInfoV1 {{
+  product_name: "{}",
+  product_model: "{}",
+  product_family: "{}",
   platform_model: "{}",
   target: "{}",
   directory: "{}",
   command: "{}"
 }}"#,
-            self.platform_model, self.make_target, self.make_directory, self.make_command,
+            self.product_name,
+            self.product_model,
+            self.product_family,
+            self.platform_model,
+            self.make_target,
+            self.make_directory,
+            self.make_command,
         )
     }
 }
 
-pub(crate) fn load_product_infos(svninfo: &SvnInfo, nickname: &str) -> Result<Vec<ProductInfo>> {
+pub(crate) fn load_product_infos(svninfo: &SvnInfo) -> Result<Vec<ProductInfo>> {
     let proj_root = svninfo.working_copy_root_path();
     let product_info_path = proj_root.join("src/libplatform/hs_platform.c");
     if !product_info_path.is_file() {
@@ -157,22 +167,22 @@ pub(crate) fn load_product_infos(svninfo: &SvnInfo, nickname: &str) -> Result<Ve
     let product_info_file = fs::File::open(&product_info_path)
         .context(format!("Can't open file {}", product_info_path.display()))?;
     let mut product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
-    let product_info_pattern = Regex::new(&format!(r#"(?i)^[[:blank:]]*\{{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*{})"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}}"#, nickname)).context("Failed to build pattern for product info")?;
+    let product_info_pattern = Regex::new(r#"(?i)^[[:blank:]]*\{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}"#).context("Failed to build pattern for product info")?;
     let mut product_info_list: Vec<ProductInfo> = Vec::with_capacity(128);
     let mut line = String::with_capacity(512);
     while product_info_reader.read_line(&mut line)? != 0 {
         if let Some(captures) = product_info_pattern.captures(&line) {
             product_info_list.push(ProductInfo {
-                platform_code: captures.get(1).unwrap().as_str().to_string(),
-                model: captures.get(2).unwrap().as_str().to_string(),
+                platform_model: captures.get(1).unwrap().as_str().to_string(),
+                product_model: captures.get(2).unwrap().as_str().to_string(),
                 name_id: captures.get(3).unwrap().as_str().parse::<usize>()?,
                 oem_id: captures.get(4).unwrap().as_str().to_string(),
-                family: captures.get(5).unwrap().as_str().to_string(),
-                short_name: captures.get(6).unwrap().as_str().to_string(),
-                long_name: captures.get(7).unwrap().as_str().to_string(),
+                product_family: captures.get(5).unwrap().as_str().to_string(),
+                product_name_short: captures.get(6).unwrap().as_str().to_string(),
+                product_name_long: captures.get(7).unwrap().as_str().to_string(),
                 snmp_descr: captures.get(8).unwrap().as_str().to_string(),
                 snmp_oid: captures.get(9).unwrap().as_str().to_string(),
-                icon_path: captures.get(10).map(|x| x.as_str().to_string()),
+                product_icon_path: captures.get(10).map(|x| x.as_str().to_string()),
             })
         }
         line.clear();
@@ -225,7 +235,10 @@ const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Colo
 const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 
 /// Generate the make information for the given platform.
-pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<Vec<CompileInfo>> {
+pub(crate) fn gen_mkinfo_with_nickname(
+    nickname: &str,
+    makeopts: MakeOpts,
+) -> anyhow::Result<Vec<CompileInfo>> {
     let svninfo = utils::SvnInfo::new()?;
 
     // Check location
@@ -237,7 +250,11 @@ pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<V
         );
     }
 
-    let product_infos = load_product_infos(&svninfo, nickname)?;
+    let nickname_pattern = Regex::new(format!(r#"{}$"#, nickname).as_str())?;
+    let product_infos = load_product_infos(&svninfo)?
+        .into_iter()
+        .filter(|x| nickname_pattern.is_match(x.product_name_long.as_str()))
+        .collect::<Vec<ProductInfo>>();
     let mkinfos = load_makeinfo_table(&svninfo)?;
 
     let has_family_field_in_plattable = match svninfo
@@ -309,9 +326,9 @@ pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<V
 
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for product in product_infos.iter() {
-        let imagename_prodname = pattern_nonalnum.replace_all(&product.short_name, "");
+        let imagename_prodname = pattern_nonalnum.replace_all(&product.product_name_short, "");
 
-        let mkinfo_arr = mkinfos.get(&product.platform_code);
+        let mkinfo_arr = mkinfos.get(&product.platform_model);
         if mkinfo_arr.is_none() {
             continue;
         }
@@ -320,7 +337,7 @@ pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<V
         for mkinfo in mkinfo_set.iter().filter(|x| {
             !has_family_field_in_plattable
                 || (x.product_family.is_some()
-                    && x.product_family.as_ref().unwrap() == &product.family)
+                    && x.product_family.as_ref().unwrap() == &product.product_family)
         }) {
             let mut make_target = mkinfo.make_target.clone();
             if makeopts.flag.contains(MakeFlag::IPV6) {
@@ -381,14 +398,164 @@ pub(crate) fn gen_mkinfo(nickname: &str, makeopts: MakeOpts) -> anyhow::Result<V
                 imagename
             );
             compile_infos.push(CompileInfo {
-                product_name: product.long_name.clone(),
-                product_model: product.model.clone(),
-                product_family: product.family.clone(),
+                product_name: product.product_name_long.clone(),
+                product_model: product.product_model.clone(),
+                product_family: product.product_family.clone(),
                 platform_model: mkinfo.platform_model.clone(),
                 make_target,
                 make_directory: mkinfo.make_directory.clone(),
                 make_command: make_comm,
             });
+        }
+    }
+
+    anyhow::Ok(compile_infos)
+}
+
+pub(crate) fn gen_mkinfo_with_target(
+    target: &str,
+    makeopts: MakeOpts,
+) -> anyhow::Result<Vec<CompileInfo>> {
+    let svninfo = utils::SvnInfo::new()?;
+
+    // Check location
+    let proj_root = svninfo.working_copy_root_path();
+    if env::current_dir()?.as_path() != proj_root {
+        bail!(
+            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
+            proj_root.display()
+        );
+    }
+
+    let mkinfos = load_makeinfo_table(&svninfo)?;
+    let product_infos = load_product_infos(&svninfo)?;
+
+    // Compose an image name using product-series/make-target/IPv6-tag/date/username
+    let mut imagename_suffix = String::with_capacity(32);
+
+    let pattern_nonalnum =
+        Regex::new(r#"[^[:alnum:]]+"#).context("Error building regex pattern for nonalnum")?;
+
+    // Use branch name abbreviation to compose the image name
+    let nickname_pattern = Regex::new(r"HAWAII_([-[:word:]]+)")
+        .context("Error building regex pattern for nickname")
+        .unwrap();
+    let captures = nickname_pattern.captures(svninfo.branch_name());
+    let branch_nickname = pattern_nonalnum
+        .replace_all(
+            &match captures {
+                Some(v) => v
+                    .get(1)
+                    .map_or(svninfo.branch_name().to_owned(), |x| x.as_str().to_string()),
+                None => svninfo.branch_name().to_string(),
+            },
+            "",
+        )
+        .to_string();
+
+    // IPv6 check
+    if makeopts.flag.contains(MakeFlag::IPV6) {
+        imagename_suffix.push_str("V6-");
+    }
+
+    // Building mode
+    imagename_suffix.push(if makeopts.flag.contains(MakeFlag::RELEASE) {
+        'r'
+    } else {
+        'd'
+    });
+
+    // Timestamp
+    let current_date = chrono::Local::now().format("%m%d").to_string();
+    imagename_suffix.push_str(&current_date);
+
+    // Username
+    let username = utils::get_current_username().context("Failed to get username")?;
+    imagename_suffix.push('-');
+    imagename_suffix.push_str(&username);
+
+    let mut compile_infos: Vec<CompileInfo> = Vec::new();
+    let imagename_prodname = "SG6000";
+    for item in mkinfos.values() {
+        for mkinfo in item
+            .iter()
+            .filter(|x| x.make_target == target.strip_suffix("-ipv6").unwrap_or(target))
+        {
+            let imagename_target = pattern_nonalnum.replace_all(target, "").to_uppercase();
+            let imagename = format!(
+                "{}-{}-{}-{}",
+                imagename_prodname, branch_nickname, imagename_target, imagename_suffix
+            );
+
+            let make_comm = format!(
+                r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
+                mkinfo.make_directory,
+                target,
+                if makeopts.flag.contains(MakeFlag::RELEASE) {
+                    1
+                } else {
+                    0
+                },
+                if makeopts.flag.contains(MakeFlag::WEBUI) {
+                    0
+                } else {
+                    1
+                },
+                if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
+                    1
+                } else {
+                    0
+                },
+                if makeopts.flag.contains(MakeFlag::COVERAGE) {
+                    1
+                } else {
+                    0
+                },
+                if makeopts.flag.contains(MakeFlag::COVERITY) {
+                    1
+                } else {
+                    0
+                },
+                makeopts.image_server.map_or(
+                    {
+                        let nodename = uname().nodename().to_string_lossy().to_string();
+                        if nodename.ends_with("-sz") {
+                            "10.200.6.10".to_string()
+                        } else {
+                            "10.100.6.10".to_string()
+                        }
+                    },
+                    |v| match v {
+                        ImageServer::B => "10.100.6.10".to_string(),
+                        ImageServer::S => "10.200.6.10".to_string(),
+                    }
+                ),
+                imagename
+            );
+            for item in product_infos.iter() {
+                if item.platform_model != mkinfo.platform_model {
+                    continue;
+                }
+
+                if let Some(family) = mkinfo.product_family.clone() {
+                    if family != item.product_family {
+                        continue;
+                    }
+                }
+
+                compile_infos.push(CompileInfo {
+                    product_name: item.product_name_long.clone(),
+                    product_model: item.product_model.clone(),
+                    product_family: mkinfo
+                        .product_family
+                        .clone()
+                        .unwrap_or_else(|| item.product_family.clone()),
+                    platform_model: mkinfo.platform_model.clone(),
+                    make_target: target.to_string(),
+                    make_directory: mkinfo.make_directory.clone(),
+                    make_command: make_comm.clone(),
+                });
+            }
         }
     }
 
@@ -493,7 +660,7 @@ fn dump_csv(infos: &[CompileInfo], delimiter: u8) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
-pub fn dump_mkinfo(infos: &[CompileInfo], format: DumpFormat) -> anyhow::Result<()> {
+pub(crate) fn dump_mkinfo(infos: &[CompileInfo], format: DumpFormat) -> anyhow::Result<()> {
     match format {
         DumpFormat::Csv => dump_csv(infos, b','),
         DumpFormat::Json => dump_json(infos),
