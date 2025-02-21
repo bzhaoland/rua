@@ -240,7 +240,8 @@ pub(crate) enum Comm {
         after_help = format!(r#"{STYLE_YELLOW}Examples:{STYLE_YELLOW:#}
   rua mkinfo A1000      # Makeinfo for A1000 without extra features
   rua mkinfo -6 A1000   # Makeinfo for A1000 with IPv6 enabled
-  rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern"#)
+  rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern
+  rua mkinfo --target a-dnv"#)
     )]
     Mkinfo {
         /// Build with only IPv4 enabled
@@ -284,18 +285,15 @@ pub(crate) enum Comm {
         #[arg(short = 's', long = "image-server", value_name = "IMAGE-SERVER")]
         image_server: Option<mkinfo::ImageServer>,
 
-        /// Product name, such as 'A1000'. Regex is also supported, e.g. 'X\d+80'
-        #[arg(value_name = "PRODUCT", required = true)]
-        product_name: Option<String>,
+        /// Product name such as A1000, or build target (with --target switch on) such as a-dnv,
+        /// View as a product name by default. Regex is also supported when using as a product name,
+        /// e.g. 'X\d+80'.
+        #[arg(value_name = "NAME-OR-TARGET")]
+        product_name_or_build_target: String,
 
-        /// Query makeinfo with build target other than product name
-        #[arg(
-            long = "target",
-            value_name = "TARGET",
-            conflicts_with = "product_name",
-            required = true
-        )]
-        build_target: Option<String>,
+        /// Treat the positional arg as a build target other than a product name
+        #[arg(long = "as-target")]
+        as_build_target: bool,
     },
 
     /// Extensively map instructions to file locations (inline expanded)
@@ -698,12 +696,12 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             coverage,
             coverity,
             password,
-            product_name,
+            product_name_or_build_target,
             debug,
             webui,
             image_server,
             output_format,
-            build_target,
+            as_build_target,
         } => {
             let conf = RuaConf::load()?;
             let image_server = if let Some(image_server) = image_server {
@@ -756,12 +754,11 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 flag: makeflag,
                 image_server,
             };
-            let mkinfos = if let Some(product_name) = product_name {
-                mkinfo::gen_mkinfo_by_nickname(&product_name, makeopts)?
-            } else if let Some(build_target) = build_target {
-                mkinfo::gen_mkinfo_by_target(&build_target, makeopts)?
+
+            let mkinfos = if as_build_target {
+                mkinfo::gen_mkinfo_by_target(&product_name_or_build_target, makeopts)?
             } else {
-                bail!("Neither product-name nor --target is provided");
+                mkinfo::gen_mkinfo_by_nickname(&product_name_or_build_target, makeopts)?
             };
             mkinfo::dump_mkinfo(&mkinfos, output_format)
         }
