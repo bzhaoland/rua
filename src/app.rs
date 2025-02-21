@@ -241,7 +241,7 @@ pub(crate) enum Comm {
   rua mkinfo A1000      # Makeinfo for A1000 without extra features
   rua mkinfo -6 A1000   # Makeinfo for A1000 with IPv6 enabled
   rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern
-  rua mkinfo --target a-dnv"#)
+  rua mkinfo --target a-dnv  # Makeinfos for a-dnv target"#)
     )]
     Mkinfo {
         /// Build with only IPv4 enabled
@@ -253,7 +253,7 @@ pub(crate) enum Comm {
             short = '6',
             long = "ipv6",
             default_value_t = false,
-            conflicts_with = "ipv4"
+            conflicts_with_all = ["ipv4"]
         )]
         ipv6: bool,
 
@@ -292,7 +292,7 @@ pub(crate) enum Comm {
         product_name_or_build_target: String,
 
         /// Treat the positional arg as a build target other than a product name
-        #[arg(long = "as-target")]
+        #[arg(long = "as-target", conflicts_with_all = ["ipv4", "ipv6"])]
         as_build_target: bool,
     },
 
