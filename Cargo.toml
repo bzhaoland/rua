@@ -1,12 +1,12 @@
 [package]
 name = "rua"
 version = "0.23.0"
-edition = "2021"
+edition = "2024"
 authors = ["bzhao"]
 description = "A toolbox for developers of StoneOS and its derivatives"
 keywords = ["StoneOS"]
 categories = ["command-line-utilities", "terminal", "cli"]
-rust-version = "1.80.0"
+rust-version = "1.85.0"
 license = "GPL"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
