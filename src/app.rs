@@ -292,8 +292,8 @@ pub(crate) enum Comm {
         product_name_or_build_target: String,
 
         /// Treat the positional arg as a build target other than a product name
-        #[arg(long = "as-target", conflicts_with_all = ["ipv4", "ipv6"])]
-        as_build_target: bool,
+        #[arg(long = "by-target", conflicts_with_all = ["ipv4", "ipv6"])]
+        by_target: bool,
     },
 
     /// Extensively map instructions to file locations (inline expanded)
@@ -701,7 +701,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             webui,
             image_server,
             output_format,
-            as_build_target,
+            by_target: as_build_target,
         } => {
             let conf = RuaConf::load()?;
             let image_server = if let Some(image_server) = image_server {
