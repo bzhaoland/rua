@@ -602,9 +602,9 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
 /// Archive the compilation database into store as a new generation
 pub(crate) fn ark_compdb<P>(
     conn: &Connection,
-    target: &str,
     branch: &str,
     revision: i64,
+    target: &str,
     compdb: P,
 ) -> anyhow::Result<usize>
 where

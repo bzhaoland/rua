@@ -569,8 +569,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     let rows = compdb::ark_compdb(
                         &conn,
                         svninfo.branch_name(),
-                        make_target.as_str(),
                         svninfo.revision(),
+                        make_target.as_str(),
                         "compile_commands.json",
                     )?;
                     if rows == 0 {
@@ -632,9 +632,9 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     let revision = revision.unwrap_or_else(|| svninfo.revision());
                     compdb::ark_compdb(
                         &conn,
-                        target.as_str(),
                         svninfo.branch_name(),
                         revision,
+                        target.as_str(),
                         compdb_path,
                     )?;
                     eprintln!("\rArchiving compilation database for into store...ok");
