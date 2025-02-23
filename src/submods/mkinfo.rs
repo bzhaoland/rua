@@ -486,13 +486,14 @@ pub(crate) fn gen_mkinfo_by_target(
     imagename_suffix.push('-');
     imagename_suffix.push_str(&username);
 
+    let target_re = Regex::new(target)?;
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     let imagename_prodname = "SG6000";
     for mkinfo in mkinfo_list
         .iter()
-        .filter(|x| x.make_target == target.strip_suffix("-ipv6").unwrap_or(target))
+        .filter(|x| target_re.is_match(x.make_target.as_str()))
     {
-        let imagename_target = pattern_nonalnum.replace_all(target, "").to_uppercase();
+        let imagename_target = pattern_nonalnum.replace_all(mkinfo.make_target.as_str(), "").to_uppercase();
         let imagename = format!(
             "{}-{}-{}-{}",
             imagename_prodname, branch_nickname, imagename_target, imagename_suffix
@@ -501,7 +502,7 @@ pub(crate) fn gen_mkinfo_by_target(
         let make_comm = format!(
             r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
             mkinfo.make_directory,
-            target,
+            mkinfo.make_target,
             if makeopts.flag.contains(MakeFlag::RELEASE) {
                 1
             } else {
@@ -562,7 +563,7 @@ pub(crate) fn gen_mkinfo_by_target(
                     .clone()
                     .unwrap_or_else(|| item.product_family.clone()),
                 platform_model: mkinfo.platform_model.clone(),
-                make_target: target.to_string(),
+                make_target: mkinfo.make_target.to_string(),
                 make_directory: mkinfo.make_directory.clone(),
                 make_command: make_comm.clone(),
             });
