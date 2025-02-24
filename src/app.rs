@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::{fs, io};
 
 use anstyle::{Ansi256Color, Color, Style};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use clap::builder::styling;
 use clap::{ArgGroup, CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;

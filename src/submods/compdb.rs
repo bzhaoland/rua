@@ -7,14 +7,14 @@ use std::process::Command;
 use std::thread;
 
 use anstyle::Style;
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use chrono::TimeZone;
 use clap::ValueEnum;
 use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
-use rusqlite::params;
 use rusqlite::OptionalExtension;
+use rusqlite::params;
 use rusqlite::{self, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
@@ -52,11 +52,15 @@ impl fmt::Display for CompdbOptions {
         write!(
             f,
             r#"CompdbOptions {{
+    defines: {:?},
     engine: {:?}
     intercept_build_path: {:?}
     bear_path: {:?}
 }}"#,
-            self.engine, self.intercept_build_path, self.bear_path
+            serde_json::to_string_pretty(&self.defines),
+            self.engine,
+            self.intercept_build_path,
+            self.bear_path
         )
     }
 }
@@ -547,11 +551,19 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
 
     println!(
         "{}{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<name_col_width$}   {:<remark_col_width$}{:#}",
-        STYLE_BOLD, HEADERS.0, HEADERS.1, HEADERS.2, HEADERS.3, HEADERS.4, HEADERS.5, HEADERS.6, STYLE_BOLD
+        STYLE_BOLD,
+        HEADERS.0,
+        HEADERS.1,
+        HEADERS.2,
+        HEADERS.3,
+        HEADERS.4,
+        HEADERS.5,
+        HEADERS.6,
+        STYLE_BOLD
     );
     for item in displayed_entries {
         println!(
-        "{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<name_col_width$}   {:<remark_col_width$}",
+            "{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<name_col_width$}   {:<remark_col_width$}",
             item.0, item.1, item.2, item.3, item.4, item.5, item.6
         );
     }
