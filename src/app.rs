@@ -755,11 +755,14 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 image_server,
             };
 
-            let mkinfos = mkinfo::gen_mkinfo(if as_build_target {
-                GenBy::Target(product_name_or_build_target)
-            } else {
-                GenBy::Nickname(product_name_or_build_target)
-            }, makeopts)?;
+            let mkinfos = mkinfo::gen_mkinfo(
+                if as_build_target {
+                    GenBy::Target(product_name_or_build_target)
+                } else {
+                    GenBy::Nickname(product_name_or_build_target)
+                },
+                makeopts,
+            )?;
 
             mkinfo::dump_mkinfo(&mkinfos, output_format)
         }

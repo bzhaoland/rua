@@ -3,7 +3,7 @@ use std::process::Command;
 use std::str::FromStr;
 use std::{env, fs};
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{Context, anyhow, bail};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 

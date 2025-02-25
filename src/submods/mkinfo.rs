@@ -255,9 +255,7 @@ pub(crate) fn gen_mkinfo_by_nickname(
         mkinfo_map
             .entry(item.platform_model.clone())
             .or_insert(Vec::with_capacity(1));
-        let v = mkinfo_map
-            .get_mut(item.platform_model.as_str())
-            .unwrap();
+        let v = mkinfo_map.get_mut(item.platform_model.as_str()).unwrap();
         v.push(item);
     }
     mkinfo_map.shrink_to_fit();
@@ -288,12 +286,11 @@ pub(crate) fn gen_mkinfo_by_nickname(
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let mut imagename_suffix = String::with_capacity(32);
 
-    let re_nonalnum =
-        Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
+    let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
 
     // Use branch name abbreviation to compose the image name
-    let re_branch_abbr = Regex::new(r"HAWAII_([-[:word:]]+)")
-        .context("Build regex for nickname failed")?;
+    let re_branch_abbr =
+        Regex::new(r"HAWAII_([-[:word:]]+)").context("Build regex for nickname failed")?;
     let captures = re_branch_abbr.captures(svninfo.branch_name());
     let imagename_branch = re_nonalnum
         .replace_all(
@@ -438,8 +435,7 @@ pub(crate) fn gen_mkinfo_by_target(
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let mut imagename_suffix = String::with_capacity(32);
 
-    let re_nonalnum =
-        Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum")?;
+    let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum")?;
 
     // Use branch name abbreviation to compose the image name
     let re_branch_abbr = Regex::new(r"HAWAII_([-[:word:]]+)")
@@ -567,7 +563,6 @@ pub(crate) fn gen_mkinfo_by_target(
 
     anyhow::Ok(compile_infos)
 }
-
 
 #[derive(Clone, Debug)]
 pub(crate) enum GenBy {

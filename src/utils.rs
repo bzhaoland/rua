@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{Context, anyhow, bail};
 use regex::Regex;
 
 pub(crate) const TICK_INTERVAL: Duration = Duration::from_millis(150);
@@ -60,8 +60,10 @@ impl SvnInfo {
             .output()
             .context(r#"Command `svn info` failed"#)?;
         if !result.status.success() {
-            bail!(anyhow!(String::from_utf8_lossy(&result.stderr).to_string())
-                .context(r#"Command `svn info` failed."#));
+            bail!(
+                anyhow!(String::from_utf8_lossy(&result.stderr).to_string())
+                    .context(r#"Command `svn info` failed."#)
+            );
         }
 
         let output = String::from_utf8_lossy(&result.stdout).to_string();
