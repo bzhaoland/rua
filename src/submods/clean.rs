@@ -7,7 +7,7 @@ use anyhow::{Context, anyhow, bail};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
-use crate::config::RUA_DIR_OF_PROJ;
+use crate::config::PROJ_RUA_DIR;
 use crate::submods::compdb::COMPDB_FILE;
 use crate::utils::{SvnInfo, TICK_CHARS, TICK_INTERVAL};
 
@@ -56,7 +56,7 @@ pub fn clean_build(
                 .collect::<Vec<PathBuf>>()
         })
         .unwrap_or_default();
-    ignores.push(PathBuf::from_str(RUA_DIR_OF_PROJ)?);
+    ignores.push(PathBuf::from_str(PROJ_RUA_DIR)?);
     ignores.push(PathBuf::from_str(".cache")?); // clangd cache
     ignores.push(PathBuf::from_str(COMPDB_FILE)?);
 
