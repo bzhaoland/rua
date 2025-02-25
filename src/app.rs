@@ -14,7 +14,7 @@ use rusqlite::Connection;
 use crate::config::RuaConf;
 use crate::submods::clean;
 use crate::submods::compdb::{self, CompdbEngine};
-use crate::submods::mkinfo::{self, MakeOpts};
+use crate::submods::mkinfo::{self, GenBy, MakeOpts};
 use crate::submods::perfan;
 use crate::submods::review;
 use crate::submods::shinit;
@@ -755,11 +755,12 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 image_server,
             };
 
-            let mkinfos = if as_build_target {
-                mkinfo::gen_mkinfo_by_target(&product_name_or_build_target, makeopts)?
+            let mkinfos = mkinfo::gen_mkinfo(if as_build_target {
+                GenBy::Target(product_name_or_build_target)
             } else {
-                mkinfo::gen_mkinfo_by_nickname(&product_name_or_build_target, makeopts)?
-            };
+                GenBy::Nickname(product_name_or_build_target)
+            }, makeopts)?;
+
             mkinfo::dump_mkinfo(&mkinfos, output_format)
         }
         Comm::Perfan {

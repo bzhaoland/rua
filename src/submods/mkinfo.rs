@@ -439,7 +439,7 @@ pub(crate) fn gen_mkinfo_by_target(
     let mut imagename_suffix = String::with_capacity(32);
 
     let re_nonalnum =
-        Regex::new(r#"[^[:alnum:]]+"#).context("Error building regex for nonalnum")?;
+        Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum")?;
 
     // Use branch name abbreviation to compose the image name
     let re_branch_abbr = Regex::new(r"HAWAII_([-[:word:]]+)")
@@ -566,6 +566,20 @@ pub(crate) fn gen_mkinfo_by_target(
     }
 
     anyhow::Ok(compile_infos)
+}
+
+
+#[derive(Clone, Debug)]
+pub(crate) enum GenBy {
+    Nickname(String),
+    Target(String),
+}
+
+pub(crate) fn gen_mkinfo(by_what: GenBy, makeopts: MakeOpts) -> anyhow::Result<Vec<CompileInfo>> {
+    match by_what {
+        GenBy::Nickname(nickname) => gen_mkinfo_by_nickname(nickname.as_str(), makeopts),
+        GenBy::Target(target) => gen_mkinfo_by_target(target.as_str(), makeopts),
+    }
 }
 
 const MKINFO_DUMP_FIELDS: [&str; 7] = [
