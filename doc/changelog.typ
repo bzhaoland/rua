@@ -23,6 +23,34 @@
 #outline(indent: 2em)
 #pagebreak()
 
+= rua v0.23.0
+
+- 北京: 10.100.6.10/bzhao/rua/0.23.0/rua
+- 苏州: 10.200.6.10/bzhao/rua/0.23.0/rua
+
+== BuildServer (北京) 上可通过命令下载和新增执行权限
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/0.23.0/rua
+chmod +x ./rua
+```
+
+== Changes
+
+- `rua mkinfo`: 现可借助 `--by-target` 参数，根据编译目标查找完整编译信息
+
+== Examples
+
+- `rua mkinfo --by-target zxc`:
+  #figure(
+    image(".assets/changelog.0_23_0.mkinfobytarget.png"),
+    caption: [
+      根据编译目标`zxc`查找编译信息
+    ],
+    numbering: none,
+  )
+#pagebreak()
+
 = rua v0.22.0
 
 - 北京: 10.100.6.10/bzhao/rua/0.22.0/rua
@@ -54,7 +82,8 @@ chmod +x ./rua
     image(".assets/changelog.0_22_0.compdb_add.png"),
     caption: [
       添加编译数据库
-    ]
+    ],
+    numbering: none,
   )
 - `rua compdb name 1 A1600-A`:\
   为store中的编译数据库 generation 1 添加一个名字，默认没有名字\
@@ -62,7 +91,8 @@ chmod +x ./rua
     image(".assets/changelog.0_22_0.compdb_name.png"),
     caption: [
       命名编译数据库
-    ]
+    ],
+    numbering: none,
    )
 - `rua compdb remark 1 "Compilation database generation for A1600-A"`:\
   为store中的编译数据库 generation 1 添加备注\
@@ -70,7 +100,8 @@ chmod +x ./rua
     image(".assets/changelog.0_22_0.compdb_remark.png"),
     caption: [
       添加编译数据库备注
-    ]
+    ],
+    numbering: none,
   )
 - `rua compdb del --new 2`:\
   删除store中较新的两个编译数据库\
@@ -78,7 +109,8 @@ chmod +x ./rua
     image(".assets/changelog.0_22_0.compdb_del_recent_2.png"),
     caption: [
       删除较新的两个编译数据库
-    ]
+    ],
+    numbering: none,
   )
 
 == Notes
