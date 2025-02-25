@@ -113,8 +113,8 @@ impl fmt::Display for MakeInfo {
             r#"MakeInfo {{
   platform_model: "{}",
   product_family: "{:?}",
-  target: "{}",
-  directory: "{}",
+  make_target: "{}",
+  make_directory: "{}",
 }}"#,
             self.platform_model, self.product_family, self.make_target, self.make_directory,
         )
@@ -136,14 +136,14 @@ impl fmt::Display for CompileInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            r#"CompileInfoV1 {{
+            r#"CompileInfo {{
   product_name: "{}",
   product_model: "{}",
   product_family: "{}",
   platform_model: "{}",
-  target: "{}",
-  directory: "{}",
-  command: "{}"
+  make_target: "{}",
+  make_directory: "{}",
+  make_command: "{}"
 }}"#,
             self.product_name,
             self.product_model,
