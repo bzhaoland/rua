@@ -7,7 +7,7 @@ use addr2line::{self, fallible_iterator::FallibleIterator};
 use anyhow::{self, Context};
 use clap::ValueEnum;
 use regex::Regex;
-use serde_json::{self, json, Value};
+use serde_json::{self, Value, json};
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]

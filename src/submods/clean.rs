@@ -40,11 +40,12 @@ pub fn clean_build(
     ignores: Option<&Vec<String>>,
 ) -> anyhow::Result<()> {
     // Check directory
-    let svn_info = SvnInfo::new()?;
-    if env::current_dir()?.as_path() != svn_info.working_copy_root_path() {
+    let svninfo = SvnInfo::new()?;
+    let _a = String::from("asdf").as_str();
+    if env::current_dir()?.as_path() != svninfo.working_copy_root_path() {
         bail!(
             r#"Location error! Please run this command under the project root, i.e. "{}"."#,
-            svn_info.working_copy_root_path().display()
+            svninfo.working_copy_root_path().display()
         );
     }
 
@@ -102,7 +103,7 @@ pub fn clean_build(
         "[{}/{}] Cleaning webui objs: {{msg:.green}}",
         step, num_steps
     ))?);
-    let webui_dir = normalize_path(svn_info.branch_name()); // UI directory name is the same as the branch name
+    let webui_dir = normalize_path(svninfo.branch_name()); // UI directory name is the same as the branch name
     if webui_dir.is_dir() {
         for entry in walkdir::WalkDir::new(&webui_dir)
             .contents_first(true)

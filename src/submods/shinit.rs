@@ -1,5 +1,5 @@
 use clap::Command;
-use clap_complete::{generate, Shell};
+use clap_complete::{Shell, generate};
 
 pub(crate) fn gen_completion(cmd: &mut Command, shell_type: Shell) {
     generate(

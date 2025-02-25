@@ -1,6 +1,6 @@
 use std::{path::Path, process::Command};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use reqwest::Client;
 
 use crate::utils::SvnInfo;

@@ -7,8 +7,7 @@ use std::path::PathBuf;
 use anstyle::{Ansi256Color, Color, Style};
 use anyhow::anyhow;
 
-const COLOR_ANSI_GRN: anstyle::Style =
-    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
+const COLOR_ANSI_GRN: anstyle::Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
 
 /// Generate filelist for SourceInsight editor.
 ///
