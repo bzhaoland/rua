@@ -2,6 +2,7 @@
 #set text(font: ("Monaspace Neon", "Noto Sans CJK SC"), lang: "zh")
 #show raw: set text(font: ("Monaspace Neon", "Noto Sans CJK SC"))
 #set heading(offset: 0)
+#show heading: set block(below: 1em)
 
 #page(
   width: 210mm,
