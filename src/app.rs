@@ -292,7 +292,7 @@ pub(crate) enum Comm {
         product_name_or_build_target: String,
 
         /// Treat the positional arg as a build target other than a product name
-        #[arg(long = "by-target", conflicts_with_all = ["ipv4", "ipv6"])]
+        #[arg(long = "by-target")]
         by_target: bool,
     },
 

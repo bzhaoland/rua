@@ -433,8 +433,6 @@ pub(crate) fn gen_mkinfo_by_target(
     let product_list = load_product_infos(&svninfo)?;
 
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
-    let mut imagename_suffix = String::with_capacity(32);
-
     let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum")?;
 
     // Use branch name abbreviation to compose the image name
@@ -442,7 +440,7 @@ pub(crate) fn gen_mkinfo_by_target(
         .context("Error building regex for nickname")
         .unwrap();
     let captures = re_branch_abbr.captures(svninfo.branch_name());
-    let branch_abbr = re_nonalnum
+    let imagename_branch = re_nonalnum
         .replace_all(
             &match captures {
                 Some(v) => v
@@ -453,24 +451,17 @@ pub(crate) fn gen_mkinfo_by_target(
             "",
         )
         .to_string();
-
-    // IPv6 check
+    let mut imagename_suffix = String::with_capacity(32);
     if makeopts.flag.contains(MakeFlag::IPV6) {
         imagename_suffix.push_str("V6-");
     }
-
-    // Building mode
     imagename_suffix.push(if makeopts.flag.contains(MakeFlag::RELEASE) {
         'r'
     } else {
         'd'
     });
-
-    // Timestamp
     let current_date = chrono::Local::now().format("%m%d").to_string();
     imagename_suffix.push_str(&current_date);
-
-    // Username
     let username = utils::get_current_username().context("Failed to get username")?;
     imagename_suffix.push('-');
     imagename_suffix.push_str(&username);
@@ -485,15 +476,15 @@ pub(crate) fn gen_mkinfo_by_target(
         let imagename_target = re_nonalnum
             .replace_all(mkinfo.make_target.as_str(), "")
             .to_uppercase();
-        let imagename = format!(
-            "{}-{}-{}-{}",
-            imagename_prodname, branch_abbr, imagename_target, imagename_suffix
-        );
-
+        let make_target = if makeopts.flag.contains(MakeFlag::IPV6) {
+            mkinfo.make_target.clone() + "-ipv6"
+        } else {
+            mkinfo.make_target.clone()
+        };
         let make_comm = format!(
-            r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
+            r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={}-{}-{}-{} >build.log 2>&1""#,
             mkinfo.make_directory,
-            mkinfo.make_target,
+            make_target,
             if makeopts.flag.contains(MakeFlag::RELEASE) {
                 1
             } else {
@@ -533,7 +524,11 @@ pub(crate) fn gen_mkinfo_by_target(
                     ImageServer::S => "10.200.6.10".to_string(),
                 }
             ),
-            imagename
+            // Image name parts begin
+            imagename_prodname,
+            imagename_branch,
+            imagename_target,
+            imagename_suffix
         );
 
         for item in product_list
@@ -554,7 +549,7 @@ pub(crate) fn gen_mkinfo_by_target(
                     .clone()
                     .unwrap_or_else(|| item.product_family.clone()),
                 platform_model: mkinfo.platform_model.clone(),
-                make_target: mkinfo.make_target.to_string(),
+                make_target: make_target.clone(),
                 make_directory: mkinfo.make_directory.clone(),
                 make_command: make_comm.clone(),
             });
