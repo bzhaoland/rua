@@ -192,7 +192,7 @@ pub(crate) fn load_product_infos(svninfo: &SvnInfo) -> Result<Vec<ProductInfo>> 
     Ok(product_info_list)
 }
 
-/// Read the registry about making target into a vec
+/// Load makeinfos from the registry into a list
 #[allow(unused)]
 pub(crate) fn load_mkinfo_registry(svninfo: &SvnInfo) -> anyhow::Result<Vec<MakeInfo>> {
     let makeinfo_path = svninfo
@@ -205,42 +205,24 @@ pub(crate) fn load_mkinfo_registry(svninfo: &SvnInfo) -> anyhow::Result<Vec<Make
     let makeinfo_file = fs::File::open(&makeinfo_path)
         .context(format!(r#"Can't open file "{}""#, makeinfo_path.display()))?;
     let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
-    let re_makeinfo =
-    Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
+    let re_makeinfo = Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
         .context("Failed to build regex for makeinfo")?;
-    let mut line = String::with_capacity(512);
-    let mut mkinfos: Vec<MakeInfo> = Vec::with_capacity(128);
-    while makeinfo_reader.read_line(&mut line)? != 0 {
-        if let Some(captures) = re_makeinfo.captures(&line) {
-            let makeinfo_item = MakeInfo {
+    let mut buf = String::with_capacity(256);
+    let mut mkinfos: Vec<MakeInfo> = Vec::with_capacity(256);
+    while makeinfo_reader.read_line(&mut buf)? != 0 {
+        if let Some(captures) = re_makeinfo.captures(&buf) {
+            mkinfos.push(MakeInfo {
                 platform_model: captures.get(1).unwrap().as_str().to_string(),
                 product_family: captures.get(4).map(|v| v.as_str().to_string()),
                 make_target: captures.get(2).unwrap().as_str().to_string(),
                 make_directory: captures.get(3).unwrap().as_str().to_string(),
-            };
-            mkinfos.push(makeinfo_item);
+            });
         }
-        line.clear()
+        buf.clear()
     }
     mkinfos.shrink_to_fit();
 
     Ok(mkinfos)
-}
-
-pub(crate) fn load_makeinfo_hashtable(svninfo: &SvnInfo) -> Result<HashMap<String, Vec<MakeInfo>>> {
-    let mut mkinfo_hashtable: HashMap<String, Vec<MakeInfo>> = HashMap::with_capacity(256);
-    for item in load_mkinfo_registry(svninfo)? {
-        mkinfo_hashtable
-            .entry(item.platform_model.clone())
-            .or_insert(Vec::with_capacity(1));
-        let v = mkinfo_hashtable
-            .get_mut(item.platform_model.as_str())
-            .unwrap();
-        v.push(item);
-    }
-    mkinfo_hashtable.shrink_to_fit();
-
-    Ok(mkinfo_hashtable)
 }
 
 const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
@@ -267,9 +249,20 @@ pub(crate) fn gen_mkinfo_by_nickname(
         .into_iter()
         .filter(|x| re_nickname.is_match(x.product_name_long.as_str()))
         .collect::<Vec<ProductInfo>>();
-    let mkinfos = load_makeinfo_hashtable(&svninfo)?;
+    let mkinfo_list = load_mkinfo_registry(&svninfo)?;
+    let mut mkinfo_map = HashMap::with_capacity(256);
+    for item in mkinfo_list {
+        mkinfo_map
+            .entry(item.platform_model.clone())
+            .or_insert(Vec::with_capacity(1));
+        let v = mkinfo_map
+            .get_mut(item.platform_model.as_str())
+            .unwrap();
+        v.push(item);
+    }
+    mkinfo_map.shrink_to_fit();
 
-    let has_family_field_in_plattable = match svninfo
+    let has_product_family_in_mkinfo = match svninfo
         .branch_name()
         .chars()
         .take(7)
@@ -296,14 +289,13 @@ pub(crate) fn gen_mkinfo_by_nickname(
     let mut imagename_suffix = String::with_capacity(32);
 
     let re_nonalnum =
-        Regex::new(r#"[^[:alnum:]]+"#).context("Error building regex for nonalnum")?;
+        Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
 
     // Use branch name abbreviation to compose the image name
     let re_branch_abbr = Regex::new(r"HAWAII_([-[:word:]]+)")
-        .context("Error building regex for nickname")
-        .unwrap();
+        .context("Build regex for nickname failed")?;
     let captures = re_branch_abbr.captures(svninfo.branch_name());
-    let branch_abbr = re_nonalnum
+    let imagename_branch = re_nonalnum
         .replace_all(
             &match captures {
                 Some(v) => v
@@ -332,22 +324,23 @@ pub(crate) fn gen_mkinfo_by_nickname(
     imagename_suffix.push_str(&current_date);
 
     // Username
-    let username = utils::get_current_username().context("Failed to get username")?;
-    imagename_suffix.push('-');
-    imagename_suffix.push_str(&username);
+    if let Some(username) = utils::get_current_username() {
+        imagename_suffix.push('-');
+        imagename_suffix.push_str(&username);
+    }
 
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for product in product_infos.iter() {
         let imagename_prodname = re_nonalnum.replace_all(&product.product_name_short, "");
 
-        let mkinfo_arr = mkinfos.get(&product.platform_model);
+        let mkinfo_arr = mkinfo_map.get(&product.platform_model);
         if mkinfo_arr.is_none() {
             continue;
         }
         let mkinfo_set = mkinfo_arr.unwrap();
 
         for mkinfo in mkinfo_set.iter().filter(|x| {
-            !has_family_field_in_plattable
+            !has_product_family_in_mkinfo
                 || (x.product_family.is_some()
                     && x.product_family.as_ref().unwrap() == &product.product_family)
         }) {
@@ -361,7 +354,7 @@ pub(crate) fn gen_mkinfo_by_nickname(
                 .to_uppercase();
             let imagename = format!(
                 "{}-{}-{}-{}",
-                imagename_prodname, branch_abbr, imagename_target, imagename_suffix
+                imagename_prodname, imagename_branch, imagename_target, imagename_suffix
             );
 
             let make_comm = format!(
