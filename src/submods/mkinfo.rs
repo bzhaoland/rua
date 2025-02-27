@@ -44,10 +44,12 @@ impl fmt::Display for ImageServer {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct MakeOpts {
     pub(crate) flag: MakeFlag,
     pub(crate) image_server: Option<ImageServer>,
+    pub(crate) nostrip_bins: Vec<String>,
+    pub(crate) user_defines: Vec<String>,
 }
 
 impl fmt::Display for MakeOpts {
@@ -55,10 +57,12 @@ impl fmt::Display for MakeOpts {
         write!(
             f,
             r#"MakeOpts {{
-    flag: {:?}
-    image_server: {:?}
+    flag: {:?},
+    image_server: {:?},
+    nostrip_bins: {:?},
+    user_defines: {:?},
 }}"#,
-            self.flag, self.image_server
+            self.flag, self.image_server, self.nostrip_bins, self.user_defines
         )
     }
 }
@@ -355,7 +359,7 @@ pub(crate) fn gen_mkinfo_by_nickname(
             );
 
             let make_comm = format!(
-                r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={} >build.log 2>&1""#,
+                r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={}{} IMG_NAME={} >build.log 2>&1""#,
                 mkinfo.make_directory,
                 make_target,
                 if makeopts.flag.contains(MakeFlag::RELEASE) {
@@ -397,6 +401,20 @@ pub(crate) fn gen_mkinfo_by_nickname(
                         ImageServer::S => "10.200.6.10".to_string(),
                     }
                 ),
+                if !makeopts.nostrip_bins.is_empty() {
+                    format!(
+                        r#" NOSTRIP="{}""#,
+                        makeopts
+                            .nostrip_bins
+                            .iter()
+                            .map(|x| x.trim().to_string())
+                            .collect::<Vec<String>>()
+                            .join(",")
+                            .as_str()
+                    )
+                } else {
+                    String::new()
+                },
                 imagename
             );
             compile_infos.push(CompileInfo {

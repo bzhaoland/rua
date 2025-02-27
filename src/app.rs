@@ -82,15 +82,6 @@ pub(crate) enum CompdbCommand {
       STYLE_YELLOW))]
     Gen {
         #[arg(
-            value_name = "PATH",
-            help = "Path for the target where platform-specific makefiles reside, such as 'products/vfw'"
-        )]
-        product_dir: String,
-
-        #[arg(value_name = "TARGET", help = "Target to build, such as 'a-dnv'")]
-        make_target: String,
-
-        #[arg(
             short = 'D',
             long = "define",
             value_name = "KEY=VAL",
@@ -121,6 +112,15 @@ pub(crate) enum CompdbCommand {
             help = "Path to the intercept-build binary (defaults to /devel/sw/llvm/bin/intercept-build)"
         )]
         intercept_build_path: Option<String>,
+
+        #[arg(
+            value_name = "PATH",
+            help = "Path for the target where platform-specific makefiles reside, such as 'products/vfw'"
+        )]
+        product_dir: String,
+
+        #[arg(value_name = "TARGET", help = "Target to build, such as 'a-dnv'")]
+        make_target: String,
     },
 
     /// Add the currently used compilation database into store as a new generation
@@ -285,15 +285,19 @@ pub(crate) enum Comm {
         #[arg(short = 's', long = "image-server", value_name = "IMAGE-SERVER")]
         image_server: Option<mkinfo::ImageServer>,
 
+        /// Binaries that get out of strip processing
+        #[arg(long = "nostrip", value_name = "BINARY")]
+        nostrip_bins: Vec<String>,
+
+        /// Treat the positional arg as a build target other than a product name
+        #[arg(long = "by-target")]
+        by_target: bool,
+
         /// Product name such as A1000, or build target (with --target switch on) such as a-dnv,
         /// View as a product name by default. Regex is also supported when using as a product name,
         /// e.g. 'X\d+80'.
         #[arg(value_name = "NAME-OR-TARGET")]
         product_name_or_build_target: String,
-
-        /// Treat the positional arg as a build target other than a product name
-        #[arg(long = "by-target")]
-        by_target: bool,
     },
 
     /// Extensively map instructions to file locations (inline expanded)
@@ -696,12 +700,13 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             coverage,
             coverity,
             password,
-            product_name_or_build_target,
             debug,
             webui,
             image_server,
+            nostrip_bins,
             output_format,
-            by_target: as_build_target,
+            by_target,
+            product_name_or_build_target,
         } => {
             let conf = RuaConf::load()?;
             let image_server = if let Some(image_server) = image_server {
@@ -729,6 +734,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             } else {
                 None
             };
+            let user_defines = Vec::new(); // TODO: Not implemented yet
 
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
@@ -753,10 +759,12 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             let makeopts = MakeOpts {
                 flag: makeflag,
                 image_server,
+                nostrip_bins,
+                user_defines,
             };
 
             let mkinfos = mkinfo::gen_mkinfo(
-                if as_build_target {
+                if by_target {
                     GenBy::Target(product_name_or_build_target)
                 } else {
                     GenBy::Nickname(product_name_or_build_target)
