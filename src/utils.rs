@@ -39,6 +39,7 @@ pub fn get_current_username() -> Option<String> {
     )
 }
 
+#[derive(Clone, Debug)]
 pub struct SvnInfo {
     working_copy_root_path: String,
     url: String,
