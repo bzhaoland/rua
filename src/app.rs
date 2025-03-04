@@ -670,7 +670,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         generation
                     );
                     io::stderr().flush()?;
-                    let rows = compdb::remark_compdb(&conn, generation, remark.as_str())?;
+                    let rows = compdb::mark_compdb(&conn, generation, remark.as_str())?;
                     if rows == 0 {
                         eprintln!(
                             "\rRemarking compilation database generation {}...",

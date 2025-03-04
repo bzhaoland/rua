@@ -642,14 +642,14 @@ pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> any
 /// Remark a compilation database generation
 ///
 /// Returns the number of affected rows, 1 on success, 0 on failure
-pub(crate) fn remark_compdb(
+pub(crate) fn mark_compdb(
     conn: &Connection,
-    generation: i64,
+    generation_id: i64,
     remark: &str,
 ) -> anyhow::Result<usize> {
     let rows = conn.execute(
         "UPDATE compdbs SET remark = ?1 WHERE generation = ?2",
-        params![remark, generation],
+        params![remark, generation_id],
     )?;
     Ok(rows)
 }

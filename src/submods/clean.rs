@@ -13,14 +13,10 @@ use crate::utils::{SvnInfo, TICK_CHARS, TICK_INTERVAL};
 
 fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
     let mut normalized = PathBuf::new();
-
     for component in path.as_ref().components() {
         match component {
             std::path::Component::RootDir => {
                 normalized.push(component);
-            }
-            std::path::Component::CurDir => {
-                // Skip current directory (.)
             }
             std::path::Component::ParentDir => {
                 normalized.pop(); // Go up one directory
@@ -28,10 +24,9 @@ fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
             std::path::Component::Normal(name) => {
                 normalized.push(name); // Push normal components
             }
-            _ => {}
+            _ => {} // Skip current directory (.) and others
         }
     }
-
     normalized
 }
 
@@ -73,21 +68,20 @@ pub fn clean_build(
     if target_dir.is_dir() {
         for entry in walkdir::WalkDir::new(&target_dir)
             .contents_first(true)
-            .into_iter()
-            .flatten()
+            .follow_links(false)
         {
+            let entry = entry?;
             if ignores.iter().any(|x| entry.path().starts_with(x)) {
                 continue;
             }
 
-            let path_ = entry.path();
-            pb1.set_message(path_.to_string_lossy().to_string());
-            if path_.is_file() || path_.is_symlink() {
-                fs::remove_file(path_)
-                    .context(format!("Failed to remove file {}", path_.display()))?;
-            } else if path_.is_dir() {
-                fs::remove_dir_all(path_)
-                    .context(format!("Failed to remove directory {}", path_.display()))?;
+            pb1.set_message(entry.path().to_string_lossy().to_string());
+            if entry.path().is_file() || entry.path().is_symlink() {
+                fs::remove_file(entry.path())
+                    .context(format!("Failed to remove {}", entry.path().display()))?;
+            } else if entry.path().is_dir() {
+                fs::remove_dir(entry.path())
+                    .context(format!("Failed to remove {}", entry.path().display()))?;
             }
         }
     }
@@ -105,23 +99,19 @@ pub fn clean_build(
     ))?);
     let webui_dir = normalize_path(svninfo.branch_name()); // UI directory name is the same as the branch name
     if webui_dir.is_dir() {
-        for entry in walkdir::WalkDir::new(&webui_dir)
-            .contents_first(true)
-            .into_iter()
-            .flatten()
-        {
+        for entry in walkdir::WalkDir::new(&webui_dir).contents_first(true) {
+            let entry = entry?;
             if ignores.iter().any(|x| entry.path().starts_with(x)) {
                 continue;
             }
 
-            let path_ = entry.path();
-            pb2.set_message(path_.to_string_lossy().to_string());
-            if path_.is_file() || path_.is_symlink() {
-                fs::remove_file(path_)
-                    .context(format!("Failed to remove file: {}", path_.display()))?;
-            } else if path_.is_dir() {
-                fs::remove_dir_all(path_)
-                    .context(format!("Failed to remove directory: {}", path_.display()))?;
+            pb2.set_message(entry.path().to_string_lossy().to_string());
+            if entry.path().is_file() || entry.path().is_symlink() {
+                fs::remove_file(entry.path())
+                    .context(format!("Failed to remove {}", entry.path().display()))?;
+            } else if entry.path().is_dir() {
+                fs::remove_dir(entry.path())
+                    .context(format!("Failed to remove {}", entry.path().display()))?;
             }
         }
     }
@@ -155,8 +145,7 @@ pub fn clean_build(
         "[{}/{}] Cleaning unversioneds: {{msg:.green}}",
         step, num_steps,
     ))?);
-    let pattern_for_unversioneds = Regex::new(r#"^\?[[:blank:]]+(.+)[[:blank:]]*$"#)
-        .context("Failed to construct pattern for unversioned files")?; // Pattern for out-of-control files
+    let pattern_for_unversioneds = Regex::new(r#"^\?[[:blank:]]+(.+)[[:blank:]]*$"#)?; // Pattern for out-of-control files
     let output_str =
         String::from_utf8(output.stdout).context(anyhow!("Can't convert to String"))?;
     for line in output_str.lines() {
@@ -167,10 +156,10 @@ pub fn clean_build(
                 pb3.set_message(entry.as_path().to_string_lossy().to_string());
                 if entry.is_file() || entry.is_symlink() {
                     fs::remove_file(&entry)
-                        .context(format!("Failed to remove: file {}", entry.display()))?;
+                        .context(format!("Failed to remove {}", entry.display()))?;
                 } else if entry.is_dir() {
-                    fs::remove_dir_all(&entry)
-                        .context(format!("Failed to remove: {}", entry.display()))?;
+                    fs::remove_dir(&entry)
+                        .context(format!("Failed to remove {}", entry.display()))?;
                 }
             }
         }
