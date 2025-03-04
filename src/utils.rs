@@ -10,13 +10,10 @@ use regex::Regex;
 pub(crate) const TICK_INTERVAL: Duration = Duration::from_millis(150);
 pub(crate) const TICK_CHARS: &str = "⣧⣶⣼⣹⢻⠿⡟⣏";
 
-/// Get current username using `id -un`.
-/// Unfortunately, neither `whoami` or `users` work correctly under company's
-/// environment, they got nothing when trying to get current username.
-/// Besides, methods using `libc::getuid` or `libc::getpwid` wrapped in an unsafe
-/// block functioned uncorrectly too in company's CentOS7 server. Maybe it is
-/// because there is no `passwd` table available on the server.
-/// Method `libc::getlogin` does not work inside container.
+/// Get current username by `id -un`. Unfortunately, neither `whoami` or `users` work correctly
+/// under company's dev environment. Besides, methods by wrapping `libc::getuid` or `libc::getpwid`
+/// or `libc::getlogin` does not work too on the CentOS7 server in company. Maybe there is no
+/// `passwd` table available.
 #[allow(dead_code)]
 pub fn get_current_username() -> Option<String> {
     let output = Command::new("id").arg("-un").output();
