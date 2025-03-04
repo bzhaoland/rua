@@ -88,7 +88,7 @@ const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
 const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
 const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
 
-pub(crate) fn gen_compdb_using_builtin_method(
+pub(crate) fn gen_compdb_builtin(
     svninfo: &SvnInfo,
     make_directory: &str,
     make_target: &str,
@@ -330,7 +330,7 @@ pub(crate) fn gen_compdb_using_builtin_method(
     Ok(())
 }
 
-pub(crate) fn gen_compdb_using_intercept_build(
+pub(crate) fn gen_compdb_by_intercept_build(
     _svninfo: &SvnInfo,
     intercept_build_path: &str,
     make_directory: &str,
@@ -345,7 +345,7 @@ pub(crate) fn gen_compdb_using_intercept_build(
     pb.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
     let command_with_args = command.arg(format!(
-        "{} make -C {} -iBj8 {} >{} 2>&1",
+        "{} make -C {} -j8 {} >{} 2>&1",
         intercept_build_path, make_directory, make_target, BUILDLOG_PATH
     ));
     let mut child_proc = command_with_args
@@ -369,7 +369,7 @@ pub(crate) fn gen_compdb_using_intercept_build(
     Ok(())
 }
 
-pub(crate) fn gen_compdb_using_bear(
+pub(crate) fn gen_compdb_by_bear(
     _svninfo: &SvnInfo,
     bear_path: &str,
     make_directory: &str,
@@ -384,7 +384,7 @@ pub(crate) fn gen_compdb_using_bear(
     pb.enable_steady_tick(TICK_INTERVAL);
     let mut command = Command::new("hsdocker7");
     let command_with_args = command.arg(format!(
-        "{} -- make -C {} -iBj8 {} >{} 2>&1",
+        "{} -- make -C {} -j8 {} >{} 2>&1",
         bear_path, make_directory, make_target, BUILDLOG_PATH
     ));
     let mut child_proc = command_with_args
@@ -418,14 +418,14 @@ pub(crate) fn gen_compdb(
 
     match engine {
         CompdbEngine::BuiltIn => {
-            gen_compdb_using_builtin_method(svninfo, make_directory, make_target, &options.defines)
+            gen_compdb_builtin(svninfo, make_directory, make_target, &options.defines)
         }
         CompdbEngine::InterceptBuild => {
             let intercept_build_path = options
                 .intercept_build_path
                 .as_deref()
                 .unwrap_or(DEFAULT_INTERCEPT_BUILD_PATH);
-            gen_compdb_using_intercept_build(
+            gen_compdb_by_intercept_build(
                 svninfo,
                 intercept_build_path,
                 make_directory,
@@ -434,7 +434,7 @@ pub(crate) fn gen_compdb(
         }
         CompdbEngine::Bear => {
             let bear_path = options.bear_path.as_deref().unwrap_or(DEFAULT_BEAR_PATH);
-            gen_compdb_using_bear(svninfo, bear_path, make_directory, make_target)
+            gen_compdb_by_bear(svninfo, bear_path, make_directory, make_target)
         }
     }?;
 
