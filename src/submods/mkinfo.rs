@@ -94,12 +94,12 @@ pub(crate) struct ProductInfo {
     pub(crate) product_model: String,
     pub(crate) name_id: usize,
     pub(crate) oem_id: String,
-    pub(crate) product_family: String,
-    pub(crate) product_name_short: String,
-    pub(crate) product_name_long: String,
+    pub(crate) family: String,
+    pub(crate) short_name: String,
+    pub(crate) long_name: String,
     pub(crate) snmp_descr: String,
     pub(crate) snmp_oid: String,
-    pub(crate) product_icon_path: Option<String>,
+    pub(crate) icon_path: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -129,6 +129,7 @@ impl fmt::Display for MakeInfo {
 pub(crate) struct CompileInfo {
     pub(crate) product_name: String,
     pub(crate) product_model: String,
+    pub(crate) product_oem_id: String,
     pub(crate) product_family: String,
     pub(crate) platform_model: String,
     pub(crate) make_target: String,
@@ -181,12 +182,12 @@ pub(crate) fn load_product_infos(svninfo: &SvnInfo) -> Result<Vec<ProductInfo>> 
                 product_model: captures.get(2).unwrap().as_str().to_string(),
                 name_id: captures.get(3).unwrap().as_str().parse::<usize>()?,
                 oem_id: captures.get(4).unwrap().as_str().to_string(),
-                product_family: captures.get(5).unwrap().as_str().to_string(),
-                product_name_short: captures.get(6).unwrap().as_str().to_string(),
-                product_name_long: captures.get(7).unwrap().as_str().to_string(),
+                family: captures.get(5).unwrap().as_str().to_string(),
+                short_name: captures.get(6).unwrap().as_str().to_string(),
+                long_name: captures.get(7).unwrap().as_str().to_string(),
                 snmp_descr: captures.get(8).unwrap().as_str().to_string(),
                 snmp_oid: captures.get(9).unwrap().as_str().to_string(),
-                product_icon_path: captures.get(10).map(|x| x.as_str().to_string()),
+                icon_path: captures.get(10).map(|x| x.as_str().to_string()),
             })
         }
         line.clear();
@@ -251,7 +252,7 @@ pub(crate) fn gen_mkinfo_by_nickname(
     let re_nickname = Regex::new(format!(r#"(?i){}$"#, nickname).as_str())?;
     let product_infos = load_product_infos(&svninfo)?
         .into_iter()
-        .filter(|x| re_nickname.is_match(x.product_name_long.as_str()))
+        .filter(|x| re_nickname.is_match(x.long_name.as_str()))
         .collect::<Vec<ProductInfo>>();
     let mkinfo_list = load_mkinfo_registry(&svninfo)?;
     let mut mkinfo_map = HashMap::with_capacity(256);
@@ -332,7 +333,7 @@ pub(crate) fn gen_mkinfo_by_nickname(
 
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for product in product_infos.iter() {
-        let imagename_prodname = re_nonalnum.replace_all(&product.product_name_short, "");
+        let imagename_prodname = re_nonalnum.replace_all(&product.short_name, "");
 
         let mkinfo_arr = mkinfo_map.get(&product.platform_model);
         if mkinfo_arr.is_none() {
@@ -343,7 +344,7 @@ pub(crate) fn gen_mkinfo_by_nickname(
         for mkinfo in mkinfo_set.iter().filter(|x| {
             !has_product_family_in_mkinfo
                 || (x.product_family.is_some()
-                    && x.product_family.as_ref().unwrap() == &product.product_family)
+                    && x.product_family.as_ref().unwrap() == &product.family)
         }) {
             let mut make_target = mkinfo.make_target.clone();
             if makeopts.flag.contains(MakeFlag::IPV6) {
@@ -418,9 +419,10 @@ pub(crate) fn gen_mkinfo_by_nickname(
                 imagename
             );
             compile_infos.push(CompileInfo {
-                product_name: product.product_name_long.clone(),
+                product_name: product.long_name.clone(),
                 product_model: product.product_model.clone(),
-                product_family: product.product_family.clone(),
+                product_oem_id: product.oem_id.clone(),
+                product_family: product.family.clone(),
                 platform_model: mkinfo.platform_model.clone(),
                 make_target,
                 make_directory: mkinfo.make_directory.clone(),
@@ -554,18 +556,19 @@ pub(crate) fn gen_mkinfo_by_target(
             .filter(|x| x.platform_model == mkinfo.platform_model)
         {
             if let Some(family) = mkinfo.product_family.clone() {
-                if family != item.product_family {
+                if family != item.family {
                     continue;
                 }
             }
 
             compile_infos.push(CompileInfo {
-                product_name: item.product_name_long.clone(),
+                product_name: item.long_name.clone(),
                 product_model: item.product_model.clone(),
+                product_oem_id: item.oem_id.clone(),
                 product_family: mkinfo
                     .product_family
                     .clone()
-                    .unwrap_or_else(|| item.product_family.clone()),
+                    .unwrap_or_else(|| item.family.clone()),
                 platform_model: mkinfo.platform_model.clone(),
                 make_target: make_target.clone(),
                 make_directory: mkinfo.make_directory.clone(),
@@ -590,9 +593,10 @@ pub(crate) fn gen_mkinfo(by_what: GenBy, makeopts: MakeOpts) -> anyhow::Result<V
     }
 }
 
-const MKINFO_DUMP_FIELDS: [&str; 7] = [
+const MKINFO_DUMP_FIELDS: [&str; 8] = [
     "Product",
     "Model",
+    "OEMID",
     "Family",
     "Platform",
     "Target",
@@ -605,12 +609,13 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     for item in compile_infos.iter() {
         output.as_array_mut().unwrap().push(json!({
             MKINFO_DUMP_FIELDS[0]: item.product_name,
-            MKINFO_DUMP_FIELDS[1]: item.product_name,
-            MKINFO_DUMP_FIELDS[2]: item.product_family,
-            MKINFO_DUMP_FIELDS[3]: item.platform_model,
-            MKINFO_DUMP_FIELDS[4]: item.make_target,
-            MKINFO_DUMP_FIELDS[5]: item.make_directory,
-            MKINFO_DUMP_FIELDS[6]: item.make_command,
+            MKINFO_DUMP_FIELDS[1]: item.product_model,
+            MKINFO_DUMP_FIELDS[2]: item.product_oem_id,
+            MKINFO_DUMP_FIELDS[3]: item.product_family,
+            MKINFO_DUMP_FIELDS[4]: item.platform_model,
+            MKINFO_DUMP_FIELDS[5]: item.make_target,
+            MKINFO_DUMP_FIELDS[6]: item.make_directory,
+            MKINFO_DUMP_FIELDS[7]: item.make_command,
         }));
     }
     println!("{}", serde_json::to_string_pretty(&output)?);
@@ -652,20 +657,22 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
         + 1;
     for (idx, item) in compile_infos.iter().enumerate() {
         println!(
-            "{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}",
+            "{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}\n{:<header_len$}: {}",
             MKINFO_DUMP_FIELDS[0],
             item.product_name,
             MKINFO_DUMP_FIELDS[1],
             item.product_model,
             MKINFO_DUMP_FIELDS[2],
-            item.product_family,
+            item.product_oem_id,
             MKINFO_DUMP_FIELDS[3],
-            item.platform_model,
+            item.product_family,
             MKINFO_DUMP_FIELDS[4],
-            item.make_target,
+            item.platform_model,
             MKINFO_DUMP_FIELDS[5],
-            item.make_directory,
+            item.make_target,
             MKINFO_DUMP_FIELDS[6],
+            item.make_directory,
+            MKINFO_DUMP_FIELDS[7],
             item.make_command,
         );
         if idx < compile_infos.len() - 1 {
@@ -696,11 +703,13 @@ fn dump_csv(infos: &[CompileInfo], delimiter: u8) -> anyhow::Result<()> {
         MKINFO_DUMP_FIELDS[4],
         MKINFO_DUMP_FIELDS[5],
         MKINFO_DUMP_FIELDS[6],
+        MKINFO_DUMP_FIELDS[7],
     ])?;
     for info in infos.iter() {
         writer.write_record([
             &info.product_name,
             &info.product_model,
+            &info.product_oem_id,
             &info.product_family,
             &info.platform_model,
             &info.make_target,

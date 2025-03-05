@@ -9,7 +9,8 @@ use regex::Regex;
 
 use crate::config::PROJ_RUA_DIR;
 use crate::submods::compdb::COMPDB_FILE;
-use crate::utils::{SvnInfo, TICK_CHARS, TICK_INTERVAL};
+use crate::utils::SvnInfo;
+use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
 
 fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
     let mut normalized = PathBuf::new();

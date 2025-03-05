@@ -1,14 +1,17 @@
-use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::Path;
 use std::process::Command;
-use std::time::Duration;
+use std::{ffi::OsString, fmt::Display};
 
 use anyhow::{Context, anyhow, bail};
 use regex::Regex;
 
-pub(crate) const TICK_INTERVAL: Duration = Duration::from_millis(150);
-pub(crate) const TICK_CHARS: &str = "⣧⣶⣼⣹⢻⠿⡟⣏";
+pub(crate) mod progress_bar {
+    use std::time::Duration;
+
+    pub(crate) const TICK_INTERVAL: Duration = Duration::from_millis(120);
+    pub(crate) const TICK_CHARS: &str = "⣧⣶⣼⣹⢻⠿⡟⣏";
+}
 
 /// Get current username by `id -un`. Unfortunately, neither `whoami` or `users` work correctly
 /// under company's dev environment. Besides, methods by wrapping `libc::getuid` or `libc::getpwid`
@@ -51,6 +54,38 @@ pub struct SvnInfo {
     last_changed_date: String,
 }
 
+impl Display for SvnInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            r#"SvnInfo {{
+working_copy_root_path: {},
+url: {},
+relative_url: {},
+repo_root: {},
+repo_uuid: {},
+revision: {},
+node_kind: {},
+schedule: {},
+last_changed_author: {},
+last_changed_revision: {},
+last_changed_date: {}
+}}"#,
+            self.working_copy_root_path,
+            self.url,
+            self.relative_url,
+            self.repo_root,
+            self.repo_uuid,
+            self.revision,
+            self.node_kind,
+            self.schedule,
+            self.last_changed_author,
+            self.last_changed_revision,
+            self.last_changed_date
+        )
+    }
+}
+
 impl SvnInfo {
     pub fn new() -> anyhow::Result<Self> {
         let result = Command::new("svn")
@@ -78,7 +113,7 @@ Last Changed Author: ([^\n]+)
 Last Changed Rev: ([[:digit:]]+)
 Last Changed Date: ([^\n]+)"#,
         )
-        .context("Failed to build regex pattern for svn info")?;
+        .context("Regex pattern for svn info")?;
 
         let captures = pattern
             .captures(&output)

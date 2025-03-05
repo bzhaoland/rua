@@ -20,7 +20,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use zstd::{decode_all, encode_all};
 
-use crate::utils::{SvnInfo, TICK_CHARS, TICK_INTERVAL};
+use crate::utils::SvnInfo;
+use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum)]
 pub(crate) enum CompdbEngine {
