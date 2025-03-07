@@ -572,9 +572,9 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum DelOpt {
-    Generation(i64),
+    Generations(Vec<i64>),
     Oldest(usize),
     Newest(usize),
     All,
@@ -583,15 +583,27 @@ pub(crate) enum DelOpt {
 /// Delete a compilation database generation from the store
 pub(crate) fn del_compdb(conn: &Connection, opt: DelOpt) -> anyhow::Result<usize> {
     let rows = match opt {
-        DelOpt::Generation(v) => {
-            conn.execute("DELETE FROM compdbs WHERE generation = ?1", [v])?
+        DelOpt::Generations(v) => {
+            conn.execute(
+                format!(
+                    "DELETE FROM compdbs WHERE generation IN ({})",
+                    v.iter().map(|_| "?").collect::<Vec<&str>>().join(", ")
+                ).as_str(),
+                rusqlite::params_from_iter(v.iter())
+            )?
         }
         DelOpt::All => conn.execute("DELETE FROM compdbs", ())?,
         DelOpt::Newest(n) => {
-            conn.execute("DELETE FROM compdbs WHERE timestamp in (SELECT timestamp FROM compdbs ORDER BY generation DESC LIMIT ?1)", [n])?
+            conn.execute(
+                "DELETE FROM compdbs WHERE timestamp in (SELECT timestamp FROM compdbs ORDER BY generation DESC LIMIT ?1)",
+                [n]
+            )?
         }
         DelOpt::Oldest(n) => {
-            conn.execute("DELETE FROM compdbs WHERE timestamp in (SELECT timestamp FROM compdbs ORDER BY generation ASC LIMIT ?1)", [n])?
+            conn.execute(
+                "DELETE FROM compdbs WHERE timestamp in (SELECT timestamp FROM compdbs ORDER BY generation ASC LIMIT ?1)",
+                [n]
+            )?
         }
     };
     conn.execute("VACUUM", ())?;

@@ -695,16 +695,7 @@ fn dump_csv(infos: &[CompileInfo], delimiter: u8) -> anyhow::Result<()> {
         .quote_style(csv::QuoteStyle::NonNumeric)
         .from_writer(std::io::stdout());
 
-    writer.write_record([
-        MKINFO_DUMP_FIELDS[0],
-        MKINFO_DUMP_FIELDS[1],
-        MKINFO_DUMP_FIELDS[2],
-        MKINFO_DUMP_FIELDS[3],
-        MKINFO_DUMP_FIELDS[4],
-        MKINFO_DUMP_FIELDS[5],
-        MKINFO_DUMP_FIELDS[6],
-        MKINFO_DUMP_FIELDS[7],
-    ])?;
+    writer.write_record(MKINFO_DUMP_FIELDS)?;
     for info in infos.iter() {
         writer.write_record([
             &info.product_name,

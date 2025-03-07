@@ -52,7 +52,8 @@ pub(crate) enum CompdbCommand {
     ///
     /// Note that compilation database generated under submod dir only covers
     /// files in this module.
-    #[command(after_help = format!(
+    #[command(visible_aliases = ["generate"],
+        after_help = format!(
         r#"{}Examples:{:#}
   rua compdb gen products/ngfw_as a-dnv                    # For A1000/A2000...
   rua compdb gen products/ngfw_as a-dnv-ipv6               # For A1000/A2000... with IPv6 support
@@ -146,10 +147,10 @@ pub(crate) enum CompdbCommand {
     },
 
     /// Delete compilation database generation(s) from store
-    #[command(visible_alias = "rm", group = ArgGroup::new("number").args(["generation", "all", "new", "old"]))]
+    #[command(visible_aliases = ["delete", "rm", "remove"], group = ArgGroup::new("number").args(["some", "all", "new", "old"]))]
     Del {
-        #[arg(value_name = "GENERATION-ID", help = "Generation to delete")]
-        one: Option<i64>,
+        #[arg(value_name = "GENERATION-ID", help = "Generations to remove")]
+        some: Option<Vec<i64>>,
 
         #[arg(short = 'a', long = "all", help = "Remove all generations")]
         all: bool,
@@ -172,6 +173,7 @@ pub(crate) enum CompdbCommand {
     },
 
     /// List all compilation database generations in store
+    #[command(visible_alias = "list")]
     Ls,
 
     /// Select a compilation database generation from store to use
@@ -202,7 +204,7 @@ pub(crate) enum CompdbCommand {
 
         #[arg(
             value_name = "REMARK",
-            help = "Remark for the compilation database generation"
+            help = "Remark the compilation database generation"
         )]
         remark: String,
     },
@@ -594,26 +596,61 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     eprintln!("\rSwitching to generation {}...ok", generation);
                     Ok(())
                 }
-                CompdbCommand::Del { one, old, new, all } => {
+                CompdbCommand::Del {
+                    some,
+                    old,
+                    new,
+                    all,
+                } => {
                     let mut stderr_ = io::stderr();
-                    if one.is_some() {
-                        let generation = one.unwrap();
-                        eprint!("Deleting generation {}...", generation);
+                    if some.is_some() {
+                        let generations = some.unwrap();
+                        let generations_string = generations
+                            .iter()
+                            .map(|x| x.to_string())
+                            .collect::<Vec<String>>()
+                            .join(" ");
+                        let many = generations.len() > 1;
+                        eprint!(
+                            "Deleting generation{} {}...",
+                            if many { "s" } else { "" },
+                            generations_string
+                        );
                         stderr_.flush()?;
-                        compdb::del_compdb(&conn, compdb::DelOpt::Generation(generation))?;
-                        eprintln!("\rDeleting generation {}...ok", generation);
+                        compdb::del_compdb(&conn, compdb::DelOpt::Generations(generations))?;
+                        eprintln!(
+                            "\rDeleting generation{} {}...ok",
+                            if many { "s" } else { "" },
+                            generations_string
+                        );
                     } else if old.is_some() {
                         let n = old.unwrap();
-                        eprint!("Deleting {} oldest generations...", n);
+                        eprint!(
+                            "Deleting {} oldest generation{}...",
+                            n,
+                            if n > 1 { "s" } else { "" }
+                        );
                         stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::Oldest(n))?;
-                        eprintln!("\rDeleting {} oldest generations...ok", n);
+                        eprintln!(
+                            "\rDeleting {} oldest generation{}...ok",
+                            n,
+                            if n > 1 { "s" } else { "" }
+                        );
                     } else if new.is_some() {
                         let n = new.unwrap();
-                        eprint!("Deleting {} newest generations...", n);
+                        eprint!(
+                            "Deleting {} newest generation{}...",
+                            n,
+                            if n > 1 { "s" } else { "" }
+                        );
                         stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::Newest(n))?;
-                        eprintln!("\rDeleting {} newest generations...ok", n);
+                        eprintln!(
+                            "\rDeleting {} newest generation{}...ok",
+                            n,
+                            if n > 1 { "s" } else { "" }
+                        );
                     } else if all {
                         eprint!("Deleting all generations...");
                         stderr_.flush()?;
