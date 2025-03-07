@@ -163,17 +163,14 @@ Last Changed Date: ([^\n]+)"#,
 
     #[allow(dead_code)]
     pub fn branch_name(&self) -> &str {
-        let rel_url = self.relative_url();
-        let branch_pattern = Regex::new(r#"\^/branches/([-[:word:]]+)"#)
+        Regex::new(r#"\^/branches/(.+)"#)
             .context("Failed to build pattern for branch name")
-            .unwrap();
-        let branch_name = branch_pattern
-            .captures(rel_url)
+            .unwrap()
+            .captures(self.relative_url.as_str())
             .expect("Failed to match branch name")
             .get(1)
             .unwrap()
-            .as_str();
-        branch_name
+            .as_str()
     }
 
     #[allow(dead_code)]
