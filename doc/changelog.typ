@@ -24,6 +24,23 @@
 #outline(indent: 2em)
 #pagebreak()
 
+= rua v0.23.1
+
+- 北京: 10.100.6.10/bzhao/rua/0.23.1/rua
+- 苏州: 10.200.6.10/bzhao/rua/0.23.1/rua
+
+== BuildServer (北京) 上可通过命令下载和新增执行权限
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/0.23.1/rua
+chmod +x ./rua
+```
+== Changes
+
+- `rua review`: fix branch name error when it consits of symbols which is not dash or in "word" character class
+
+#pagebreak()
+
 = rua v0.23.0
 
 - 北京: 10.100.6.10/bzhao/rua/0.23.0/rua
