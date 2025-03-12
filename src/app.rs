@@ -668,7 +668,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     let compdb_path = compdb_path
                         .as_ref()
                         .map_or_else(|| compdb::COMPDB_FILE, |x| x.as_str());
-                    eprint!("Archiving compilation database into store...");
+                    eprint!("Archiving compilation database for {} into store...", target);
                     io::stderr().flush()?;
                     let revision = revision.unwrap_or_else(|| svninfo.revision());
                     compdb::ark_compdb(
@@ -678,7 +678,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         target.as_str(),
                         compdb_path,
                     )?;
-                    eprintln!("\rArchiving compilation database for into store...ok");
+                    eprintln!("\rArchiving compilation database for {} into store...ok", target);
                     Ok(())
                 }
                 CompdbCommand::Name { generation, name } => {
