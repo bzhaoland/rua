@@ -612,50 +612,50 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             .join(" ");
                         let many = generations.len() > 1;
                         eprint!(
-                            "Deleting generation{} {}...",
+                            "Removing generation{} {}...",
                             if many { "s" } else { "" },
                             generations_string
                         );
                         stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::Generations(generations))?;
                         eprintln!(
-                            "\rDeleting generation{} {}...ok",
+                            "\rRemoving generation{} {}...ok",
                             if many { "s" } else { "" },
                             generations_string
                         );
                     } else if old.is_some() {
                         let n = old.unwrap();
                         eprint!(
-                            "Deleting {} oldest generation{}...",
+                            "Removing {} oldest generation{}...",
                             n,
                             if n > 1 { "s" } else { "" }
                         );
                         stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::Oldest(n))?;
                         eprintln!(
-                            "\rDeleting {} oldest generation{}...ok",
+                            "\rRemoving {} oldest generation{}...ok",
                             n,
                             if n > 1 { "s" } else { "" }
                         );
                     } else if new.is_some() {
                         let n = new.unwrap();
                         eprint!(
-                            "Deleting {} newest generation{}...",
+                            "Removing {} newest generation{}...",
                             n,
                             if n > 1 { "s" } else { "" }
                         );
                         stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::Newest(n))?;
                         eprintln!(
-                            "\rDeleting {} newest generation{}...ok",
+                            "\rRemoving {} newest generation{}...ok",
                             n,
                             if n > 1 { "s" } else { "" }
                         );
                     } else if all {
-                        eprint!("Deleting all generations...");
+                        eprint!("Removing all generations...");
                         stderr_.flush()?;
                         compdb::del_compdb(&conn, compdb::DelOpt::All)?;
-                        eprintln!("\rDeleting all generations...ok");
+                        eprintln!("\rRemoving all generations...ok");
                     };
                     Ok(())
                 }

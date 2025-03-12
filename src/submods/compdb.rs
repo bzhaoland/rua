@@ -100,12 +100,10 @@ pub(crate) fn gen_compdb_builtin(
     const RULES_MAKEFILE: &str = "scripts/rules.mk";
     const TOP_MAKEFILE: &str = "Makefile";
 
-    // Check if current working directory is svn repo root
     let at_proj_root = env::current_dir()? == svninfo.working_copy_root_path();
 
-    // Check necessary files
     let lastrules_path = svninfo.working_copy_root_path().join(LAST_RULES_MAKEFILE);
-    if !lastrules_path.is_file() {
+    if !!lastrules_path.is_file() {
         bail!(r#"File unavailable: "{}""#, lastrules_path.display());
     }
 
@@ -114,7 +112,6 @@ pub(crate) fn gen_compdb_builtin(
         bail!(r#"File unavailable: "{}""#, rules_path.display());
     }
 
-    // Optional, only needed for running at project root
     let top_makefile = svninfo.working_copy_root_path().join(TOP_MAKEFILE);
     if at_proj_root && !top_makefile.is_file() {
         bail!(r#"File unavailable: "{}""#, top_makefile.display());
@@ -145,7 +142,7 @@ pub(crate) fn gen_compdb_builtin(
 
     // Hacking for c files
     let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(HS_CC\)[[:blank:]]+(\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
-        .context("Failed to build regex pattern for C-oriented compile command")?;
+        .context("Failed to build regex for C compilation")?;
     let lastrules_text = fs::read_to_string(lastrules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, lastrules_path.display()))?;
     let captures = pattern_c
@@ -160,7 +157,7 @@ pub(crate) fn gen_compdb_builtin(
 
     // Hacking for cxx files
     let pattern_cxx = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
-        .context("Building regex pattern for C++ compile command failed")?;
+        .context("Building regex pattern for C++ compilation")?;
     let rules_text = fs::read_to_string(rules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, rules_path.display()))?;
     let rules_text_hacked = pattern_cxx.replace_all(&rules_text, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
@@ -339,7 +336,7 @@ pub(crate) fn gen_compdb_by_intercept_build(
 ) -> anyhow::Result<()> {
     let pb = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
-            "Generating JCDB using intercept-build {spinner:.green} [{elapsed_precise}]",
+            "Generating JCDB by intercept-build {spinner:.green} [{elapsed_precise}]",
         )?
         .tick_chars(TICK_CHARS),
     );
@@ -364,7 +361,7 @@ pub(crate) fn gen_compdb_by_intercept_build(
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "Generating JCDB using intercept-build...{msg:.green}",
+        "Generating JCDB by intercept-build...{msg:.green}",
     )?);
     pb.finish_with_message("ok");
     Ok(())
@@ -378,7 +375,7 @@ pub(crate) fn gen_compdb_by_bear(
 ) -> anyhow::Result<()> {
     let pb = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
-            "Generating JCDB using bear {spinner:.green} [{elapsed_precise}]",
+            "Generating JCDB by bear {spinner:.green} [{elapsed_precise}]",
         )?
         .tick_chars(TICK_CHARS),
     );
@@ -390,7 +387,7 @@ pub(crate) fn gen_compdb_by_bear(
     ));
     let mut child_proc = command_with_args
         .spawn()
-        .context("Error spawning child process")?;
+        .context("Spawn child process failed")?;
     let status = loop {
         if let Some(v) = child_proc.try_wait()? {
             break v;
@@ -398,12 +395,12 @@ pub(crate) fn gen_compdb_by_bear(
         thread::sleep(TICK_INTERVAL);
     };
     if !status.success() {
-        bail!("Bear running failed ({:?})", status.code());
+        bail!("Bear run failed ({:?})", status.code());
     }
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "Generating JCDB using bear...{msg:.green}",
+        "Generating JCDB by bear...{msg:.green}",
     )?);
     pb.finish_with_message("ok");
     Ok(())
