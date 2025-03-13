@@ -54,7 +54,7 @@ pub(crate) enum CompdbCommand {
     /// files in this module.
     #[command(visible_aliases = ["generate"],
         after_help = format!(
-        r#"{}Examples:{:#}
+        r#"{0}Examples:{0:#}
   rua compdb gen products/ngfw_as a-dnv                    # For A1000/A2000...
   rua compdb gen products/ngfw_as a-dnv-ipv6               # For A1000/A2000... with IPv6 support
   rua compdb gen -e intercept-build products/ngfw_as a-dnv # For A1000/A2000... using intercept-build
@@ -62,7 +62,7 @@ pub(crate) enum CompdbCommand {
   rua compdb gen -e bear . a-dnv                           # For A1000/A2000... under submod dir using bear 
   run compdb gen -e intercept-build . a-dnv                # For A1000/A2000... under submod dir using intercept-build
 
-{}Caution:{:#}
+{1}Caution:{1:#}
   Some files are modified while running in built-in mode which is the default
   and faster:
   1. When running under project root dir:
@@ -74,13 +74,9 @@ pub(crate) enum CompdbCommand {
      - scripts/rules.mk
   These files may be left dirty if compdb process aborted unexpectedly. You
   could manually restore them by execute:
-  {}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{:#}"#,
+  {0}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{0:#}"#,
       STYLE_YELLOW,
-      STYLE_YELLOW,
-      STYLE_RED,
-      STYLE_RED,
-      STYLE_YELLOW,
-      STYLE_YELLOW))]
+      STYLE_RED))]
     Gen {
         #[arg(
             short = 'D',
@@ -124,9 +120,15 @@ pub(crate) enum CompdbCommand {
         make_target: String,
     },
 
-    /// Add the currently used compilation database into store as a new generation
+    /// Archive the currently used compilation database into store as a new generation
+    #[command(visible_aliases = ["ark", "archive"], after_help = format!(
+        r#"{0}Examples:{0:#}
+    rua compdb add hygon-ipv6 # Archive compilation database for hygon-ipv6
+    rua compdb add --revision 307164 hygon # Archive compilation database for hygon with a revision provided"#,
+    STYLE_YELLOW
+    ))]
     Add {
-        #[arg(value_name = "TARGET", help = "Target for the compilation database")]
+        #[arg(value_name = "TARGET", help = "Target specified for the compilation database")]
         target: String,
 
         #[arg(
@@ -213,8 +215,8 @@ pub(crate) enum CompdbCommand {
 #[derive(Clone, Debug, Subcommand)]
 pub(crate) enum Comm {
     /// Clean build files (run under project root)
-    #[command(after_help = format!("{STYLE_YELLOW}Examples:{STYLE_YELLOW:#}
-  rua clean  # Clean the entire project"))]
+    #[command(after_help = format!("{0}Examples:{0:#}
+  rua clean  # Clean the entire project", STYLE_YELLOW))]
     Clean {
         #[arg(
             value_name = "ENTRY",
@@ -239,11 +241,11 @@ pub(crate) enum Comm {
 
     /// Get all matched makeinfos for product
     #[command(
-        after_help = format!(r#"{STYLE_YELLOW}Examples:{STYLE_YELLOW:#}
+        after_help = format!(r#"{0}Examples:{0:#}
   rua mkinfo A1000      # Makeinfo for A1000 without extra features
   rua mkinfo -6 A1000   # Makeinfo for A1000 with IPv6 enabled
   rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern
-  rua mkinfo --target a-dnv  # Makeinfos for a-dnv target"#)
+  rua mkinfo --target a-dnv  # Makeinfos for a-dnv target"#, STYLE_YELLOW)
     )]
     Mkinfo {
         /// Build with only IPv4 enabled
@@ -271,7 +273,7 @@ pub(crate) enum Comm {
         #[arg(short = 'd', long = "debug", default_value_t = false)]
         debug: bool,
 
-        /// Output format for makeinfos
+        /// Output format for makeinfos, defaults to list
         #[arg(long = "format", default_value = "list", value_name = "FORMAT")]
         output_format: mkinfo::DumpFormat,
 
@@ -429,9 +431,9 @@ pub(crate) enum Comm {
     },
 
     /// Generate completion for the given shell
-    #[command(after_help = format!(r#"{STYLE_YELLOW}Note:{STYLE_YELLOW:#}
+    #[command(after_help = format!(r#"{0}Note:{0:#}
   eval "$(rua init bash)"  # Append this line to ~/.bashrc
-  eval "$(rua init zsh)"   # Append this line to ~/.zshrc"#))]
+  eval "$(rua init zsh)"   # Append this line to ~/.zshrc"#, STYLE_YELLOW))]
     Init {
         #[arg(value_name = "SHELL", help = "Shell type", value_enum)]
         shell: Shell,

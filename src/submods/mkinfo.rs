@@ -633,14 +633,8 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     }
 
     // Decorations
-    let outer_decor = format!(
-        "{COLOR_GREEN}{}{COLOR_GREEN:#}",
-        "=".repeat(term_cols as usize)
-    );
-    let inner_decor = format!(
-        "{COLOR_GREEN}{}{COLOR_GREEN:#}",
-        "-".repeat(term_cols as usize)
-    );
+    let outer_decor = format!("{0}{1}{0:#}", COLOR_GREEN, "=".repeat(term_cols as usize));
+    let inner_decor = format!("{0}{1}{0:#}", COLOR_GREEN, "-".repeat(term_cols as usize));
 
     println!(
         "{} matched info{}:",
@@ -682,7 +676,8 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     println!("{}", outer_decor);
 
     println!(
-        r#"{COLOR_YELLOW}Run make command under the project root, i.e. "{}"{COLOR_YELLOW:#}"#,
+        r#"{0}Run make command under the project root, i.e. "{1}"{0:#}"#,
+        COLOR_YELLOW,
         utils::SvnInfo::new()?.working_copy_root_path().display(),
     );
 
