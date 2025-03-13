@@ -103,7 +103,7 @@ pub(crate) fn gen_compdb_builtin(
     let at_proj_root = env::current_dir()? == svninfo.working_copy_root_path();
 
     let lastrules_path = svninfo.working_copy_root_path().join(LAST_RULES_MAKEFILE);
-    if !!lastrules_path.is_file() {
+    if !lastrules_path.is_file() {
         bail!(r#"File unavailable: "{}""#, lastrules_path.display());
     }
 
