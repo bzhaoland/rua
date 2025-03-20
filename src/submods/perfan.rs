@@ -220,7 +220,7 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
         }
         DumpFormat::Table => {
             // table
-            let summary_decor: String = "S".repeat(100);
+            let summary_decor: String = "═".repeat(100);
             let spacer: String = " ".repeat(6);
             let top_counter = data["counter"].as_u64().context("Can't cast as u64")?;
             let top_num_mods = data["num_mods"].as_u64().context("Can't cast as u64")?;
@@ -236,7 +236,7 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
             println!("{}", summary_decor);
             print!("\n\n");
 
-            let module_decor: String = "M".repeat(100);
+            let module_decor: String = "═".repeat(100);
             let mut mod_count: usize = 0;
             for (modk, modv) in data["mods"]
                 .as_object()
@@ -260,12 +260,8 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                 );
                 println!("{}\n\n", module_decor);
 
-                let table_borderline = "=".repeat(100);
-                let table_centerline: String = format!(
-                    "{1:>.8}{0}{1:>.13}{0}{1:>.12}{0}{1:.30}{0}{1:.25}",
-                    "-+-",
-                    "-".repeat(100),
-                );
+                let table_borderline = "═".repeat(100);
+                let table_centerline = "─".repeat(100);
                 let spacer_2 = " ".repeat(3);
                 for (func_idx, func) in modv["funcs"]
                     .as_array()
@@ -287,7 +283,7 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                     println!(
                         "{1:>8.4}{0}{2:>13}{0}{3:>12}{0}{4:30.30}{0}",
                         spacer_2,
-                        func_counter as f64 / top_counter as f64 * 100f64,
+                        format!("{}%", func_counter as f64 / top_counter as f64 * 100f64),
                         func_counter_str,
                         "[TOTAL]",
                         modfunc_str,

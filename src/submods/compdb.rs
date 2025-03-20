@@ -104,17 +104,17 @@ pub(crate) fn gen_compdb_builtin(
 
     let lastrules_path = svninfo.working_copy_root_path().join(LAST_RULES_MAKEFILE);
     if !lastrules_path.is_file() {
-        bail!(r#"File unavailable: "{}""#, lastrules_path.display());
+        bail!(r#"File not found: "{}""#, lastrules_path.display());
     }
 
     let rules_path = svninfo.working_copy_root_path().join(RULES_MAKEFILE);
     if !rules_path.is_file() {
-        bail!(r#"File unavailable: "{}""#, rules_path.display());
+        bail!(r#"File not found: "{}""#, rules_path.display());
     }
 
     let top_makefile = svninfo.working_copy_root_path().join(TOP_MAKEFILE);
     if at_proj_root && !top_makefile.is_file() {
-        bail!(r#"File unavailable: "{}""#, top_makefile.display());
+        bail!(r#"File not found: "{}""#, top_makefile.display());
     }
 
     let mut step: usize = 1;
@@ -170,13 +170,13 @@ pub(crate) fn gen_compdb_builtin(
     let mut top_makefile_text = String::new();
     if at_proj_root {
         let pattern_target = Regex::new(r#"(?m)^( *)stoneos-image:(.*)$"#)
-            .context("Building regex pattern for make target failed")?;
+            .context("Failed to build regex for make target")?;
         top_makefile_text = fs::read_to_string(top_makefile.as_path())
-            .context(format!(r#"Can't read file "{}"""#, top_makefile.display()))?;
+            .context(format!(r#"Failed to read "{}"""#, top_makefile.display()))?;
         let captures = pattern_target
             .captures(&top_makefile_text)
             .context(format!(
-                "Can't capture pattern '{}' from '{}'",
+                "Failed to capture '{}' from '{}'",
                 pattern_target.as_str(),
                 top_makefile.display()
             ))?;
@@ -651,7 +651,7 @@ pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> any
 
 /// Remark a compilation database generation
 ///
-/// Returns the number of affected rows, 1 on success, 0 on failure
+/// Returns the number of affected rows, non-zero on success, zero on failure
 pub(crate) fn mark_compdb(
     conn: &Connection,
     generation_id: i64,

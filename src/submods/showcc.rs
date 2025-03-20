@@ -55,8 +55,8 @@ pub(crate) fn show_compile_command(filename: &str, compdb: &path::Path) -> Resul
     }
 
     let width = Term::stdout().size().1;
-    let head_decor = format!("{STYLE_GREEN}{}{STYLE_GREEN:#}", "=".repeat(width as usize));
-    let data_decor = format!("{STYLE_GREEN}{}{STYLE_GREEN:#}", "-".repeat(width as usize));
+    let head_decor = format!("{STYLE_GREEN}{}{STYLE_GREEN:#}", "═".repeat(width as usize));
+    let data_decor = format!("{STYLE_GREEN}{}{STYLE_GREEN:#}", "─".repeat(width as usize));
 
     let mut out = String::new();
     out.push_str(&format!(
