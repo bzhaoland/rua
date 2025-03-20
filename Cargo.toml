@@ -38,8 +38,8 @@ zstd = "0.13.2"
 
 [profile.opt]
 inherits = "release"
-lto = true
+lto = "thin"
 opt-level = "s"
 panic = "abort"
-strip = true
-codegen-units = 1
+strip = "debuginfo"
+codegen-units = 16
