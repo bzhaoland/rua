@@ -13,6 +13,15 @@ pub(crate) mod progress_bar {
     pub(crate) const TICK_CHARS: &str = "⣧⣶⣼⣹⢻⠿⡟⣏";
 }
 
+#[allow(unused)]
+pub(crate) mod lines {
+    pub(crate) const LINE_H: &str = "─";
+    pub(crate) const LINE_HD: &str = "═";
+    pub(crate) const LINE_HT: &str = "☰";
+    pub(crate) const LINE_V: &str = "│";
+    pub(crate) const LINE_VD: &str = "║";
+}
+
 /// Get current username by `id -un`. Unfortunately, neither `whoami` or `users` work correctly
 /// under company's dev environment. Besides, methods by wrapping `libc::getuid` or `libc::getpwid`
 /// or `libc::getlogin` does not work too on the CentOS7 server in company. Maybe there is no

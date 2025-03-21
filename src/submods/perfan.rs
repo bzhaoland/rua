@@ -1,3 +1,4 @@
+use std::cmp;
 use std::fmt::Display;
 use std::fs;
 use std::path;
@@ -6,8 +7,11 @@ use std::path::Path;
 use addr2line::{self, fallible_iterator::FallibleIterator};
 use anyhow::{self, Context};
 use clap::ValueEnum;
+use console::Term;
 use regex::Regex;
 use serde_json::{self, Value, json};
+
+use crate::utils::lines::{LINE_H, LINE_HD, LINE_V};
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -220,75 +224,74 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
         }
         DumpFormat::Table => {
             // table
-            let summary_decor: String = "═".repeat(100);
-            let spacer: String = " ".repeat(6);
             let top_counter = data["counter"].as_u64().context("Can't cast as u64")?;
             let top_num_mods = data["num_mods"].as_u64().context("Can't cast as u64")?;
             let top_num_funcs = data["num_funcs"].as_u64().context("Can't cast as u64")?;
             let top_num_lines = data["num_lines"].as_u64().context("Can't cast as u64")?;
 
-            // Print text title
-            println!("{}", summary_decor);
-            println!(
-                "[SUMMARY]{0}Samples:{1}{0}Daemons:{2}{0}Funcs:{3}{0}Lines:{4}",
-                spacer, top_counter, top_num_mods, top_num_funcs, top_num_lines,
-            );
-            println!("{}", summary_decor);
-            print!("\n\n");
+            let term_cols = Term::stdout().size().1;
+            let table_width = cmp::max(100, term_cols as usize);
 
-            let module_decor: String = "═".repeat(100);
-            let mut mod_count: usize = 0;
+            // Print text title
+            println!(
+                "#samples:{0}  #daemons:{1}  #funcs:{2}  #lines:{3}",
+                top_counter, top_num_mods, top_num_funcs, top_num_lines,
+            );
+
             for (modk, modv) in data["mods"]
                 .as_object()
                 .context("Can't cast as object")?
                 .iter()
             {
-                mod_count += 1;
                 let mod_counter = modv["counter"].as_u64().context("Can't cast as u64")?;
                 let mod_num_funcs = modv["num_funcs"].as_u64().context("Can't cast as u64")?;
                 let mod_num_lines = modv["num_lines"].as_u64().context("Can't cast as u64")?;
 
                 // Module-level title
-                println!("{}", module_decor);
-                println!(
-                    "[{0}]{spacer}Percent:{1:.2}%{spacer}Samples:{2}{spacer}Funcs:{3}{spacer}Lines:{4}",
+                println!();
+                println!();
+                println!();
+                let modinfo = format!(
+                    "{0}{1}{0}percentage:{2:.2}%{0}#samples:{3}{0}#funcs:{4}{0}#lines:{5}{0}",
+                    LINE_V,
                     modk,
                     mod_counter as f64 / top_counter as f64 * 100f64,
                     format_args!("{}/{}", mod_counter, top_counter),
                     format_args!("{}/{}", mod_num_funcs, top_num_funcs),
                     format_args!("{}/{}", mod_num_lines, top_num_lines),
                 );
-                println!("{}\n\n", module_decor);
+                let modinfo_len = modinfo.chars().count();
+                let prefix_len = (table_width - modinfo_len) / 2;
+                let suffix_len = table_width - prefix_len - modinfo_len;
+                println!(
+                    "{0}{1}{2}",
+                    LINE_HD.repeat(prefix_len),
+                    modinfo,
+                    LINE_HD.repeat(suffix_len)
+                );
 
-                let table_borderline = "═".repeat(100);
-                let table_centerline = "─".repeat(100);
                 let spacer_2 = " ".repeat(3);
-                for (func_idx, func) in modv["funcs"]
+                for func in modv["funcs"]
                     .as_array()
                     .context("Can't cast as array")?
                     .iter()
-                    .enumerate()
                 {
                     let func_counter = func["counter"].as_u64().context("Can't cast as u64")?;
-                    let func_counter_str = format!("{}/{}", func_counter, top_counter);
-                    let modfunc_str = format!("[{}][Func#{}]", modk, func_idx + 1);
                     let lines = func["lines"].as_array().context("Can't cast as array")?;
 
-                    println!("{}", table_borderline);
+                    println!();
                     println!(
-                        "{1:>8}{0}{2:>13}{0}{3:>12.12}{0}{4:30}{0}Func&Location",
-                        spacer_2, "Percent", "Samples", "Address", "Instruction",
+                        "{1:>10}{0}{2:>13}{0}{3:>12.12}{0}{4:30}{0}Func&Line",
+                        spacer_2, "Percentage", "NumSamples", "Address", "Instruction",
                     );
-                    println!("{}", table_centerline);
+                    println!("{}", LINE_H.repeat(table_width));
                     println!(
-                        "{1:>8.4}{0}{2:>13}{0}{3:>12}{0}{4:30.30}{0}",
+                        "{1:>9.4}%{0}{2:>13}{0}{3:>12}",
                         spacer_2,
-                        format!("{}%", func_counter as f64 / top_counter as f64 * 100f64),
-                        func_counter_str,
-                        "[TOTAL]",
-                        modfunc_str,
+                        func_counter as f64 / top_counter as f64 * 100f64,
+                        format!("{}/{}", func_counter, top_counter),
+                        format!("[{}]", modk),
                     );
-
                     for line in lines.iter() {
                         let address = line["address"].as_str().context("Can't cast as &str")?;
                         let counter = line["counter"].as_u64().context("Can't cast as u64")?;
@@ -316,20 +319,10 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                         }
 
                         println!(
-                            "{1:>8.4}{0}{2:>13}{0}{3:>12}{0}{4:30.30}{0}{5}",
+                            "{1:>9.4}%{0}{2:>13}{0}{3:>12}{0}{4:30.30}{0}{5}",
                             spacer_2, share, counter_str, address, instruction, location
                         );
                     }
-
-                    println!("{}", table_borderline);
-
-                    if func_idx < (mod_num_funcs - 1) as usize {
-                        print!("\n\n");
-                    }
-                }
-
-                if mod_count < top_num_mods as usize {
-                    print!("\n\n");
                 }
             }
             Ok(())
