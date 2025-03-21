@@ -11,7 +11,7 @@ use console::Term;
 use regex::Regex;
 use serde_json::{self, Value, json};
 
-use crate::utils::lines::{LINE_H, LINE_HD, LINE_V};
+use crate::utils::symbols::{DIAMOND, LINE_H, LINE_HT, LINE_V};
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -233,9 +233,19 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
             let table_width = cmp::max(100, term_cols as usize);
 
             // Print text title
+            let info = format!(
+                "{0}#samples:{1}{0}#daemons:{2}{0}#funcs:{3}{0}#lines:{4}{0}",
+                LINE_V, top_counter, top_num_mods, top_num_funcs, top_num_lines,
+            );
+            let info_len = info.chars().count();
+            let rest_len = table_width - info_len;
+            let prefix_len = rest_len / 2;
+            let suffix_len = rest_len - prefix_len;
             println!(
-                "#samples:{0}  #daemons:{1}  #funcs:{2}  #lines:{3}",
-                top_counter, top_num_mods, top_num_funcs, top_num_lines,
+                "{}{}{}",
+                LINE_HT.repeat(prefix_len),
+                info,
+                LINE_HT.repeat(suffix_len)
             );
 
             for (modk, modv) in data["mods"]
@@ -248,9 +258,7 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                 let mod_num_lines = modv["num_lines"].as_u64().context("Can't cast as u64")?;
 
                 // Module-level title
-                println!();
-                println!();
-                println!();
+                println!("\n\n");
                 let modinfo = format!(
                     "{0}{1}{0}percentage:{2:.2}%{0}#samples:{3}{0}#funcs:{4}{0}#lines:{5}{0}",
                     LINE_V,
@@ -261,13 +269,14 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                     format_args!("{}/{}", mod_num_lines, top_num_lines),
                 );
                 let modinfo_len = modinfo.chars().count();
-                let prefix_len = (table_width - modinfo_len) / 2;
-                let suffix_len = table_width - prefix_len - modinfo_len;
+                let rest_len = table_width - modinfo_len;
+                let prefix_len = rest_len / 2;
+                let suffix_len = rest_len - prefix_len;
                 println!(
-                    "{0}{1}{2}",
-                    LINE_HD.repeat(prefix_len),
+                    "{}{}{}",
+                    DIAMOND.repeat(prefix_len),
                     modinfo,
-                    LINE_HD.repeat(suffix_len)
+                    DIAMOND.repeat(suffix_len)
                 );
 
                 let spacer_2 = " ".repeat(3);
@@ -282,7 +291,7 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
                     println!();
                     println!(
                         "{1:>10}{0}{2:>13}{0}{3:>12.12}{0}{4:30}{0}Func&Line",
-                        spacer_2, "Percentage", "NumSamples", "Address", "Instruction",
+                        spacer_2, "Percentage", "Count", "Address", "Instruction",
                     );
                     println!("{}", LINE_H.repeat(table_width));
                     println!(

@@ -14,12 +14,15 @@ pub(crate) mod progress_bar {
 }
 
 #[allow(unused)]
-pub(crate) mod lines {
+pub(crate) mod symbols {
     pub(crate) const LINE_H: &str = "─";
     pub(crate) const LINE_HD: &str = "═";
     pub(crate) const LINE_HT: &str = "☰";
     pub(crate) const LINE_V: &str = "│";
     pub(crate) const LINE_VD: &str = "║";
+    pub(crate) const SQUARE_FULL: &str = "█";
+    pub(crate) const DIAMOND: &str = "◆";
+    pub(crate) const CLOVER: &str = "✤";
 }
 
 /// Get current username by `id -un`. Unfortunately, neither `whoami` or `users` work correctly
