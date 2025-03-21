@@ -1,15 +1,11 @@
-#set page(height: auto)
+#set page(width: 210mm, height: auto)
 #set text(font: ("Monaspace Neon", "Noto Sans CJK SC"), lang: "zh")
 #show raw: set text(font: ("Monaspace Neon", "Noto Sans CJK SC"))
-#set heading(offset: 0)
+#set heading(numbering: "1.1", offset: 0)
 #show heading: set block(below: 1em)
 
 #page(
-  width: 210mm,
-  height: 100mm,
   margin: 2cm,
-  header: none,
-  footer: none,
 )[
   // 封面内容
   #align(center + horizon, [
@@ -22,6 +18,43 @@
 ]
 
 #outline(indent: 2em)
+#pagebreak()
+
+= rua v0.24.0
+
+== 存放位置
+
+- 北京: 10.100.6.10/bzhao/rua/0.24.0/rua
+- 苏州: 10.200.6.10/bzhao/rua/0.24.0/rua
+
+== 下载安装
+
+北京，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/0.24.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装rua到指定位置
+```
+
+苏州，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.200.6.10/bzhao/rua/0.24.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装rua到指定位置
+```
+
+== Changes
+
+- `rua perfan`: perfan 输出格式趋稳，在 profiling 文本的解析速度上，相比于现有工具提速1500倍左右
+  #figure(
+    image(".assets/changelog.0_24_0.ruaperf.png"),
+    caption: [ rua perf 耗时 \<0.5s ]
+  )
+  #figure(
+    image(".assets/changelog.0_24_0.perf2func.png"),
+    caption: [ 现有工具耗时 >10min ]
+  )
+  
 #pagebreak()
 
 = rua v0.23.1

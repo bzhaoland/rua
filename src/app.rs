@@ -128,7 +128,10 @@ pub(crate) enum CompdbCommand {
     STYLE_YELLOW
     ))]
     Add {
-        #[arg(value_name = "TARGET", help = "Target specified for the compilation database")]
+        #[arg(
+            value_name = "TARGET",
+            help = "Target specified for the compilation database"
+        )]
         target: String,
 
         #[arg(
@@ -444,7 +447,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "0.23.1",
+    version = "0.24.0",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs"#
@@ -670,7 +673,10 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     let compdb_path = compdb_path
                         .as_ref()
                         .map_or_else(|| compdb::COMPDB_FILE, |x| x.as_str());
-                    eprint!("Archiving compilation database for {} into store...", target);
+                    eprint!(
+                        "Archiving compilation database for {} into store...",
+                        target
+                    );
                     io::stderr().flush()?;
                     let revision = revision.unwrap_or_else(|| svninfo.revision());
                     compdb::ark_compdb(
@@ -680,7 +686,10 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         target.as_str(),
                         compdb_path,
                     )?;
-                    eprintln!("\rArchiving compilation database for {} into store...ok", target);
+                    eprintln!(
+                        "\rArchiving compilation database for {} into store...ok",
+                        target
+                    );
                     Ok(())
                 }
                 CompdbCommand::Name { generation, name } => {
