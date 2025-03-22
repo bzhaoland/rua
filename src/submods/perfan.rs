@@ -1,4 +1,3 @@
-use std::cmp;
 use std::fmt::Display;
 use std::fs;
 use std::path;
@@ -11,7 +10,7 @@ use console::Term;
 use regex::Regex;
 use serde_json::{self, Value, json};
 
-use crate::utils::symbols::{DIAMOND, LINE_H, LINE_HT, LINE_V};
+use crate::utils::symbols::{DIAMOND, LINE_H, LINE_HD, LINE_V};
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -245,9 +244,9 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
             let suffix_len = rest_len - prefix_len;
             println!(
                 "{}{}{}",
-                LINE_HT.repeat(prefix_len),
+                LINE_HD.repeat(prefix_len),
                 info,
-                LINE_HT.repeat(suffix_len)
+                LINE_HD.repeat(suffix_len)
             );
 
             for (modk, modv) in data["mods"]
@@ -292,7 +291,7 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
 
                     println!();
                     println!(
-                        "{1:>10}{0}{2:>13}{0}{3:>12.12}{0}{4:30}{0}Func&Line",
+                        "{1:>10}{0}{2:>13}{0}{3:>12.12}{0}{4:30}{0}Location",
                         spacer_2, "Percentage", "Count", "Address", "Instruction",
                     );
                     println!("{}", LINE_H.repeat(table_width));
