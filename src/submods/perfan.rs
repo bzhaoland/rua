@@ -223,16 +223,18 @@ pub fn dump_perfdata(data: &Value, format: DumpFormat) -> anyhow::Result<()> {
             Ok(())
         }
         DumpFormat::Table => {
-            // table
+            let stdout_ = Term::stdout();
+            let table_width = if stdout_.is_term() {
+                stdout_.size().1 as usize
+            } else {
+                120usize
+            };
+
+            // Print text title
             let top_counter = data["counter"].as_u64().context("Can't cast as u64")?;
             let top_num_mods = data["num_mods"].as_u64().context("Can't cast as u64")?;
             let top_num_funcs = data["num_funcs"].as_u64().context("Can't cast as u64")?;
             let top_num_lines = data["num_lines"].as_u64().context("Can't cast as u64")?;
-
-            let term_cols = Term::stdout().size().1;
-            let table_width = cmp::max(100, term_cols as usize);
-
-            // Print text title
             let info = format!(
                 "{0}#samples:{1}{0}#daemons:{2}{0}#funcs:{3}{0}#lines:{4}{0}",
                 LINE_V, top_counter, top_num_mods, top_num_funcs, top_num_lines,
