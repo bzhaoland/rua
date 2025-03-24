@@ -142,7 +142,7 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
         let loader = addr2line::Loader::new(elf.as_os_str())
             .expect("Failed to create addr2line::loader object");
         let daemon_name = elf
-            .file_stem()
+            .file_name()
             .context("Failed to extract the file stem")?
             .to_string_lossy()
             .to_string();
