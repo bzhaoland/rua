@@ -20,6 +20,62 @@
 #outline(indent: 2em)
 #pagebreak()
 
+= rua v0.25.0
+
+#let ftp_server_bj = "10.100.6.10"
+#let ftp_server_sz = "10.200.6.10"
+#let rua_ver = "0.25.0"
+#let rua_path = [bzhao/rua/#rua_ver/rua]
+
+== 存放位置
+
+- 北京: #ftp_server_bj/#rua_path
+- 苏州: #ftp_server_sz/#rua_path
+
+== 下载安装
+
+北京，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/0.25.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+苏州，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.200.6.10/bzhao/rua/0.24.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+== 版本变更
+
+- `rua perfan`: 简化参数使用
+  - cli: 重命名参数 `-b/--binary` 为 `-e/--elf`
+  - cli: 移除冗余参数 `-d/--daemon`，因为 daemon name 始终等于 elf 的文件名
+
+== 使用示例
+
+- 在MX_MAIN分支下，使用 rua perfan 命令解析 profiling 文本中属于 d-plane 的地址
+  #figure(
+    image(".assets/changelog.0_25_0.origtext.png"),
+    caption: [
+      原始 A3600 profiling 文本
+    ],
+    numbering: none,
+  )
+  #figure(
+    image(".assets/changelog.0_25_0.ruaperfan.png"),
+    caption: [
+      A3600 profiling 文本经 `rua perfan` 解析后
+    ],
+    numbering: none,
+  )
+
+#pagebreak()
+
 = rua v0.24.0
 
 == 存放位置

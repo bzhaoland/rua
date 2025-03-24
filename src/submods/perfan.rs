@@ -82,12 +82,12 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
     let dataline_pattern = Regex::new(r#"([[:digit:]]+)[[:blank:]]*:[[:blank:]]*([[:alnum:]]+)[[:blank:]]*:[[:blank:]]*(.*?)[[:blank:]]*$"#).context("Failed to build regex for dataline")?;
 
     let mut profile_info = ProfileInfo {
-        counter_sample: 0,
         mods: IndexMap::new(),
         counter_func: 0,
         counter_line: 0,
+        counter_sample: 0,
     };
-    let mut curr_mod = &mut ProfileInfoMod {
+    let mut profile_info_mod_current = &mut ProfileInfoMod {
         funcs: Vec::new(),
         counter_line: 0,
         counter_sample: 0,
@@ -100,11 +100,11 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
             let counter: u64 = captures.get(2).unwrap().as_str().parse()?;
 
             // Top-level data
-            profile_info.counter_sample += counter;
             profile_info.counter_func += 1;
+            profile_info.counter_sample += counter;
 
             // Mod-level data
-            curr_mod = profile_info
+            profile_info_mod_current = profile_info
                 .mods
                 .entry(modk.clone())
                 .or_insert(ProfileInfoMod {
@@ -112,20 +112,21 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
                     counter_line: 0,
                     counter_sample: 0,
                 });
-            curr_mod.counter_sample += counter;
-            curr_mod.funcs.push(ProfileInfoFunc {
+            profile_info_mod_current.counter_sample += counter;
+            profile_info_mod_current.funcs.push(ProfileInfoFunc {
                 counter_sample: counter,
                 lines: Vec::new(),
             });
         } else if let Some(captures) = dataline_pattern.captures(line) {
             profile_info.counter_line += 1;
+            profile_info_mod_current.counter_line += 1;
             let counter: u64 = captures.get(1).unwrap().as_str().parse()?;
             let address = captures.get(2).unwrap().as_str();
             let instruction = captures.get(3).unwrap().as_str();
 
             // Func-level
-            let curr_func = curr_mod.funcs.last_mut().unwrap();
-            curr_func.lines.push(ProfileInfoLine {
+            let profile_info_func_current = profile_info_mod_current.funcs.last_mut().unwrap();
+            profile_info_func_current.lines.push(ProfileInfoLine {
                 counter_sample: counter,
                 address: address.to_string(),
                 instruction: instruction.to_string(),
@@ -190,27 +191,18 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
 pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
     let table_width = Term::stdout().size_checked().unwrap_or((24, 110)).1 as usize;
     let table_line = LINE_H.repeat(table_width);
-    let col_width_addr = {
-        let mut width = 0;
+    let (col_width_count, col_width_addr) = {
+        let mut width_addr = 0;
+        let mut width_count = 0;
         for m in data.mods.values() {
             for f in m.funcs.iter() {
                 for l in f.lines.iter() {
-                    width = cmp::max(width, l.address.chars().count());
+                    width_addr = cmp::max(width_addr, l.address.chars().count());
+                    width_count = cmp::max(width_count, l.counter_sample.to_string().chars().count());
                 }
             }
         }
-        width
-    };
-    let col_width_count = {
-        let mut width = 0;
-        for m in data.mods.values() {
-            for f in m.funcs.iter() {
-                for l in f.lines.iter() {
-                    width = cmp::max(width, l.counter_sample.to_string().chars().count());
-                }
-            }
-        }
-        width + data.counter_sample.to_string().chars().count() + 1
+        (width_count, width_addr)
     };
     let mut output = String::new();
 
