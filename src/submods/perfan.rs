@@ -1,10 +1,11 @@
+use std::cmp;
 use std::fmt::Display;
 use std::fs;
 use std::path;
 use std::path::Path;
 
 use addr2line::{self, fallible_iterator::FallibleIterator};
-use anyhow::{self, Context};
+use anyhow::{self, Context, Result};
 use clap::ValueEnum;
 use console::Term;
 use indexmap::IndexMap;
@@ -37,7 +38,7 @@ struct Frame {
 
 #[derive(Deserialize, Serialize)]
 struct ProfileInfoLine {
-    counter: u64, // Total number of samples of each line
+    counter_sample: u64, // Total number of samples of each line
     address: String,
     instruction: String,
     frames: Vec<Frame>,
@@ -125,7 +126,7 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
             // Func-level
             let curr_func = curr_mod.funcs.last_mut().unwrap();
             curr_func.lines.push(ProfileInfoLine {
-                counter,
+                counter_sample: counter,
                 address: address.to_string(),
                 instruction: instruction.to_string(),
                 frames: Vec::new(),
@@ -186,10 +187,129 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
     Ok(profile_info)
 }
 
-pub(crate) fn dump_perfdata(data: &ProfileInfo, format: DumpFormat) -> anyhow::Result<()> {
+pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
+    let table_width = Term::stdout().size_checked().unwrap_or((24, 110)).1 as usize;
+    let table_line = LINE_H.repeat(table_width);
+    let col_width_addr = {
+        let mut width = 0;
+        for m in data.mods.values() {
+            for f in m.funcs.iter() {
+                for l in f.lines.iter() {
+                    width = cmp::max(width, l.address.chars().count());
+                }
+            }
+        }
+        width
+    };
+    let col_width_count = {
+        let mut width = 0;
+        for m in data.mods.values() {
+            for f in m.funcs.iter() {
+                for l in f.lines.iter() {
+                    width = cmp::max(width, l.counter_sample.to_string().chars().count());
+                }
+            }
+        }
+        width + data.counter_sample.to_string().chars().count() + 1
+    };
+    let mut output = String::new();
+
+    // Print text title
+    let info = format!(
+        "{0}#samples:{1}{0}#daemons:{2}{0}#funcs:{3}{0}#lines:{4}{0}",
+        LINE_V,
+        data.counter_sample,
+        data.mods.len(),
+        data.counter_func,
+        data.counter_line,
+    );
+    let pad_width = table_width - info.chars().count();
+    output.push_str(
+        format!(
+            "{}{}{}\n",
+            LINE_HD.repeat(pad_width / 2),
+            info,
+            LINE_HD.repeat(pad_width - pad_width / 2)
+        )
+        .as_str(),
+    );
+
+    for (modk, modv) in data.mods.iter() {
+        // Module-level title
+        let modinfo = format!(
+            "{0}{1}{0}percentage:{2:.2}%{0}#samples:{3}/{4}{0}#funcs:{5}/{6}{0}#lines:{7}/{8}{0}",
+            LINE_V,
+            modk,
+            modv.counter_sample as f64 / data.counter_sample as f64 * 100f64,
+            modv.counter_sample,
+            data.counter_sample,
+            modv.funcs.len(),
+            data.counter_func,
+            modv.counter_line,
+            data.counter_line,
+        );
+        let rest_len = table_width - modinfo.chars().count();
+        output.push_str(
+            format!(
+                "\n\n{}{}{}\n",
+                DIAMOND.repeat(rest_len / 2),
+                modinfo,
+                DIAMOND.repeat(rest_len - rest_len / 2)
+            )
+            .as_str(),
+        );
+
+        let spacer_2 = " ".repeat(3);
+        for func in modv.funcs.iter() {
+            output.push_str(
+                format!(
+                    "\n{1:>10}{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35}{0}Location\n{5}\n",
+                    spacer_2, "Percentage", "Count", "Address", "Instruction", table_line,
+                )
+                .as_str(),
+            );
+            output.push_str(
+                format!(
+                    "{1:>9.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}[{4}]\n",
+                    spacer_2,
+                    func.counter_sample as f64 / data.counter_sample as f64 * 100f64,
+                    format!("{}/{}", func.counter_sample, data.counter_sample),
+                    "",
+                    modk,
+                )
+                .as_str(),
+            );
+            for line in func.lines.iter() {
+                let mut location = String::new();
+                for (idx, frame) in line.frames.iter().rev().enumerate() {
+                    let funcname = frame.funcname.as_str();
+                    let fileloca = frame.location.as_str();
+                    if idx > 0 {
+                        location.push_str("->");
+                    }
+                    location.push_str(&format!("{}@{}", funcname, fileloca));
+                }
+                output.push_str(
+                    format!(
+                        "{1:>9.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35.35}{0}{5}\n",
+                        spacer_2,
+                        line.counter_sample as f64 / data.counter_sample as f64 * 100f64,
+                        format!("{}/{}", line.counter_sample, data.counter_sample),
+                        line.address,
+                        line.instruction,
+                        location
+                    )
+                    .as_str(),
+                );
+            }
+        }
+    }
+    Ok(output)
+}
+
+pub(crate) fn dump_perfdata(data: &ProfileInfo, format: DumpFormat) -> Result<()> {
     match format {
         DumpFormat::Json => {
-            // json
             println!(
                 "{}",
                 serde_json::to_string_pretty(data).context("Failed to prettify JSON string")?
@@ -197,84 +317,7 @@ pub(crate) fn dump_perfdata(data: &ProfileInfo, format: DumpFormat) -> anyhow::R
             Ok(())
         }
         DumpFormat::Table => {
-            let table_width = Term::stdout().size_checked().unwrap_or((24, 120)).1 as usize;
-            let table_line = LINE_H.repeat(table_width);
-
-            // Print text title
-            let info = format!(
-                "{0}#samples:{1}{0}#daemons:{2}{0}#funcs:{3}{0}#lines:{4}{0}",
-                LINE_V,
-                data.counter_sample,
-                data.mods.len(),
-                data.counter_func,
-                data.counter_line,
-            );
-            let pad_width = table_width - info.chars().count();
-            println!(
-                "{}{}{}",
-                LINE_HD.repeat(pad_width / 2),
-                info,
-                LINE_HD.repeat(pad_width - pad_width / 2)
-            );
-
-            for (modk, modv) in data.mods.iter() {
-                // Module-level title
-                let modinfo = format!(
-                    "{0}{1}{0}percentage:{2:.2}%{0}#samples:{3}/{4}{0}#funcs:{5}/{6}{0}#lines:{7}/{8}{0}",
-                    LINE_V,
-                    modk,
-                    modv.counter_sample as f64 / data.counter_sample as f64 * 100f64,
-                    modv.counter_sample,
-                    data.counter_sample,
-                    modv.funcs.len(),
-                    data.counter_func,
-                    modv.counter_line,
-                    data.counter_line,
-                );
-                let rest_len = table_width - modinfo.chars().count();
-                println!(
-                    "\n\n{}{}{}",
-                    DIAMOND.repeat(rest_len / 2),
-                    modinfo,
-                    DIAMOND.repeat(rest_len - rest_len / 2)
-                );
-
-                let spacer_2 = " ".repeat(3);
-                for func in modv.funcs.iter() {
-                    println!(
-                        "\n{1:>10}{0}{2:>13}{0}{3:>12.12}{0}{4:35}{0}Location\n{5}",
-                        spacer_2, "Percentage", "Count", "Address", "Instruction", table_line,
-                    );
-                    println!(
-                        "{1:>9.4}%{0}{2:>13}{0}{3:>12.12}{0}[{4}]",
-                        spacer_2,
-                        func.counter_sample as f64 / data.counter_sample as f64 * 100f64,
-                        format!("{}/{}", func.counter_sample, data.counter_sample),
-                        "",
-                        modk,
-                    );
-                    for line in func.lines.iter() {
-                        let mut location = String::new();
-                        for (idx, frame) in line.frames.iter().rev().enumerate() {
-                            let funcname = frame.funcname.as_str();
-                            let fileloca = frame.location.as_str();
-                            if idx > 0 {
-                                location.push_str("->");
-                            }
-                            location.push_str(&format!("{}@{}", funcname, fileloca));
-                        }
-                        println!(
-                            "{1:>9.4}%{0}{2:>13}{0}{3:>12}{0}{4:35.35}{0}{5}",
-                            spacer_2,
-                            line.counter as f64 / data.counter_sample as f64 * 100f64,
-                            format!("{}/{}", line.counter, data.counter_sample),
-                            line.address,
-                            line.instruction,
-                            location
-                        );
-                    }
-                }
-            }
+            println!("{}", tablize_perfdata(data)?);
             Ok(())
         }
     }
