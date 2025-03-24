@@ -229,7 +229,7 @@ pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
     for (modk, modv) in data.mods.iter() {
         // Module-level title
         let modinfo = format!(
-            "{0}{1}{0}percentage:{2:.2}%{0}#samples:{3}/{4}{0}#funcs:{5}/{6}{0}#lines:{7}/{8}{0}",
+            "{0}{1}{0}percentage:{2:.4}%{0}#samples:{3}/{4}{0}#funcs:{5}/{6}{0}#lines:{7}/{8}{0}",
             LINE_V,
             modk,
             modv.counter_sample as f64 / data.counter_sample as f64 * 100f64,
