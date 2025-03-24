@@ -225,7 +225,7 @@ pub(crate) fn dump_perfdata(data: &ProfileInfo, format: DumpFormat) -> anyhow::R
                 let spacer_2 = " ".repeat(3);
                 for func in modv.funcs.iter() {
                     println!(
-                        "\n{1:>10}{0}{2:>13}{0}{3:>12.12}{0}{4:40}{0}Location\n{5}",
+                        "\n{1:>10}{0}{2:>13}{0}{3:>12.12}{0}{4:35}{0}Location\n{5}",
                         spacer_2, "Percentage", "Count", "Address", "Instruction", table_line,
                     );
                     println!(
@@ -247,7 +247,7 @@ pub(crate) fn dump_perfdata(data: &ProfileInfo, format: DumpFormat) -> anyhow::R
                             location.push_str(&format!("{}@{}", funcname, fileloca));
                         }
                         println!(
-                            "{1:>9.4}%{0}{2:>13}{0}{3:>12}{0}{4:30.30}{0}{5}",
+                            "{1:>9.4}%{0}{2:>13}{0}{3:>12}{0}{4:35.35}{0}{5}",
                             spacer_2,
                             line.counter as f64 / data.counter_sample as f64 * 100f64,
                             format!("{}/{}", line.counter, data.counter_sample),
