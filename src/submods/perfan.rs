@@ -4,7 +4,6 @@ use std::path;
 use std::path::Path;
 
 use addr2line::{self, fallible_iterator::FallibleIterator};
-use anyhow::bail;
 use anyhow::{self, Context};
 use clap::ValueEnum;
 use console::Term;
@@ -160,10 +159,11 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
                     .iterator()
                 {
                     let frame = item?;
-                    let funcname = frame
-                        .function
-                        .map_or("??".to_string(), |x| x.name.to_string_lossy().to_string());
-                    let location = frame.location.map_or("?:?".to_string(), |x| {
+                    let function = frame.function;
+                    let function_str =
+                        function.map_or("??".to_string(), |x| x.name.to_string_lossy().to_string());
+                    let location = frame.location;
+                    let location_str = location.map_or("?:?".to_string(), |x| {
                         format!(
                             "{}:{}",
                             path::Path::new(x.file.expect("Failed to get source file"))
@@ -171,10 +171,13 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
                                 .expect("File path terminates in ..")
                                 .to_str()
                                 .expect("Invalid UTF-8 encoded string"),
-                            x.line.expect("Failed to get line number")
+                            x.line.context("Failed to get line number").unwrap()
                         )
                     });
-                    line.frames.push(Frame { funcname, location });
+                    line.frames.push(Frame {
+                        funcname: function_str,
+                        location: location_str,
+                    });
                 }
             }
         }
