@@ -313,29 +313,21 @@ pub(crate) enum Comm {
         file: PathBuf,
 
         #[arg(
-            short = 'd',
-            long = "daemon",
-            value_name = "DAEMON",
-            help = "Only resolve addresses owned by this daemon"
-        )]
-        daemon: String,
-
-        #[arg(
             short = 'o',
-            long = "outfmt",
-            value_name = "OUTFMT",
+            long = "format",
+            value_name = "FORMAT",
             default_value = "table",
             help = "Output format"
         )]
-        outfmt: perfan::DumpFormat,
+        format: perfan::DumpFormat,
 
         #[arg(
-            short = 'b',
-            long = "bin",
-            value_name = "BIN",
-            help = "The binary file used to resolve the addresses"
+            short = 'e',
+            long = "elf",
+            value_name = "ELF",
+            help = "Binary files used for addresses resolving"
         )]
-        bin: PathBuf,
+        elfs: Vec<PathBuf>,
     },
 
     /// Start a new review request or refresh the existing one if review-id provided
@@ -824,11 +816,10 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
         }
         Comm::Perfan {
             file,
-            daemon,
-            bin,
-            outfmt,
+            elfs,
+            format: outfmt,
         } => {
-            let data = perfan::proc_perfanno(&file, &bin, &daemon)?;
+            let data = perfan::proc_perfanno(&file, elfs.iter().collect::<Vec<&PathBuf>>())?;
             perfan::dump_perfdata(&data, outfmt)
         }
         Comm::Review {

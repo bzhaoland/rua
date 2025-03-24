@@ -4,6 +4,7 @@ use std::path;
 use std::path::Path;
 
 use addr2line::{self, fallible_iterator::FallibleIterator};
+use anyhow::bail;
 use anyhow::{self, Context};
 use clap::ValueEnum;
 use console::Term;
@@ -66,8 +67,7 @@ pub(crate) struct ProfileInfo {
 
 pub(crate) fn proc_perfanno<P: AsRef<Path>>(
     data_file: P,
-    binary_file: P,
-    daemon_name: &str,
+    elfs: Vec<P>,
 ) -> anyhow::Result<ProfileInfo> {
     let text = fs::read_to_string(&data_file).context(anyhow::anyhow!(
         "Can't read file: {}",
@@ -134,37 +134,48 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
         }
     }
 
-    let loader = addr2line::Loader::new(binary_file.as_ref().as_os_str())
-        .expect("Failed to create addr2line::loader object");
-    let module = profile_info
-        .mods
-        .get_mut(daemon_name)
-        .context(format!("Can not find {}", daemon_name))?;
-    for func in module.funcs.iter_mut() {
-        for line in func.lines.iter_mut() {
-            let addr = u64::from_str_radix(&line.address, 16)
-                .context("Can't convert address string into u64")?;
-            for item in loader
-                .find_frames(addr)
-                .expect(format!("Can not find frame by address {}", &line.address).as_str())
-                .iterator()
-            {
-                let frame = item?;
-                let funcname = frame
-                    .function
-                    .map_or("??".to_string(), |x| x.name.to_string_lossy().to_string());
-                let location = frame.location.map_or("?:?".to_string(), |x| {
-                    format!(
-                        "{}:{}",
-                        path::Path::new(x.file.expect("Failed to get source file"))
-                            .file_name()
-                            .expect("File path terminates in ..")
-                            .to_str()
-                            .expect("Invalid UTF-8 encoded string"),
-                        x.line.expect("Failed to get line number")
-                    )
-                });
-                line.frames.push(Frame { funcname, location });
+    for elf in elfs.iter().map(AsRef::as_ref) {
+        if !elf.is_file() {
+            eprintln!("Warning: Elf {} does not exist, skipped", elf.display());
+            continue;
+        }
+        let loader = addr2line::Loader::new(elf.as_os_str())
+            .expect("Failed to create addr2line::loader object");
+        let daemon_name = elf
+            .file_stem()
+            .context("Failed to extract the file stem")?
+            .to_string_lossy()
+            .to_string();
+        let module = profile_info
+            .mods
+            .get_mut(daemon_name.as_str())
+            .context(format!("Can not find {}", daemon_name))?;
+        for func in module.funcs.iter_mut() {
+            for line in func.lines.iter_mut() {
+                let addr = u64::from_str_radix(&line.address, 16)
+                    .context("Can't convert address string into u64")?;
+                for item in loader
+                    .find_frames(addr)
+                    .unwrap_or_else(|_| panic!("Can not find frame by address {}", &line.address))
+                    .iterator()
+                {
+                    let frame = item?;
+                    let funcname = frame
+                        .function
+                        .map_or("??".to_string(), |x| x.name.to_string_lossy().to_string());
+                    let location = frame.location.map_or("?:?".to_string(), |x| {
+                        format!(
+                            "{}:{}",
+                            path::Path::new(x.file.expect("Failed to get source file"))
+                                .file_name()
+                                .expect("File path terminates in ..")
+                                .to_str()
+                                .expect("Invalid UTF-8 encoded string"),
+                            x.line.expect("Failed to get line number")
+                        )
+                    });
+                    line.frames.push(Frame { funcname, location });
+                }
             }
         }
     }
@@ -206,13 +217,16 @@ pub(crate) fn dump_perfdata(data: &ProfileInfo, format: DumpFormat) -> anyhow::R
             for (modk, modv) in data.mods.iter() {
                 // Module-level title
                 let modinfo = format!(
-                    "{0}{1}{0}percentage:{2:.2}%{0}#samples:{3}{0}#funcs:{4}{0}#lines:{5}{0}",
+                    "{0}{1}{0}percentage:{2:.2}%{0}#samples:{3}/{4}{0}#funcs:{5}/{6}{0}#lines:{7}/{8}{0}",
                     LINE_V,
                     modk,
                     modv.counter_sample as f64 / data.counter_sample as f64 * 100f64,
-                    format_args!("{}/{}", modv.counter_sample, data.counter_sample),
-                    format_args!("{}/{}", modv.funcs.len(), data.counter_func),
-                    format_args!("{}/{}", modv.counter_line, data.counter_line),
+                    modv.counter_sample,
+                    data.counter_sample,
+                    modv.funcs.len(),
+                    data.counter_func,
+                    modv.counter_line,
+                    data.counter_line,
                 );
                 let rest_len = table_width - modinfo.chars().count();
                 println!(
@@ -229,12 +243,12 @@ pub(crate) fn dump_perfdata(data: &ProfileInfo, format: DumpFormat) -> anyhow::R
                         spacer_2, "Percentage", "Count", "Address", "Instruction", table_line,
                     );
                     println!(
-                        "{1:>9.4}%{0}{2:>13}{0}{3:>12.12}{0}{4}",
+                        "{1:>9.4}%{0}{2:>13}{0}{3:>12.12}{0}[{4}]",
                         spacer_2,
                         func.counter_sample as f64 / data.counter_sample as f64 * 100f64,
                         format!("{}/{}", func.counter_sample, data.counter_sample),
                         "",
-                        format!("[{}]", modk),
+                        modk,
                     );
                     for line in func.lines.iter() {
                         let mut location = String::new();
