@@ -32,102 +32,102 @@ impl Display for DumpFormat {
 
 #[derive(Deserialize, Serialize)]
 struct Frame {
-    funcname: String,
+    function: String,
     location: String,
 }
 
 #[derive(Deserialize, Serialize)]
-struct ProfileInfoLine {
-    counter_sample: u64, // Total number of samples of each line
+struct ProfileLine {
+    counter_s: u64, // The number of samples for each line (instruction)
     address: String,
     instruction: String,
     frames: Vec<Frame>,
 }
 
 #[derive(Deserialize, Serialize)]
-struct ProfileInfoFunc {
-    lines: Vec<ProfileInfoLine>,
-    counter_sample: u64, // Quick access to number of samples in the function
+struct ProfileFunc {
+    lines: Vec<ProfileLine>,
+    counter_s: u64, // Short-path to get the number of samples of the function
 }
 
 #[derive(Deserialize, Serialize)]
-struct ProfileInfoMod {
-    funcs: Vec<ProfileInfoFunc>,
-    counter_line: u64,   // Quick access to number of lines sampled in the module
-    counter_sample: u64, // Total number of samples in the module
+struct ProfileMod {
+    funcs: Vec<ProfileFunc>,
+    counter_l: u64, // Short-path to get the number of lines sampled of the module
+    counter_s: u64, // Short-path to get the number of samples of the module
 }
 
 #[derive(Deserialize, Serialize)]
-pub(crate) struct ProfileInfo {
-    mods: IndexMap<String, ProfileInfoMod>,
-    counter_func: u64,   // Quick access to number of functions sampled
-    counter_line: u64,   // Quick access to number of lines sampled
-    counter_sample: u64, // Quick access to num of samples
+pub(crate) struct Profile {
+    mods: IndexMap<String, ProfileMod>,
+    counter_f: u64, // Short-path to get the number of functions
+    counter_l: u64, // Short-path to get the number of lines
+    counter_s: u64, // Short-path to get the number of samples
 }
 
-pub(crate) fn proc_perfanno<P: AsRef<Path>>(
-    data_file: P,
-    elfs: Vec<P>,
-) -> anyhow::Result<ProfileInfo> {
+pub(crate) fn proc_perfanno<P: AsRef<Path>>(data_file: P, elfs: Vec<P>) -> anyhow::Result<Profile> {
     let text = fs::read_to_string(&data_file).context(anyhow::anyhow!(
         "Can't read file: {}",
         data_file.as_ref().display()
     ))?;
 
     // Regex pattern for headlines and datalines
-    let headline_pattern = Regex::new(
+    let regex_headerline = Regex::new(
         r#"Samples[[:blank:]]*\|[[:blank:]]*.*?of (.*?) for.*?\(([[:digit:]]+)[[:blank:]]*samples"#,
     )
     .context("Failed to build regex for headline")?;
-    let dataline_pattern = Regex::new(r#"([[:digit:]]+)[[:blank:]]*:[[:blank:]]*([[:alnum:]]+)[[:blank:]]*:[[:blank:]]*(.*?)[[:blank:]]*$"#).context("Failed to build regex for dataline")?;
+    let regex_dataline = Regex::new(r#"([[:digit:]]+)[[:blank:]]*:[[:blank:]]*([[:alnum:]]+)[[:blank:]]*:[[:blank:]]*(.*?)[[:blank:]]*$"#).context("Failed to build regex for dataline")?;
 
-    let mut profile_info = ProfileInfo {
+    let mut profile = Profile {
         mods: IndexMap::new(),
-        counter_func: 0,
-        counter_line: 0,
-        counter_sample: 0,
+        counter_f: 0,
+        counter_l: 0,
+        counter_s: 0,
     };
-    let mut profile_info_mod_current = &mut ProfileInfoMod {
+    let mut profile_mod_curr = &mut ProfileMod {
         funcs: Vec::new(),
-        counter_line: 0,
-        counter_sample: 0,
+        counter_l: 0,
+        counter_s: 0,
+    };
+    let mut profile_func_curr = &mut ProfileFunc {
+        lines: Vec::new(),
+        counter_s: 0,
     };
     // Parsing profiling text
     for line in text.lines() {
         // Check whether is a header line
-        if let Some(captures) = headline_pattern.captures(line) {
-            let modk = captures.get(1).unwrap().as_str().to_string();
+        if let Some(captures) = regex_headerline.captures(line) {
+            let mod_k = captures.get(1).unwrap().as_str().to_string();
             let counter: u64 = captures.get(2).unwrap().as_str().parse()?;
 
             // Top-level data
-            profile_info.counter_func += 1;
-            profile_info.counter_sample += counter;
+            profile.counter_f += 1;
+            profile.counter_s += counter;
 
-            // Mod-level data
-            profile_info_mod_current = profile_info
-                .mods
-                .entry(modk.clone())
-                .or_insert(ProfileInfoMod {
-                    funcs: Vec::new(),
-                    counter_line: 0,
-                    counter_sample: 0,
-                });
-            profile_info_mod_current.counter_sample += counter;
-            profile_info_mod_current.funcs.push(ProfileInfoFunc {
-                counter_sample: counter,
+            // Module-level data
+            profile_mod_curr = profile.mods.entry(mod_k.clone()).or_insert(ProfileMod {
+                funcs: Vec::new(),
+                counter_l: 0,
+                counter_s: 0,
+            });
+            profile_mod_curr.counter_s += counter;
+            profile_mod_curr.funcs.push(ProfileFunc {
+                counter_s: counter,
                 lines: Vec::new(),
             });
-        } else if let Some(captures) = dataline_pattern.captures(line) {
-            profile_info.counter_line += 1;
-            profile_info_mod_current.counter_line += 1;
+
+            // Function reference
+            profile_func_curr = profile_mod_curr.funcs.last_mut().unwrap();
+        } else if let Some(captures) = regex_dataline.captures(line) {
+            profile.counter_l += 1;
+            profile_mod_curr.counter_l += 1;
             let counter: u64 = captures.get(1).unwrap().as_str().parse()?;
             let address = captures.get(2).unwrap().as_str();
             let instruction = captures.get(3).unwrap().as_str();
 
             // Func-level
-            let profile_info_func_current = profile_info_mod_current.funcs.last_mut().unwrap();
-            profile_info_func_current.lines.push(ProfileInfoLine {
-                counter_sample: counter,
+            profile_func_curr.lines.push(ProfileLine {
+                counter_s: counter,
                 address: address.to_string(),
                 instruction: instruction.to_string(),
                 frames: Vec::new(),
@@ -142,19 +142,19 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
         }
         let loader = addr2line::Loader::new(elf.as_os_str())
             .expect("Failed to create addr2line::loader object");
-        let daemon_name = elf
+        let elf_name = elf
             .file_name()
             .context("Failed to extract the file stem")?
             .to_string_lossy()
             .to_string();
-        let module = profile_info
+        let module = profile
             .mods
-            .get_mut(daemon_name.as_str())
-            .context(format!("Can not find {}", daemon_name))?;
+            .get_mut(&elf_name)
+            .context(format!("Can not find {}", elf_name))?;
         for func in module.funcs.iter_mut() {
             for line in func.lines.iter_mut() {
                 let addr = u64::from_str_radix(&line.address, 16)
-                    .context("Can't convert address string into u64")?;
+                    .context("Can't parse address string into u64")?;
                 for item in loader
                     .find_frames(addr)
                     .unwrap_or_else(|_| panic!("Can not find frame by address {}", &line.address))
@@ -177,7 +177,7 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
                         )
                     });
                     line.frames.push(Frame {
-                        funcname: function_str,
+                        function: function_str,
                         location: location_str,
                     });
                 }
@@ -185,10 +185,10 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(
         }
     }
 
-    Ok(profile_info)
+    Ok(profile)
 }
 
-pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
+pub(crate) fn tablize_perfdata(data: &Profile) -> Result<String> {
     let table_width = Term::stdout().size_checked().unwrap_or((24, 110)).1 as usize;
     let table_line = LINE_H.repeat(table_width);
     let (col_width_count, col_width_addr) = {
@@ -198,7 +198,7 @@ pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
             for f in m.funcs.iter() {
                 for l in f.lines.iter() {
                     width_addr = cmp::max(width_addr, l.address.chars().count());
-                    width_count = cmp::max(width_count, l.counter_sample.to_string().chars().count());
+                    width_count = cmp::max(width_count, l.counter_s.to_string().chars().count());
                 }
             }
         }
@@ -210,10 +210,10 @@ pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
     let info = format!(
         "{0}#samples:{1}{0}#daemons:{2}{0}#funcs:{3}{0}#lines:{4}{0}",
         LINE_V,
-        data.counter_sample,
+        data.counter_s,
         data.mods.len(),
-        data.counter_func,
-        data.counter_line,
+        data.counter_f,
+        data.counter_l,
     );
     let pad_width = table_width - info.chars().count();
     output.push_str(
@@ -232,13 +232,13 @@ pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
             "{0}{1}{0}percentage:{2:.4}%{0}#samples:{3}/{4}{0}#funcs:{5}/{6}{0}#lines:{7}/{8}{0}",
             LINE_V,
             modk,
-            modv.counter_sample as f64 / data.counter_sample as f64 * 100f64,
-            modv.counter_sample,
-            data.counter_sample,
+            modv.counter_s as f64 / data.counter_s as f64 * 100f64,
+            modv.counter_s,
+            data.counter_s,
             modv.funcs.len(),
-            data.counter_func,
-            modv.counter_line,
-            data.counter_line,
+            data.counter_f,
+            modv.counter_l,
+            data.counter_l,
         );
         let rest_len = table_width - modinfo.chars().count();
         output.push_str(
@@ -264,8 +264,8 @@ pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
                 format!(
                     "{1:>9.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}[{4}]\n",
                     spacer_2,
-                    func.counter_sample as f64 / data.counter_sample as f64 * 100f64,
-                    format!("{}/{}", func.counter_sample, data.counter_sample),
+                    func.counter_s as f64 / data.counter_s as f64 * 100f64,
+                    format!("{}/{}", func.counter_s, data.counter_s),
                     "",
                     modk,
                 )
@@ -274,7 +274,7 @@ pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
             for line in func.lines.iter() {
                 let mut location = String::new();
                 for (idx, frame) in line.frames.iter().rev().enumerate() {
-                    let funcname = frame.funcname.as_str();
+                    let funcname = frame.function.as_str();
                     let fileloca = frame.location.as_str();
                     if idx > 0 {
                         location.push_str("->");
@@ -285,8 +285,8 @@ pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
                     format!(
                         "{1:>9.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35.35}{0}{5}\n",
                         spacer_2,
-                        line.counter_sample as f64 / data.counter_sample as f64 * 100f64,
-                        format!("{}/{}", line.counter_sample, data.counter_sample),
+                        line.counter_s as f64 / data.counter_s as f64 * 100f64,
+                        format!("{}/{}", line.counter_s, data.counter_s),
                         line.address,
                         line.instruction,
                         location
@@ -299,7 +299,7 @@ pub(crate) fn tablize_perfdata(data: &ProfileInfo) -> Result<String> {
     Ok(output)
 }
 
-pub(crate) fn dump_perfdata(data: &ProfileInfo, format: DumpFormat) -> Result<()> {
+pub(crate) fn dump_perfdata(data: &Profile, format: DumpFormat) -> Result<()> {
     match format {
         DumpFormat::Json => {
             println!(
