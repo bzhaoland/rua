@@ -332,19 +332,55 @@ Options:
 ❯ rua perfan -h
 Extensively map instructions to file locations (inline expanded)
 
-Usage: rua perfan [OPTIONS] --daemon <DAEMON> --bin <BIN> <FILE>
+Usage: rua perfan [OPTIONS] <FILE>
 
 Arguments:
   <FILE>  File to process (perf annotate output)
 
 Options:
-  -d, --daemon <DAEMON>  Only resolve addresses owned by this daemon
-  -o, --outfmt <OUTFMT>  Output format [default: table] [possible values: json, table]
-  -b, --bin <BIN>        The binary file used to resolve the addresses
+  -o, --format <FORMAT>  Output format [default: table] [possible values: json, table]
+  -e, --elf <ELF>        Binary files used for addresses resolving
   -h, --help             Print help
 ```
 
 == 示例
+
++ 在MX_MAIN分支下，使用 rua perfan 命令解析 profiling 文本中属于 d-plane 的地址:
+  #figure(
+    image(".assets/changelog.0_25_0.origtext.png"),
+    caption: [
+      原始 A3600 profiling 文本
+    ],
+    numbering: none,
+  )
+  #figure(
+    image(".assets/changelog.0_25_0.ruaperfan.png"),
+    caption: [
+      A3600 profiling 文本经 `rua perfan` 解析后
+    ],
+    numbering: none,
+  )
++ 传入多个 elf 参数，解析多个二进制的地址:
+  ```bash
+  rua perfan -e ./bin/obj-emulator-a-dnv-ipv6-2.0/d-plane -e ./bin/obj-emulator-a-dnv-ipv6-2.0/netd A3600.profile.txt
+  ```
+  注意: 当传入非C语言（包括C++）生成的二进制中，符号是混淆过的，函数名可能比较奇怪，这是正常现象。结果中提供有文件名和行号，凭此信息能够准确地定位代码行。
+
+== 输出格式
+
+#figure(
+  image(".assets/manual.ruaperfanoutput.png"),
+  caption: [
+    Rua perfan 输出格式解析
+  ],
+  numbering: none,
+)
+
+== 工具比较
+
+代码库中 `tool/perf2func` 具有相同的功能，本工具的优势在于：
+- 速度更快，相比于 `perf2func` 提速1500倍左右
+- 输出格式更友好，对内联函数有较好的展开处理，方便用户定位代码行
 
 #pagebreak()
 
