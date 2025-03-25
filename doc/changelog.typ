@@ -56,10 +56,11 @@ rm -f rua  # 从当前目录删除
   - cli: 重命名参数 `-b/--binary` 为 `-e/--elf`
   - cli: 移除冗余参数 `-d/--daemon`，因为 daemon name 始终等于 elf 的文件名
   - cli: 现可通过传入多次 `-e/--elf` 参数来指定多个 elf 文件，同时解析多个二进制程序的地址
+  - output: daemon summary percentage 百分比精确到小数点后四位
 
 == 使用示例
 
-- 在MX_MAIN分支下，使用 rua perfan 命令解析 profiling 文本中属于 d-plane 的地址:
++ 在MX_MAIN分支下，使用 rua perfan 命令解析 profiling 文本中属于 d-plane 的地址:
   #figure(
     image(".assets/changelog.0_25_0.origtext.png"),
     caption: [
@@ -74,11 +75,11 @@ rm -f rua  # 从当前目录删除
     ],
     numbering: none,
   )
-- 传入多个 elf 参数，解析多个二进制的地址:
++ 传入多个 elf 参数，解析多个二进制的地址:
   ```bash
   rua perfan -e ./bin/obj-emulator-a-dnv-ipv6-2.0/d-plane -e ./bin/obj-emulator-a-dnv-ipv6-2.0/netd A3600.profile.txt
   ```
-  注意: 当传入非C语言（包括C++）生成的二进制中，符号是经过混淆的，因此解析出的函数名可能优点奇怪，不要担心，这是正常现象。结果中不但提供了函数，还提供了文件名和行号，同样能够准确地定位代码行。
+  注意: 当传入非C语言（包括C++）生成的二进制中，符号是混淆过的，函数名可能比较奇怪，这是正常现象。结果中提供有文件名和行号，凭此信息能够准确地定位代码行。
 
 #pagebreak()
 
