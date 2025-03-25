@@ -194,6 +194,7 @@ pub(crate) fn tablize_perfdata(data: &Profile) -> Result<String> {
     let (col_width_count, col_width_addr) = {
         let mut width_addr = 0;
         let mut width_count = 0;
+
         for m in data.mods.values() {
             for f in m.funcs.iter() {
                 for l in f.lines.iter() {
@@ -202,7 +203,11 @@ pub(crate) fn tablize_perfdata(data: &Profile) -> Result<String> {
                 }
             }
         }
-        (width_count, width_addr)
+
+        (
+            width_count + data.counter_s.to_string().chars().count(),
+            width_addr,
+        )
     };
     let mut output = String::new();
 
