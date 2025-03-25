@@ -205,7 +205,7 @@ pub(crate) fn tablize_perfdata(data: &Profile) -> Result<String> {
         }
 
         (
-            width_count + data.counter_s.to_string().chars().count(),
+            width_count + data.counter_s.to_string().chars().count() + 1,
             width_addr,
         )
     };
