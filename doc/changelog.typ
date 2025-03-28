@@ -26,7 +26,7 @@
 #outline(indent: 2em)
 #pagebreak()
 
-= rua v0.25.0
+= rua v1.0.0
 
 #let ftp_server_bj = "10.100.6.10"
 #let ftp_server_sz = "10.200.6.10"
