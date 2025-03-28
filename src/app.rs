@@ -324,7 +324,7 @@ pub(crate) enum Comm {
         #[arg(
             short = 'e',
             long = "elf",
-            aliases= ["exe", "executable"],
+            visible_aliases= ["exe", "executable"],
             value_name = "ELF",
             help = "Binary files used for addresses resolving"
         )]
