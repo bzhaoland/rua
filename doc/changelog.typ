@@ -1,8 +1,14 @@
 #set page(width: 210mm, height: auto)
 #set text(font: ("Monaspace Neon", "Noto Sans CJK SC"), lang: "zh")
-#show raw: set text(font: ("Monaspace Neon", "Noto Sans CJK SC"))
 #set heading(numbering: "1.1", offset: 0)
 #show heading: set block(below: 1em)
+#show raw: set text(font: ("Monaspace Neon", "Noto Sans CJK SC"))
+#show raw: set block(
+  fill: luma(240),
+  width: 100%,
+  inset: 3mm,
+  radius: 1.5mm,
+)
 
 #page(
   margin: 2cm,
@@ -18,6 +24,69 @@
 ]
 
 #outline(indent: 2em)
+#pagebreak()
+
+= rua v0.25.0
+
+#let ftp_server_bj = "10.100.6.10"
+#let ftp_server_sz = "10.200.6.10"
+#let rua_ver = "1.0.0"
+#let rua_path = [bzhao/rua/#rua_ver/rua]
+
+== 存放位置
+
+- 北京: #ftp_server_bj/#rua_path
+- 苏州: #ftp_server_sz/#rua_path
+
+== 下载安装
+
+北京，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/1.0.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+苏州，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.200.6.10/bzhao/rua/1.0.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+== 版本变更
+
+- `rua perfan`: 简化参数使用
+  - cli: 重命名参数 `-b/--binary` 为 `-e/--elf`
+  - cli: 移除冗余参数 `-d/--daemon`，因为 daemon name 始终等于 elf 的文件名
+  - cli: 现可通过传入多次 `-e/--elf` 参数来指定多个 elf 文件，同时解析多个二进制程序的地址
+  - output: daemon summary percentage 百分比精确到小数点后四位
+
+== 使用示例
+
++ 在MX_MAIN分支下，使用 rua perfan 命令解析 profiling 文本中属于 d-plane 的地址:
+  #figure(
+    image(".assets/changelog.0_25_0.origtext.png"),
+    caption: [
+      原始 A3600 profiling 文本
+    ],
+    numbering: none,
+  )
+  #figure(
+    image(".assets/changelog.0_25_0.ruaperfan.png"),
+    caption: [
+      A3600 profiling 文本经 `rua perfan` 解析后
+    ],
+    numbering: none,
+  )
++ 传入多个 elf 参数，解析多个二进制的地址:
+  ```bash
+  rua perfan -e ./bin/obj-emulator-a-dnv-ipv6-2.0/d-plane -e ./bin/obj-emulator-a-dnv-ipv6-2.0/netd A3600.profile.txt
+  ```
+  注意: 当传入非C语言（包括C++）生成的二进制中，符号是混淆过的，函数名可能比较奇怪，这是正常现象。结果中提供有文件名和行号，凭此信息能够准确地定位代码行。
+
 #pagebreak()
 
 = rua v0.25.0
@@ -45,7 +114,7 @@ rm -f rua  # 从当前目录删除
 苏州，SSH登录到 *buildserver* 上，执行命令：
 
 ```bash
-curl -LO ftp://10.200.6.10/bzhao/rua/0.24.0/rua  # 下载到本地
+curl -LO ftp://10.200.6.10/bzhao/rua/0.25.0/rua  # 下载到本地
 install -D rua ~/.local/bin/rua  # 安装到指定位置
 rm -f rua  # 从当前目录删除
 ```

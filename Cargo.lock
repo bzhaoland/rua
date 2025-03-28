@@ -1183,7 +1183,7 @@ dependencies = [
 
 [[package]]
 name = "rua"
-version = "0.25.0"
+version = "1.0.0"
 dependencies = [
  "addr2line",
  "anstyle",
