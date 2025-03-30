@@ -84,8 +84,6 @@
 
 编译数据库包含了代码库中各个源文件的编译指令，有了该指令后，LS就知道了该翻译单元的头文件查找路径和各种宏定义。通常而言，编译数据库是分构建目标的，如 `a-dnv-ipv6` 对应有一个编译数据库，`a-dnv` 对应有另一个编译数据库。
 
-== 用法
-
 用户可通过 `rua compdb -h` 查看帮助信息:
 #figure(
   image(
@@ -95,7 +93,7 @@
 
 compdb 包含七个子命令，分别是 `gen`, `add`, `del`, `ls`, `use`, `name`, `remark`。下面将分别介绍这些子命令的用法和示例。
 
-=== 生成编译数据库
+== 生成编译数据库
 
 ```bash
 rua compdb gen <构建路径> <构建目标>
@@ -110,7 +108,9 @@ rua compdb gen <构建路径> <构建目标>
   )
 )
 
-=== 归档编译数据库
+== 归档编译数据库
+
+归档功能适合将其他工具生成的编译数据库归档到 store 中，以便管理。其用法如下：
 
 ```bash
 ❯ rua compdb add -h
@@ -130,9 +130,23 @@ Options:
           Print help
 ```
 
-- 构建目标: `a-dnv` or `hygon`...
+*参数解析：*
 
-=== 删除编译数据库
+- `TARGET`: 必填，用于指示编译数据库所对应的构建目标，如 `a-dnv`、`hygon`
+- `-r/--revision`: 可选，用于指示编译数据库所对应的代码版本，默认使用当前SVN仓库的代码版本
+- `-f/--compilation-database`：可选，用于手动指定编译数据库路径，默认使用 `compile_commands.json`
+
+*例如：*
+
+将当前工作目录下的 compile_commands.json 添加到 store 中:
+
+#figure(
+  image(
+    ".assets/changelog.0_22_0.compdb_add.png"
+  )
+)
+
+== 删除编译数据库
 
 ```bash
 ❯ rua compdb del -h
@@ -150,7 +164,30 @@ Options:
   -h, --help     Print help
 ```
 
-=== 列出编译数据库
+*例如：*
+
++ 删除store中的 Generation 2:
+  #figure(
+    image(
+      ".assets/manual.compdbdel2.png"
+    )
+  )
++ 删除store中最旧的3个编译数据库:
+  #figure(
+    image(".assets/manual.compdbdelo3.png")
+  )
++ 删除store中较新的两个编译数据库:
+  #figure(
+    image(".assets/changelog.0_22_0.compdb_del_recent_2.png")
+  )
++ 删除store中所有的编译数据库:
+  #figure(
+    image(".assets/manual.compdbdela.png")
+  )
+
+== 列出编译数据库
+
+列出当前工作目录下所有的编译数据库。
 
 ```bash
 ❯ rua compdb ls -h
@@ -162,7 +199,42 @@ Options:
   -h, --help  Print help
 ```
 
-=== 选择编译数据库
+每个表项都有一个唯一的 `Generation ID`，且关联3个重要属性和2个可选属性：
+
+#block(
+  fill: rgb("#9f737375"),
+  width: 100%,
+  inset: 3mm,
+  radius: 1.5mm,
+  [
+    - `Revision`: 代码版本
+    - `Target`: 构建目标
+    - `Date`: 生成日期
+  ]
+)
+
+#block(
+  fill: rgb("#b9c5e2"),
+  width: 100%,
+  inset: 3mm,
+  radius: 1.5mm,
+  [
+    - `Name`: 编译数据库的名字
+    - `Remark`: 编译数据库的备注
+  ]
+) 
+
+*例如：*
+
+#figure(
+  image(
+    ".assets/manual.rua-compdb-ls.png"
+  )
+)
+
+== 选择编译数据库
+
+选中的编译数据库将会覆盖当前工作目录下的 compile_commands.json 文件。
 
 ```bash
 ❯ rua compdb use -h
@@ -177,7 +249,7 @@ Options:
   -h, --help  Print help
 ```
 
-=== 命名编译数据库
+== 命名编译数据库
 
 ```bash
 ❯ rua compdb name -h
@@ -193,7 +265,14 @@ Options:
   -h, --help  Print help
 ```
 
-=== 备注编译数据库
+*例如：*
+
+为store中的编译数据库 generation 1 添加一个名字:
+#figure(
+  image(".assets/changelog.0_22_0.compdb_name.png")
+)
+
+== 备注编译数据库
 
 ```bash
 ❯ rua compdb remark -h
@@ -210,43 +289,12 @@ Options:
   -h, --help  Print help
 ```
 
-== 示例
+*例如：*
 
-+ `rua compdb add`:\
-  将当前使用的编译数据库（compile_commands.json）添加到store中\
-  #figure(
-    image(".assets/changelog.0_22_0.compdb_add.png")
-  )
-+ `rua compdb del 2`:\
-  删除store中的第二个编译数据库\
-  #figure(
-    image(".assets/manual.compdbdel2.png")
-  )
-+ `rua compdb del -o 3`:\
-  删除store中最旧的3个编译数据库\
-  #figure(
-    image(".assets/manual.compdbdelo3.png")
-  )
-+ `rua compdb del -n 2`:\
-  删除store中较新的两个编译数据库\
-  #figure(
-    image(".assets/changelog.0_22_0.compdb_del_recent_2.png")
-  )
-+ `rua compdb del -a`:\
-  删除store中所有的编译数据库\
-  #figure(
-    image(".assets/manual.compdbdela.png")
-  )
-+ `rua compdb name 1 A1600-A`:\
-  为store中的编译数据库 generation 1 添加一个名字\
-   #figure(
-    image(".assets/changelog.0_22_0.compdb_name.png")
-   )
-+ `rua compdb remark 1 "Compilation database generation for A1600-A"`:\
-  为store中的编译数据库 generation 1 添加备注\
-  #figure(
-    image(".assets/changelog.0_22_0.compdb_remark.png")
-  )
+为store中的编译数据库 Generation 1 添加备注\
+#figure(
+  image(".assets/changelog.0_22_0.compdb_remark.png")
+)
 
 #pagebreak()
 
@@ -275,16 +323,10 @@ Options:
 == 示例
 
 + 显示 flow_first.c 文件的编译指令:
-  ```bash
-  rua showcc flow_first.c
-  ```
   #figure(
     image(".assets/manual.showcc_flow_first.png")
   )
 + 显示 virtual_wire.c 的编译指令:
-  ```bash
-  rua showcc virtual_wire.c
-  ```
   #figure(
     image(".assets/manual.showcc_virtual_wire.png")
   )
@@ -317,14 +359,6 @@ Options:
   -t, --template-file <TEMPLATE-FILE>  Use customized template file (please ensure it can run through svn commit hooks)
   -h, --help                           Print help
 ```
-
-== 示例
-
-// + `rua review -n `:\
-//   生成一个 review 请求\
-//   #figure(
-//     image(".assets/manual.review.png")
-//   )
 
 #pagebreak()
 
