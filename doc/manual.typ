@@ -95,16 +95,83 @@ compdb 包含七个子命令，分别是 `gen`, `add`, `del`, `ls`, `use`, `name
 
 == 生成编译数据库
 
-```bash
-rua compdb gen <构建路径> <构建目标>
+```sh
+❯ rua compdb gen -h
+Generate a JSON compilation database (JCDB) for the given target
+
+Usage: rua compdb gen [OPTIONS] <PATH> <TARGET>
+
+Arguments:
+  <PATH>    Path for the target where platform-specific makefiles reside, such as 'products/vfw'
+  <TARGET>  Target to build, such as 'a-dnv'
+
+Options:
+  -D, --define <KEY=VAL>
+          Define a variable which will be passed to the underlying make command
+  -e, --engine <ENGINE>
+          Engine for generating compilation database (defaults to built-in) [possible values: built-in, intercept-build, bear]
+  -b, --bear-path <BEAR>
+          Path to the bear binary (defaults to /devel/sw/bear/bin/bear)
+  -i, --intercept-build-path <INTERCEPT-BUILD>
+          Path to the intercept-build binary (defaults to /devel/sw/llvm/bin/intercept-build)
+  -h, --help
+          Print help (see more with '--help')
+
+Examples:
+  rua compdb gen products/ngfw_as a-dnv                    # For A1000/A2000...
+  rua compdb gen products/ngfw_as a-dnv-ipv6               # For A1000/A2000... with IPv6 support
+  rua compdb gen -e intercept-build products/ngfw_as a-dnv # For A1000/A2000... using intercept-build
+  rua compdb gen . a-dnv                                   # For A1000/A2000... under submod dir
+  rua compdb gen -e bear . a-dnv                           # For A1000/A2000... under submod dir using bear 
+  run compdb gen -e intercept-build . a-dnv                # For A1000/A2000... under submod dir using intercept-build
+
+Caution:
+  Some files are modified while running in built-in mode which is the default
+  and faster:
+  1. When running under project root dir:
+     - scripts/last-rules.mk
+     - scripts/rules.mk
+     - Makefile
+  2. When running under submod dir:
+     - scripts/last-rules.mk
+     - scripts/rules.mk
+  These files may be left dirty if compdb process aborted unexpectedly. You
+  could manually restore them by execute:
+  svn revert Makefile scripts/last-rules.mk scripts/rules.mk
 ```
+
+*参数解析：*
 
 - 构建路径: `products/ngfw_as` or `products/ngfw_ak` or ...
 - 构建目标: `a-dnv` or `hygon` or ...
+- 引擎: `-e/--engine`，可选，可选值为 `built-in`、`intercept-build`、`bear`，默认值为 `built-in`
+- `-D/--define`: 可选，定义一个变量，将会传递给底层的 make 命令
+- `-b/--bear-path`: 可选，指定 bear 的路径，默认值为 `/devel/sw/bear/bin/bear`
+- `-i/--intercept-build-path`: 可选，指定 intercept-build 的路径，默认值为 `/devel/sw/llvm/bin/intercept-build`
 
+#block(
+  fill: rgb("#e2b9c928"),
+  width: 100%,
+  inset: 3mm,
+  radius: 1.5mm,
+  [
+    *FQA：*
+    
+    1. `rua compdb gen` 执行失败怎么办？
+      `rua compdb gen` 执行失败的原因有以下几个:
+      - 无执行权限，建议使用 `chmod +x <RUA-PATH>` 添加可执行权限
+      - 执行目录不正确，建议在工程根目录下执行
+      - Makefile 状态不正确，简易检查 "scripts/rules.mk"、"scripts/last-rules.mk"、"Makefile" 三个文件是否被修改过。若有修改，建议执行 `svn revert` 恢复
+      - 磁盘满了，建议检查磁盘空间是否足够。该类错误不但会导致编译数据库生成失败，还可能造成 "scripts/rules.mk"、"scripts/last-rules.mk"、"Makefile" 三个文件被修改
+  ]
+)
+
+*例如：*
+
++ 在工程根目录下生成一个编译目标为 `kunlun-ipv6` 的编译数据库:
 #figure(
   image(
-    ".assets/manual.compdbgenhelp.png"
+    ".assets/manual.compdbgen.png"
   )
 )
 
@@ -202,7 +269,7 @@ Options:
 每个表项都有一个唯一的 `Generation ID`，且关联3个重要属性和2个可选属性：
 
 #block(
-  fill: rgb("#9f737375"),
+  fill: rgb("#e2d6b94b"),
   width: 100%,
   inset: 3mm,
   radius: 1.5mm,
@@ -210,19 +277,10 @@ Options:
     - `Revision`: 代码版本
     - `Target`: 构建目标
     - `Date`: 生成日期
+    - `Name`: 可选，编译数据库的名字
+    - `Remark`: 可选，编译数据库的备注
   ]
 )
-
-#block(
-  fill: rgb("#b9c5e2"),
-  width: 100%,
-  inset: 3mm,
-  radius: 1.5mm,
-  [
-    - `Name`: 编译数据库的名字
-    - `Remark`: 编译数据库的备注
-  ]
-) 
 
 *例如：*
 
