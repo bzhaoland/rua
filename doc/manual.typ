@@ -19,11 +19,11 @@
   #align(center + horizon, [
     #text(size: 24pt, weight: "bold", "Rua 使用手册")
     #v(1em) // 垂直间距
-    #text(size: 16pt, "v1.0")
+    #text(size: 16pt, "v1.0.0")
     #v(2em) // 垂直间距
     #text(size: 16pt, "bzhao")
     #v(1em) // 垂直间距
-    #text(size: 14pt, "2025-02-13")
+    #text(size: 14pt, "2025-03-31")
   ])
 ]
 
