@@ -38,11 +38,35 @@
 
 用户可通过 `rua mkinfo -h` 查看帮助信息：
 
-#figure(
-  image(
-    ".assets/manual.mkinfohelp.png"
-  )
-)
+```bash
+❯ rua mkinfo -h
+Get all matched makeinfos for product
+
+Usage: rua mkinfo [OPTIONS] <NAME-OR-TARGET>
+
+Arguments:
+  <NAME-OR-TARGET>  Product name such as A1000, or build target (with --target switch on) such as a-dnv, View as a product name by default. Regex is also supported when using as a product name, e.g. 'X\d+80'
+
+Options:
+  -4, --ipv4                         Build with only IPv4 enabled
+  -6, --ipv6                         Build with IPv6 enabled
+  -g, --coverage                     Run coverage
+  -c, --coverity                     Run coverity
+  -d, --debug                        Build in debug mode (default is release mode)
+      --format <FORMAT>              Output format for makeinfos, defaults to list [default: list] [possible values: csv, json, list, tsv]
+  -p, --password                     Build with shell password enabled
+  -w, --webui                        Build with WebUI enabled
+  -s, --image-server <IMAGE-SERVER>  Server to upload the output image to [possible values: b, s]
+      --nostrip <BINARY>             Binaries that get out of strip processing
+      --by-target                    Treat the positional arg as a build target other than a product name
+  -h, --help                         Print help
+
+Examples:
+  rua mkinfo A1000      # Makeinfo for A1000 without extra features
+  rua mkinfo -6 A1000   # Makeinfo for A1000 with IPv6 enabled
+  rua mkinfo -6w 'X\d+' # Makeinfos for X-series products with IPv6 and WebUI enabled using regex pattern
+  rua mkinfo --target a-dnv  # Makeinfos for a-dnv target
+```
 
 == 示例
 
@@ -64,7 +88,7 @@
       ".assets/manual.mkinfo6w.png"
     )
   )
-+ `rua mkinfo -s s A1000`: 生成 `A1000` 平台的构建指令，上传到 10.200.6.10 服务器，即苏州服务器\
++ `rua mkinfo -ss A1000`: 生成 `A1000` 平台的构建指令，上传到 10.200.6.10 服务器，即苏州服务器
   #figure(
     image(
       ".assets/manual.mkinfos.png"
@@ -80,20 +104,42 @@
 
 = compdb
 
-`rua compdb` 包含了众多子命令，分别用于生成、删除和管理编译数据库。编译数据库的存在是为了给C/C++语言服务器（Language Server, LS），如 clangd，提供编译指示，从而使其能够在代码库中正确地跳转。
+`rua compdb` 包含了众多子命令，分别用于生成、删除和管理编译数据库。
 
-编译数据库包含了代码库中各个源文件的编译指令，有了该指令后，LS就知道了该翻译单元的头文件查找路径和各种宏定义。通常而言，编译数据库是分构建目标的，如 `a-dnv-ipv6` 对应有一个编译数据库，`a-dnv` 对应有另一个编译数据库。
+编译数据库能够为C/C++语言服务器（Language Server, LS）提供各编译单元的编译指令，如 include 路径、编译宏，使之能够理解每个文件的编译方式，从而在代码代码库中正确地行走。
 
-用户可通过 `rua compdb -h` 查看帮助信息:
-#figure(
-  image(
-    ".assets/manual.compdbhelp.png"
-  )
-)
+编译数据库的格式为 JSON 格式，文件名为 `compile_commands.json`，存放在当前工作目录下。该文件是一个数组，每个元素对应一个编译单元的编译指令。
 
-compdb 包含七个子命令，分别是 `gen`, `add`, `del`, `ls`, `use`, `name`, `remark`。下面将分别介绍这些子命令的用法和示例。
+编译数据库的每个元素包含了以下几个字段：
+- `directory`: 编译单元所在的目录
+- `command`: 编译单元的编译指令
+- `file`: 编译单元的文件路径
 
-== 生成编译数据库
+一般来说，编译数据库是分构建目标的，如 `a-dnv-ipv6` 对应有一个编译数据库，`a-dnv` 对应有另一个编译数据库。对于后者而言，IPV6宏所包裹的代码不会被解析，LS视之为无效代码。
+
+Rua 工具为每条命令和参数添加了充分的注释，当存在疑惑时请使用 `-h` 或 `--help` 参数查看帮助信息。例如，工具顶层命令帮助信息可通过在 shell 下执行 `rua compdb -h` 查看:
+
+```bash
+❯ rua compdb -h
+Manipulate compilation database
+
+Usage: rua compdb <COMMAND>
+
+Commands:
+  gen     Generate a JSON compilation database (JCDB) for the given target [aliases: generate]
+  add     Archive the currently used compilation database into store as a new generation [aliases: ark, archive]
+  del     Delete compilation database generation(s) from store [aliases: delete, rm, remove]
+  ls      List all compilation database generations in store [aliases: list]
+  use     Select a compilation database generation from store to use
+  name    Name a compilation database generation
+  remark  Remark a compilation database generation
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+== 生成编译数据库(Gen)
 
 ```sh
 ❯ rua compdb gen -h
@@ -142,51 +188,65 @@ Caution:
 
 *参数解析：*
 
-- 构建路径: `products/ngfw_as` or `products/ngfw_ak` or ...
-- 构建目标: `a-dnv` or `hygon` or ...
-- 引擎: `-e/--engine`，可选，可选值为 `built-in`、`intercept-build`、`bear`，默认值为 `built-in`
-- `-D/--define`: 可选，定义一个变量，将会传递给底层的 make 命令
+- `<PATH>`: 构建路径，例如 A1000/A2000平台的构建路径为 `products/ngfw_as`，K6580平台的构建路径为 `products/ngfw_ak` or ...
+- `<TARGET>`: 构建目标，例如 A1000/A2000等平台的编译目标为 `a-dnv`，K6580平台的编译目标位 `hygon`，X8180平台的编译目标位 `tai`
+- `-e/--engine`: 可选，引擎。候选值为 `built-in`、`intercept-build`、`bear`，默认值为 `built-in`
+- `-D/--define`: 可选，变量定义。将会传递给底层的 make 命令
 - `-b/--bear-path`: 可选，指定 bear 的路径，默认值为 `/devel/sw/bear/bin/bear`
 - `-i/--intercept-build-path`: 可选，指定 intercept-build 的路径，默认值为 `/devel/sw/llvm/bin/intercept-build`
 
-#block(
-  fill: rgb("#e2b9c928"),
-  width: 100%,
-  inset: 3mm,
-  radius: 1.5mm,
-  [
-    *FQA：*
-    
-    1. `rua compdb gen` 执行失败怎么办？
-      `rua compdb gen` 执行失败的原因有以下几个:
-      - 无执行权限，建议使用 `chmod +x <RUA-PATH>` 添加可执行权限
-      - 执行目录不正确，建议在工程根目录下执行
-      - Makefile 状态不正确，简易检查 "scripts/rules.mk"、"scripts/last-rules.mk"、"Makefile" 三个文件是否被修改过。若有修改，建议执行 `svn revert` 恢复
-      - 磁盘满了，建议检查磁盘空间是否足够。该类错误不但会导致编译数据库生成失败，还可能造成 "scripts/rules.mk"、"scripts/last-rules.mk"、"Makefile" 三个文件被修改
-  ]
-)
-
-*例如：*
+=== 使用默认方法(built-in)生成编译数据库
 
 + 在工程根目录下生成一个编译目标为 `kunlun-ipv6` 的编译数据库:
-#figure(
-  image(
-    ".assets/manual.compdbgen.png"
+  #figure(
+    image(
+      ".assets/manual.compdbgen.png"
+    )
   )
-)
++ 在工程根目录下为X8180平台生成一个编译数据库，编译目标为 `tai`:
+  #figure(
+    image(
+      ".assets/manual.compdbgentai.png"
+    )
+  )
 
-== 归档编译数据库
+=== 使用 intercept-build 方法生成编译数据库
+
+intercept-build 是 LLVM 工具集合所提供的一个工具，能够拦截编译命令并生成编译数据库。
+
+由于该工具的工作原理为拦截每次触发编译器编译的指令，因此不适合增量编译场景。增量编译场景下，编译器只会编译那些有变更的文件，而不会编译所有文件。这样一来，intercept-build 就无法捕获到所有的编译指令。
+因此，建议在全量编译时使用该工具。
+
+```bash
+❯ rua compdb gen -e intercept-build products/ngfw_as a-dnv
+
+```
+
+=== FQA
+    
++ `rua compdb gen` 执行失败怎么办？\
+  命令执行失败的原因有以下几个:
+  - 无执行权限，建议使用 `chmod +x <RUA-PATH>` 添加可执行权限
+  - 执行目录不正确，建议在工程根目录下执行
+  - Makefile 状态不正确，简易检查 "scripts/rules.mk"、"scripts/last-rules.mk"、"Makefile" 三个文件是否被修改过。若有修改，建议执行 `svn revert` 恢复
+  - 磁盘满了，建议检查磁盘空间是否足够。该类错误不但会导致编译数据库生成失败，还可能造成 "scripts/rules.mk"、"scripts/last-rules.mk"、"Makefile" 三个文件被修改
++ 无法生成第三方库的编译数据库怎么办？\
+  `rua compdb gen` 默认使用 `built-in` 方法，该方法只生成我们的内部代码，暨通过 "scripts/last-rules.mk" 中一条用于编译目的的 recipe 来编译的文件。\
+  若想单独生成第三方库的编译数据库，可使用 `bear` 或 `intercept-build` 方法。\
+  若想使用 `bear` 或 `intercept-build` 方法生成整个工程的编译数据库，须在一个clean过的的分支下进行（从而进行全量编译），或者编译一个当前未被 ccache 缓存其编译信息的编译目标，否则会失败。
+
+== 归档编译数据库(Add)
 
 归档功能适合将其他工具生成的编译数据库归档到 store 中，以便管理。其用法如下：
 
 ```bash
-❯ rua compdb add -h
-Add the currently used compilation database into store as a new generation
+❯ rua compdb add --help
+Archive the currently used compilation database into store as a new generation
 
 Usage: rua compdb add [OPTIONS] <TARGET>
 
 Arguments:
-  <TARGET>  Target for the compilation database
+  <TARGET>  Target specified for the compilation database
 
 Options:
   -r, --revision <REVISION>
@@ -195,13 +255,17 @@ Options:
           Use this compilation database other than the default (compile_commands.json)
   -h, --help
           Print help
+
+Examples:
+    rua compdb add hygon-ipv6 # Archive compilation database for hygon-ipv6
+    rua compdb add --revision 307164 hygon # Archive compilation database for hygon with a revision provided
 ```
 
 *参数解析：*
 
-- `TARGET`: 必填，用于指示编译数据库所对应的构建目标，如 `a-dnv`、`hygon`
-- `-r/--revision`: 可选，用于指示编译数据库所对应的代码版本，默认使用当前SVN仓库的代码版本
-- `-f/--compilation-database`：可选，用于手动指定编译数据库路径，默认使用 `compile_commands.json`
+- `<TARGET>`: 必填，用于指示编译数据库所对应的构建目标，如 `a-dnv`、`hygon`
+- `-r/--revision`: 可选，用于指示编译数据库所对应的代码版本，默认使用当前工作目录的代码版本
+- `-f/--compilation-database`：可选，用于手动指定编译数据库路径，默认使用当前工作目录下的 `compile_commands.json`
 
 *例如：*
 
@@ -213,7 +277,7 @@ Options:
   )
 )
 
-== 删除编译数据库
+== 删除编译数据库(Del)
 
 ```bash
 ❯ rua compdb del -h
@@ -252,7 +316,7 @@ Options:
     image(".assets/manual.compdbdela.png")
   )
 
-== 列出编译数据库
+== 列出编译数据库(Ls)
 
 列出当前工作目录下所有的编译数据库。
 
@@ -290,7 +354,7 @@ Options:
   )
 )
 
-== 选择编译数据库
+== 选择编译数据库(Use)
 
 选中的编译数据库将会覆盖当前工作目录下的 compile_commands.json 文件。
 
@@ -307,7 +371,7 @@ Options:
   -h, --help  Print help
 ```
 
-== 命名编译数据库
+== 命名编译数据库(Name)
 
 ```bash
 ❯ rua compdb name -h
@@ -330,7 +394,7 @@ Options:
   image(".assets/changelog.0_22_0.compdb_name.png")
 )
 
-== 备注编译数据库
+== 备注编译数据库(Remark)
 
 ```bash
 ❯ rua compdb remark -h
