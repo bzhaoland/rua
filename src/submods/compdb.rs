@@ -100,6 +100,7 @@ pub(crate) fn gen_compdb_builtin(
     const RULES_MAKEFILE: &str = "scripts/rules.mk";
     const TOP_MAKEFILE: &str = "Makefile";
 
+    // Invoke svn firstly to check whether we are in a working copy
     let at_proj_root = env::current_dir()? == svninfo.working_copy_root_path();
 
     let lastrules_path = svninfo.working_copy_root_path().join(LAST_RULES_MAKEFILE);

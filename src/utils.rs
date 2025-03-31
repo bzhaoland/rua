@@ -16,6 +16,7 @@ pub(crate) mod progress_bar {
 #[allow(unused)]
 pub(crate) mod symbols {
     pub(crate) const LINE_H: &str = "─";
+    pub(crate) const LINE_H_HEAVY: &str = "━";
     pub(crate) const LINE_HD: &str = "═";
     pub(crate) const LINE_V: &str = "│";
     pub(crate) const LINE_VD: &str = "║";
