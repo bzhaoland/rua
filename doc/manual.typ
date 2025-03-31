@@ -1,4 +1,8 @@
-#set page(width: 210mm, height: auto)
+#set page(
+  width: 210mm,
+  height: auto,
+  numbering: "1"
+)
 #set text(font: ("Monaspace Neon", "Noto Sans CJK SC"), lang: "zh")
 #set heading(numbering: "1.1", offset: 0)
 #show heading: set block(below: 1em)
