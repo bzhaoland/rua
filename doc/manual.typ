@@ -23,11 +23,11 @@
   #align(center + horizon, [
     #text(size: 24pt, weight: "bold", "Rua 使用手册")
     #v(1em) // 垂直间距
-    #text(size: 16pt, "v1.0.0")
+    #text(size: 16pt, "v1.1.0")
     #v(2em) // 垂直间距
     #text(size: 16pt, "bzhao")
     #v(1em) // 垂直间距
-    #text(size: 14pt, "2025-03-31")
+    #text(size: 14pt, "2025-04-03")
   ])
 ]
 
@@ -340,17 +340,18 @@ Options:
     - `Revision`: 代码版本
     - `Target`: 构建目标
     - `Date`: 生成日期
-    - `Current`: 当前是否使用
     - `Name`: 可选，编译数据库的名字
     - `Remark`: 可选，编译数据库的备注
   ]
 )
 
+当一个 generation 后面标有黄色的 `*` 时，表示它是它是当前使用项。`gen/use` 操作会使当前使用项发生改变，因此 `*` 的显示会发生改变。需要注意的是，为保证准确性，尽量使用 rua 来生成、切换数据库。
+
 *例如：*
 
 #figure(
   image(
-    ".assets/manual.rua-compdb-ls.png"
+    ".assets/changelog.1_1_0.compdblsindicator.png"
   )
 )
 
