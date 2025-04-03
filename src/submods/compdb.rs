@@ -85,9 +85,9 @@ impl fmt::Display for CompdbRecord {
 
 pub(crate) const COMPDB_FILE: &str = "compile_commands.json";
 pub(crate) const COMPDB_STORE: &str = ".rua/compdbs.db3";
-const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
-const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
-const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
+pub(crate) const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
+pub(crate) const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
+pub(crate) const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
 
 pub(crate) fn gen_compdb_builtin(
     svninfo: &SvnInfo,
@@ -480,7 +480,7 @@ fn add_compdb(
 const STYLE_BOLD: Style = Style::new().bold();
 const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 
-struct TableColumn<T>
+pub(crate) struct TableColumn<T>
 where
     T: ToString,
 {
@@ -504,7 +504,7 @@ impl<T: ToString> TableColumn<T> {
     }
 }
 
-struct Table {
+pub(crate) struct Table {
     col_generation: TableColumn<i64>,
     col_branch: TableColumn<String>,
     col_revision: TableColumn<i64>,
@@ -516,6 +516,7 @@ struct Table {
     num_rows: usize,
 }
 
+#[allow(dead_code)]
 impl Table {
     pub(crate) fn new() -> Self {
         Table {
@@ -552,8 +553,12 @@ impl Table {
         }
     }
 
+    pub(crate) fn num_rows(&self) -> usize {
+        self.num_rows
+    }
+
     pub(crate) fn is_empty(&self) -> bool {
-        self.num_rows == 0
+        self.num_rows() == 0
     }
 
     /// Insert a row at the tail of the table
@@ -576,7 +581,6 @@ impl Table {
     }
 
     /// Insert a row at the given index of the table
-    #[allow(dead_code)]
     pub(crate) fn insert_row(&mut self, item: CompdbStoreItem, i: usize) {
         let date = chrono::Local
             .timestamp_opt(item.timestamp, 0)
