@@ -478,7 +478,7 @@ fn add_compdb(
 }
 
 const STYLE_BOLD: Style = Style::new().bold();
-const STYLE_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
+const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     // Database querying
     let mut stmt = conn.prepare("SELECT generation, branch, revision, target, timestamp, name, remark FROM compdbs ORDER BY generation DESC")?;
@@ -496,29 +496,29 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     })?;
 
     // Formatting
-    const HEADERS: (&str, &str, &str, &str, &str, &str, &str, &str) = (
+    const HEADERS: (&str, &str, &str, &str, &str, &str, &str) = (
         "Generation",
         "Branch",
         "Revision",
         "Target",
         "Date",
-        "Current",
         "Name",
         "Remark",
     );
+    let indicator = "*";
+    let indicator_len = indicator.chars().count();
+
     let mut generation_cols = HEADERS.0.chars().count();
     let mut branch_cols = HEADERS.1.chars().count();
     let mut revision_cols = HEADERS.2.chars().count();
     let mut target_cols = HEADERS.3.chars().count();
     let mut date_cols = HEADERS.4.chars().count();
-    let current_cols = HEADERS.5.chars().count();
-    let mut name_cols = HEADERS.6.chars().count();
-    let mut remark_cols = HEADERS.7.chars().count();
+    let mut name_cols = HEADERS.5.chars().count();
+    let mut remark_cols = HEADERS.6.chars().count();
+    let mut generation_id_cols = 0;
     let current = history_get_current(conn)?;
-    let indicator = "★";
-    let indicator_len = indicator.chars().count();
 
-    let mut displayed_entries: Vec<(i64, String, i64, String, String, bool, String, String)> =
+    let mut displayed_entries: Vec<(i64, String, i64, String, String, String, String, bool)> =
         Vec::new();
     for item in data_iter {
         let item = item?;
@@ -530,9 +530,9 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
         let name = item.name.unwrap_or_else(|| "".to_string());
         let remark = item.remark.unwrap_or_else(|| "".to_string());
 
-        generation_cols = cmp::max(
-            item.generation.to_string().chars().count() + indicator_len,
-            generation_cols,
+        generation_id_cols = cmp::max(
+            generation_id_cols,
+            item.generation.to_string().chars().count(),
         );
         branch_cols = cmp::max(item.branch.chars().count(), branch_cols);
         revision_cols = cmp::max(item.revision.to_string().chars().count(), revision_cols);
@@ -547,6 +547,8 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
             item.revision,
             item.target,
             date,
+            name,
+            remark,
             if let Some(current) = current {
                 if item.generation == current {
                     true
@@ -556,10 +558,9 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
             } else {
                 false
             },
-            name,
-            remark,
         ));
     }
+    generation_cols = cmp::max(generation_cols, generation_id_cols + indicator_len + 1);
 
     if displayed_entries.is_empty() {
         println!("No compilation database generation available");
@@ -567,29 +568,23 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     }
 
     println!(
-        "{0}{1:<generation_cols$}   {2:<branch_cols$}   {3:<revision_cols$}   {4:<target_cols$}   {5:<date_cols$}   {6:<current_cols$}   {7:name_cols$}   {8:<remark_cols$}{0:#}",
-        STYLE_BOLD,
-        HEADERS.0,
-        HEADERS.1,
-        HEADERS.2,
-        HEADERS.3,
-        HEADERS.4,
-        HEADERS.5,
-        HEADERS.6,
-        HEADERS.7,
+        "{0}{1:<generation_cols$}   {2:<branch_cols$}   {3:<revision_cols$}   {4:<target_cols$}   {5:<date_cols$}   {6:name_cols$}   {7:<remark_cols$}{0:#}",
+        STYLE_BOLD, HEADERS.0, HEADERS.1, HEADERS.2, HEADERS.3, HEADERS.4, HEADERS.5, HEADERS.6,
     );
+    let generation_pad_cols = generation_cols - generation_id_cols - indicator_len - 1;
     for item in displayed_entries {
         println!(
-            "{1:<generation_cols$}   {2:branch_cols$}   {3:<revision_cols$}   {4:target_cols$}   {5:<date_cols$}   {0}{6:^current_cols$}{0:#}   {7:<name_cols$}   {8:<remark_cols$}",
-            STYLE_GREEN,
+            "{1:<generation_id_cols$}{2:generation_pad_cols$} {0}{9:^indicator_len$}{0:#}   {3:branch_cols$}   {4:<revision_cols$}   {5:target_cols$}   {6:<date_cols$}   {7:<name_cols$}   {8:<remark_cols$}",
+            STYLE_YELLOW,
             item.0,
+            "",
             item.1,
             item.2,
             item.3,
             item.4,
-            if item.5 { indicator } else { "" },
+            item.5,
             item.6,
-            item.7
+            if item.7 { indicator } else { "" },
         );
     }
 
@@ -635,12 +630,15 @@ pub(crate) fn del_compdb(conn: &Connection, opt: DelOpt) -> anyhow::Result<usize
 }
 
 pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<()> {
-    let item: (Option<String>, Vec<u8>) = conn.query_row(
-        "SELECT name, compdb FROM compdbs WHERE generation=?1",
-        [generation],
-        |row| Ok((row.get(0)?, row.get(1)?)),
-    )?;
-    let compile_commands = decode_all(&item.1[..])?;
+    let item: Option<Vec<u8>> = conn
+        .query_row(
+            "SELECT compdb FROM compdbs WHERE generation=?1",
+            [generation],
+            |row| Ok(row.get(0)?),
+        )
+        .optional()?;
+    let item = item.context("Generation not available")?;
+    let compile_commands = decode_all(&item[..])?;
     fs::write(COMPDB_FILE, compile_commands)?;
     history_set_current(conn, generation)?;
     Ok(())

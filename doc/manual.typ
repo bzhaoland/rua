@@ -329,7 +329,7 @@ Options:
   -h, --help  Print help
 ```
 
-每个表项都有一个唯一的 `Generation ID`，且关联3个重要属性和2个可选属性：
+每个表项都有一个唯一的 `Generation ID`，且关联4个重要属性和2个可选属性：
 
 #block(
   fill: rgb("#e2d6b94b"),
@@ -340,6 +340,7 @@ Options:
     - `Revision`: 代码版本
     - `Target`: 构建目标
     - `Date`: 生成日期
+    - `Current`: 当前是否使用
     - `Name`: 可选，编译数据库的名字
     - `Remark`: 可选，编译数据库的备注
   ]
