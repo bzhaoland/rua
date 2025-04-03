@@ -511,8 +511,8 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     let mut revision_cols = HEADERS.2.chars().count();
     let mut target_cols = HEADERS.3.chars().count();
     let mut date_cols = HEADERS.4.chars().count();
-    let current_cols = HEADERS.6.chars().count();
-    let mut name_cols = HEADERS.5.chars().count();
+    let current_cols = HEADERS.5.chars().count();
+    let mut name_cols = HEADERS.6.chars().count();
     let mut remark_cols = HEADERS.7.chars().count();
     let current = history_get_current(conn)?;
     let indicator = "★";
@@ -567,7 +567,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     }
 
     println!(
-        "{0}{1:<generation_cols$}   {2:<branch_cols$}   {3:<revision_cols$}   {4:<target_cols$}   {5:<date_cols$}   {6:<name_cols$}   {7:current_cols$}   {8:<remark_cols$}{0:#}",
+        "{0}{1:<generation_cols$}   {2:<branch_cols$}   {3:<revision_cols$}   {4:<target_cols$}   {5:<date_cols$}   {6:<current_cols$}   {7:name_cols$}   {8:<remark_cols$}{0:#}",
         STYLE_BOLD,
         HEADERS.0,
         HEADERS.1,
