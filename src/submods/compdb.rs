@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process::Command;
 use std::thread;
 
-use anstyle::Style;
+use anstyle::{Ansi256Color, Color, Style};
 use anyhow::{Context, bail};
 use chrono::TimeZone;
 use clap::ValueEnum;
@@ -454,7 +454,12 @@ struct CompdbItem {
 }
 
 pub(crate) fn create_compdbs_table(conn: &Connection) -> anyhow::Result<()> {
+    // Note that the two generation fields should update independently
     conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, target TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, name TEXT UNIQUE, remark TEXT)", ())?;
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY, generation INTEGER)",
+        (),
+    )?;
     Ok(())
 }
 
@@ -473,6 +478,7 @@ fn add_compdb(
 }
 
 const STYLE_BOLD: Style = Style::new().bold();
+const STYLE_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
 pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     // Database querying
     let mut stmt = conn.prepare("SELECT generation, branch, revision, target, timestamp, name, remark FROM compdbs ORDER BY generation DESC")?;
@@ -490,24 +496,30 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     })?;
 
     // Formatting
-    const HEADERS: (&str, &str, &str, &str, &str, &str, &str) = (
+    const HEADERS: (&str, &str, &str, &str, &str, &str, &str, &str) = (
         "Generation",
         "Branch",
         "Revision",
         "Target",
         "Date",
+        "Current",
         "Name",
         "Remark",
     );
-    let mut generation_col_width = HEADERS.0.len();
-    let mut branch_col_width = HEADERS.1.len();
-    let mut revision_col_width = HEADERS.2.len();
-    let mut target_col_width = HEADERS.3.len();
-    let mut date_col_width = HEADERS.4.len();
-    let mut name_col_width = HEADERS.5.len();
-    let mut remark_col_width = HEADERS.6.len();
+    let mut generation_cols = HEADERS.0.chars().count();
+    let mut branch_cols = HEADERS.1.chars().count();
+    let mut revision_cols = HEADERS.2.chars().count();
+    let mut target_cols = HEADERS.3.chars().count();
+    let mut date_cols = HEADERS.4.chars().count();
+    let current_cols = HEADERS.6.chars().count();
+    let mut name_cols = HEADERS.5.chars().count();
+    let mut remark_cols = HEADERS.7.chars().count();
+    let current = history_get_current(conn)?;
+    let indicator = "★";
+    let indicator_len = indicator.chars().count();
 
-    let mut displayed_entries: Vec<(i64, String, i64, String, String, String, String)> = Vec::new();
+    let mut displayed_entries: Vec<(i64, String, i64, String, String, bool, String, String)> =
+        Vec::new();
     for item in data_iter {
         let item = item?;
         let date = chrono::Local
@@ -518,19 +530,16 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
         let name = item.name.unwrap_or_else(|| "".to_string());
         let remark = item.remark.unwrap_or_else(|| "".to_string());
 
-        generation_col_width = cmp::max(
-            item.generation.to_string().chars().count(),
-            generation_col_width,
+        generation_cols = cmp::max(
+            item.generation.to_string().chars().count() + indicator_len,
+            generation_cols,
         );
-        branch_col_width = cmp::max(item.branch.chars().count(), branch_col_width);
-        revision_col_width = cmp::max(
-            item.revision.to_string().chars().count(),
-            revision_col_width,
-        );
-        target_col_width = cmp::max(item.target.chars().count(), target_col_width);
-        date_col_width = cmp::max(date.chars().count(), date_col_width);
-        name_col_width = cmp::max(name.chars().count(), name_col_width);
-        remark_col_width = cmp::max(remark.chars().count(), remark_col_width);
+        branch_cols = cmp::max(item.branch.chars().count(), branch_cols);
+        revision_cols = cmp::max(item.revision.to_string().chars().count(), revision_cols);
+        target_cols = cmp::max(item.target.chars().count(), target_cols);
+        date_cols = cmp::max(date.chars().count(), date_cols);
+        name_cols = cmp::max(name.chars().count(), name_cols);
+        remark_cols = cmp::max(remark.chars().count(), remark_cols);
 
         displayed_entries.push((
             item.generation,
@@ -538,6 +547,15 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
             item.revision,
             item.target,
             date,
+            if let Some(current) = current {
+                if item.generation == current {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            },
             name,
             remark,
         ));
@@ -549,7 +567,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     }
 
     println!(
-        "{}{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<name_col_width$}   {:<remark_col_width$}{:#}",
+        "{0}{1:<generation_cols$}   {2:<branch_cols$}   {3:<revision_cols$}   {4:<target_cols$}   {5:<date_cols$}   {6:<name_cols$}   {7:current_cols$}   {8:<remark_cols$}{0:#}",
         STYLE_BOLD,
         HEADERS.0,
         HEADERS.1,
@@ -558,12 +576,20 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
         HEADERS.4,
         HEADERS.5,
         HEADERS.6,
-        STYLE_BOLD
+        HEADERS.7,
     );
     for item in displayed_entries {
         println!(
-            "{:<generation_col_width$}   {:<branch_col_width$}   {:<revision_col_width$}   {:<target_col_width$}   {:<date_col_width$}   {:<name_col_width$}   {:<remark_col_width$}",
-            item.0, item.1, item.2, item.3, item.4, item.5, item.6
+            "{1:<generation_cols$}   {2:branch_cols$}   {3:<revision_cols$}   {4:target_cols$}   {5:<date_cols$}   {0}{6:^current_cols$}{0:#}   {7:<name_cols$}   {8:<remark_cols$}",
+            STYLE_GREEN,
+            item.0,
+            item.1,
+            item.2,
+            item.3,
+            item.4,
+            if item.5 { indicator } else { "" },
+            item.6,
+            item.7
         );
     }
 
@@ -609,20 +635,19 @@ pub(crate) fn del_compdb(conn: &Connection, opt: DelOpt) -> anyhow::Result<usize
 }
 
 pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<()> {
-    let item: Option<(Option<String>, Vec<u8>)> = conn
-        .query_row(
-            "SELECT name, compdb FROM compdbs WHERE generation=?1",
-            [generation],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .optional()?;
-    let item = item.context("Invalid generation id")?;
+    let item: (Option<String>, Vec<u8>) = conn.query_row(
+        "SELECT name, compdb FROM compdbs WHERE generation=?1",
+        [generation],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
     let compile_commands = decode_all(&item.1[..])?;
     fs::write(COMPDB_FILE, compile_commands)?;
+    history_set_current(conn, generation)?;
     Ok(())
 }
 
-/// Archive the compilation database into store as a new generation
+/// Archive the compilation database into store as a new generation and
+/// optionally update history table
 pub(crate) fn ark_compdb<P>(
     conn: &Connection,
     branch: &str,
@@ -633,6 +658,7 @@ pub(crate) fn ark_compdb<P>(
 where
     P: AsRef<Path>,
 {
+    let compdb = compdb.as_ref();
     let content = fs::read_to_string(compdb)?;
     let compressed = encode_all(content.as_bytes(), 0)?;
     let rows = add_compdb(conn, branch, revision, target, &compressed)?;
@@ -663,4 +689,37 @@ pub(crate) fn mark_compdb(
         params![remark, generation_id],
     )?;
     Ok(rows)
+}
+
+/// Get the most recent compilation database which equips with the biggest generation id
+pub(crate) fn get_first_compdb(conn: &Connection) -> anyhow::Result<Option<i64>> {
+    let generation = conn.query_row(
+        "SELECT generation FROM compdbs ORDER BY generation DESC LIMIT 1",
+        (),
+        |row| row.get(0),
+    )?;
+
+    Ok(generation)
+}
+
+/// Set the currently used compdb to the specified generation id
+/// Please note this only takes effect on compdbs managed by store
+pub(crate) fn history_set_current(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
+    let rows = conn.execute(
+        "INSERT INTO history (generation) VALUES (?1)",
+        rusqlite::params![generation],
+    )?;
+    Ok(rows)
+}
+
+/// Get the generation id of the currently used compdb
+pub(crate) fn history_get_current(conn: &Connection) -> anyhow::Result<Option<i64>> {
+    let generation: Option<i64> = conn
+        .query_row(
+            "SELECT generation FROM history ORDER BY id DESC LIMIT 1",
+            (),
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(generation)
 }

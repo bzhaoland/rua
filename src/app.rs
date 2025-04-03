@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{fs, io};
+use std::{env, fs, io};
 
 use anstyle::{Ansi256Color, Color, Style};
 use anyhow::{Result, bail};
@@ -584,6 +584,9 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         );
                     }
                     eprintln!("\rArchiving the newly generated compilation database to store...ok");
+                    if let Some(generation) = compdb::get_first_compdb(&conn)? {
+                        compdb::history_set_current(&conn, generation)?;
+                    }
                     Ok(())
                 }
                 CompdbCommand::Ls => compdb::list_compdbs(&conn),
@@ -683,6 +686,16 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         "\rArchiving compilation database for {} into store...ok",
                         target
                     );
+                    let file = Path::new(compdb_path);
+                    let file_name = file.file_name();
+                    let parent_dir = file.parent().unwrap();
+                    let current_dir = env::current_dir().unwrap();
+                    if file_name.is_some_and(|x| x == "compile_commands.json")
+                        && parent_dir == current_dir
+                    {
+                        let generation = compdb::get_first_compdb(&conn)?.unwrap();
+                        compdb::history_set_current(&conn, generation)?;
+                    }
                     Ok(())
                 }
                 CompdbCommand::Name { generation, name } => {

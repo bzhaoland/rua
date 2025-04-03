@@ -43,4 +43,4 @@ lto = "thin"
 opt-level = "s"
 panic = "abort"
 strip = "debuginfo"
-codegen-units = 16
+codegen-units = 2
