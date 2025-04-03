@@ -442,7 +442,7 @@ pub(crate) fn gen_compdb(
 
 #[allow(unused)]
 #[derive(Clone, Debug)]
-struct CompdbItem {
+struct CompdbStoreItem {
     generation: i64,
     name: Option<String>,
     branch: String,
@@ -479,11 +479,119 @@ fn add_compdb(
 
 const STYLE_BOLD: Style = Style::new().bold();
 const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
+
+struct TableColumn<T>
+where
+    T: ToString,
+{
+    header: String,
+    series: Vec<T>,
+}
+
+impl<T: ToString> TableColumn<T> {
+    pub(crate) fn display_width_header(&self) -> usize {
+        self.header.chars().count()
+    }
+
+    pub(crate) fn display_width_series(&self) -> usize {
+        self.series
+            .iter()
+            .fold(0, |r, x| cmp::max(r, x.to_string().chars().count()))
+    }
+
+    pub(crate) fn display_width(&self) -> usize {
+        cmp::max(self.display_width_header(), self.display_width_series())
+    }
+}
+
+struct Table {
+    col_generation: TableColumn<i64>,
+    col_branch: TableColumn<String>,
+    col_revision: TableColumn<i64>,
+    col_target: TableColumn<String>,
+    col_date: TableColumn<String>,
+    col_name: TableColumn<String>,
+    col_remark: TableColumn<String>,
+    indicator: String,
+    num_rows: usize,
+}
+
+impl Table {
+    pub(crate) fn new() -> Self {
+        Table {
+            col_generation: TableColumn {
+                header: "Generation".to_string(),
+                series: Vec::new(),
+            },
+            col_branch: TableColumn {
+                header: "Branch".to_string(),
+                series: Vec::new(),
+            },
+            col_revision: TableColumn {
+                header: "Revision".to_string(),
+                series: Vec::new(),
+            },
+            col_target: TableColumn {
+                header: "Generation".to_string(),
+                series: Vec::new(),
+            },
+            col_date: TableColumn {
+                header: "Date".to_string(),
+                series: Vec::new(),
+            },
+            col_name: TableColumn {
+                header: "Name".to_string(),
+                series: Vec::new(),
+            },
+            col_remark: TableColumn {
+                header: "Remark".to_string(),
+                series: Vec::new(),
+            },
+            indicator: "*".to_string(),
+            num_rows: 0,
+        }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.num_rows == 0
+    }
+
+    pub(crate) fn insert_row(&mut self, item: CompdbStoreItem) {
+        let date = chrono::Local
+            .timestamp_opt(item.timestamp, 0)
+            .unwrap()
+            .format("%Y-%m-%dT%H:%M:%S")
+            .to_string();
+        let name = item.name.unwrap_or_else(|| "".to_string());
+        let remark = item.remark.unwrap_or_else(|| "".to_string());
+        self.col_generation.series.push(item.generation);
+        self.col_branch.series.push(item.branch);
+        self.col_revision.series.push(item.revision);
+        self.col_target.series.push(item.target);
+        self.col_date.series.push(date);
+        self.col_name.series.push(name);
+        self.col_remark.series.push(remark);
+        self.num_rows += 1;
+    }
+
+    pub(crate) fn get_row(&self, i: usize) -> (i64, &str, i64, &str, &str, &str, &str) {
+        (
+            self.col_generation.series[i],
+            self.col_branch.series[i].as_str(),
+            self.col_revision.series[i],
+            self.col_target.series[i].as_str(),
+            self.col_date.series[i].as_str(),
+            self.col_name.series[i].as_str(),
+            self.col_remark.series[i].as_str(),
+        )
+    }
+}
+
 pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     // Database querying
     let mut stmt = conn.prepare("SELECT generation, branch, revision, target, timestamp, name, remark FROM compdbs ORDER BY generation DESC")?;
     let data_iter = stmt.query_map([], |row| {
-        Ok(CompdbItem {
+        Ok(CompdbStoreItem {
             generation: row.get(0)?,
             branch: row.get(1)?,
             revision: row.get(2)?,
@@ -496,95 +604,64 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     })?;
 
     // Formatting
-    const HEADERS: (&str, &str, &str, &str, &str, &str, &str) = (
-        "Generation",
-        "Branch",
-        "Revision",
-        "Target",
-        "Date",
-        "Name",
-        "Remark",
-    );
-    let indicator = "*";
-    let indicator_len = indicator.chars().count();
-
-    let mut generation_cols = HEADERS.0.chars().count();
-    let mut branch_cols = HEADERS.1.chars().count();
-    let mut revision_cols = HEADERS.2.chars().count();
-    let mut target_cols = HEADERS.3.chars().count();
-    let mut date_cols = HEADERS.4.chars().count();
-    let mut name_cols = HEADERS.5.chars().count();
-    let mut remark_cols = HEADERS.6.chars().count();
-    let mut generation_id_cols = 0;
-    let current = history_get_current(conn)?;
-
-    let mut displayed_entries: Vec<(i64, String, i64, String, String, String, String, bool)> =
-        Vec::new();
+    let mut table = Table::new();
     for item in data_iter {
-        let item = item?;
-        let date = chrono::Local
-            .timestamp_opt(item.timestamp, 0)
-            .unwrap()
-            .format("%Y-%m-%dT%H:%M:%S")
-            .to_string();
-        let name = item.name.unwrap_or_else(|| "".to_string());
-        let remark = item.remark.unwrap_or_else(|| "".to_string());
-
-        generation_id_cols = cmp::max(
-            generation_id_cols,
-            item.generation.to_string().chars().count(),
-        );
-        branch_cols = cmp::max(item.branch.chars().count(), branch_cols);
-        revision_cols = cmp::max(item.revision.to_string().chars().count(), revision_cols);
-        target_cols = cmp::max(item.target.chars().count(), target_cols);
-        date_cols = cmp::max(date.chars().count(), date_cols);
-        name_cols = cmp::max(name.chars().count(), name_cols);
-        remark_cols = cmp::max(remark.chars().count(), remark_cols);
-
-        displayed_entries.push((
-            item.generation,
-            item.branch,
-            item.revision,
-            item.target,
-            date,
-            name,
-            remark,
-            if let Some(current) = current {
-                if item.generation == current {
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            },
-        ));
+        table.insert_row(item?);
     }
-    generation_cols = cmp::max(generation_cols, generation_id_cols + indicator_len + 1);
 
-    if displayed_entries.is_empty() {
+    if table.is_empty() {
         println!("No compilation database generation available");
         return Ok(());
     }
 
+    let indicator_cols = table.indicator.chars().count();
+    let generation_id_cols = table.col_generation.display_width_series();
+    let generation_cols = cmp::max(
+        table.col_generation.display_width_header(),
+        generation_id_cols + indicator_cols + 1,
+    );
+    let branch_cols = table.col_branch.display_width();
+    let revision_cols = table.col_revision.display_width();
+    let target_cols = table.col_target.display_width();
+    let date_cols = table.col_date.display_width();
+    let name_cols = table.col_name.display_width();
+    let remark_cols = table.col_remark.display_width();
     println!(
         "{0}{1:<generation_cols$}   {2:<branch_cols$}   {3:<revision_cols$}   {4:<target_cols$}   {5:<date_cols$}   {6:name_cols$}   {7:<remark_cols$}{0:#}",
-        STYLE_BOLD, HEADERS.0, HEADERS.1, HEADERS.2, HEADERS.3, HEADERS.4, HEADERS.5, HEADERS.6,
+        STYLE_BOLD,
+        table.col_generation.header,
+        table.col_branch.header,
+        table.col_revision.header,
+        table.col_target.header,
+        table.col_date.header,
+        table.col_name.header,
+        table.col_remark.header,
     );
-    let generation_pad_cols = generation_cols - generation_id_cols - indicator_len - 1;
-    for item in displayed_entries {
+    let generation_pad_cols =
+        generation_cols - generation_id_cols - table.indicator.chars().count() - 1;
+    let current = history_get_current(conn)?;
+    for i in 0..table.num_rows {
+        let (g, b, r, t, d, n, m) = table.get_row(i);
         println!(
-            "{1:<generation_id_cols$}{2:generation_pad_cols$} {0}{9:^indicator_len$}{0:#}   {3:branch_cols$}   {4:<revision_cols$}   {5:target_cols$}   {6:<date_cols$}   {7:<name_cols$}   {8:<remark_cols$}",
+            "{1:<generation_id_cols$}{2:generation_pad_cols$} {0}{9:indicator_cols$}{0:#}   {3:branch_cols$}   {4:<revision_cols$}   {5:target_cols$}   {6:<date_cols$}   {7:<name_cols$}   {8:<remark_cols$}",
             STYLE_YELLOW,
-            item.0,
+            g,
             "",
-            item.1,
-            item.2,
-            item.3,
-            item.4,
-            item.5,
-            item.6,
-            if item.7 { indicator } else { "" },
+            b,
+            r,
+            t,
+            d,
+            n,
+            m,
+            if let Some(current) = current {
+                if current == g as i64 {
+                    table.indicator.as_str()
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            },
         );
     }
 
