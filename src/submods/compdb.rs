@@ -556,7 +556,8 @@ impl Table {
         self.num_rows == 0
     }
 
-    pub(crate) fn insert_row(&mut self, item: CompdbStoreItem) {
+    /// Insert a row at the tail of the table
+    pub(crate) fn push_row(&mut self, item: CompdbStoreItem) {
         let date = chrono::Local
             .timestamp_opt(item.timestamp, 0)
             .unwrap()
@@ -574,6 +575,28 @@ impl Table {
         self.num_rows += 1;
     }
 
+    /// Insert a row at the given index of the table
+    #[allow(dead_code)]
+    pub(crate) fn insert_row(&mut self, item: CompdbStoreItem, i: usize) {
+        let date = chrono::Local
+            .timestamp_opt(item.timestamp, 0)
+            .unwrap()
+            .format("%Y-%m-%dT%H:%M:%S")
+            .to_string();
+        let name = item.name.unwrap_or_else(|| "".to_string());
+        let remark = item.remark.unwrap_or_else(|| "".to_string());
+        self.col_generation.series.insert(i, item.generation);
+        self.col_branch.series.insert(i, item.branch);
+        self.col_revision.series.insert(i, item.revision);
+        self.col_target.series.insert(i, item.target);
+        self.col_date.series.insert(i, date);
+        self.col_name.series.insert(i, name);
+        self.col_remark.series.insert(i, remark);
+        self.num_rows += 1;
+    }
+
+    /// Get a row from the table, with the following fields:
+    /// (generation, branch, revision, target, date, name and remark)
     pub(crate) fn get_row(&self, i: usize) -> (i64, &str, i64, &str, &str, &str, &str) {
         (
             self.col_generation.series[i],
@@ -584,6 +607,19 @@ impl Table {
             self.col_name.series[i].as_str(),
             self.col_remark.series[i].as_str(),
         )
+    }
+
+    /// Delete a row from the table
+    #[allow(dead_code)]
+    pub(crate) fn del_row(&mut self, i: usize) -> () {
+        if i < self.num_rows {
+            self.col_generation.series.remove(i);
+            self.col_branch.series.remove(i);
+            self.col_revision.series.remove(i);
+            self.col_date.series.remove(i);
+            self.col_name.series.remove(i);
+            self.col_remark.series.remove(i);
+        }
     }
 }
 
@@ -606,7 +642,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     // Formatting
     let mut table = Table::new();
     for item in data_iter {
-        table.insert_row(item?);
+        table.push_row(item?);
     }
 
     if table.is_empty() {
