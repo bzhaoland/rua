@@ -442,7 +442,7 @@ pub(crate) fn gen_compdb(
 
 #[allow(unused)]
 #[derive(Clone, Debug)]
-struct CompdbStoreItem {
+pub(crate) struct CompdbStoreItem {
     generation: i64,
     name: Option<String>,
     branch: String,
@@ -568,8 +568,8 @@ impl Table {
             .unwrap()
             .format("%Y-%m-%dT%H:%M:%S")
             .to_string();
-        let name = item.name.unwrap_or_else(|| "".to_string());
-        let remark = item.remark.unwrap_or_else(|| "".to_string());
+        let name = item.name.unwrap_or_default();
+        let remark = item.remark.unwrap_or_default();
         self.col_generation.series.push(item.generation);
         self.col_branch.series.push(item.branch);
         self.col_revision.series.push(item.revision);
@@ -587,8 +587,8 @@ impl Table {
             .unwrap()
             .format("%Y-%m-%dT%H:%M:%S")
             .to_string();
-        let name = item.name.unwrap_or_else(|| "".to_string());
-        let remark = item.remark.unwrap_or_else(|| "".to_string());
+        let name = item.name.unwrap_or_default();
+        let remark = item.remark.unwrap_or_default();
         self.col_generation.series.insert(i, item.generation);
         self.col_branch.series.insert(i, item.branch);
         self.col_revision.series.insert(i, item.revision);
@@ -615,7 +615,7 @@ impl Table {
 
     /// Delete a row from the table
     #[allow(dead_code)]
-    pub(crate) fn del_row(&mut self, i: usize) -> () {
+    pub(crate) fn del_row(&mut self, i: usize) {
         if i < self.num_rows {
             self.col_generation.series.remove(i);
             self.col_branch.series.remove(i);
@@ -694,7 +694,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
             n,
             m,
             if let Some(current) = current {
-                if current == g as i64 {
+                if current == g {
                     table.indicator.as_str()
                 } else {
                     ""
@@ -751,7 +751,7 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
         .query_row(
             "SELECT compdb FROM compdbs WHERE generation=?1",
             [generation],
-            |row| Ok(row.get(0)?),
+            |row| row.get(0),
         )
         .optional()?;
     let item = item.context("Generation not available")?;
