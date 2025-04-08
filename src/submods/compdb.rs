@@ -13,7 +13,7 @@ use clap::ValueEnum;
 use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
-use rusqlite::{self, Connection, OptionalExtension, params};
+use rusqlite::{self, Connection, OptionalExtension, params, params_from_iter};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use zstd::{decode_all, encode_all};
@@ -87,7 +87,7 @@ pub(crate) const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
 pub(crate) const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
 pub(crate) const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
 
-pub(crate) fn gen_compdb_builtin(
+pub(crate) fn gen_compdb_by_builtin(
     svninfo: &SvnInfo,
     make_directory: &str,
     make_target: &str,
@@ -415,7 +415,7 @@ pub(crate) fn gen_compdb(
 
     match engine {
         CompdbEngine::BuiltIn => {
-            gen_compdb_builtin(svninfo, make_directory, make_target, &options.defines)
+            gen_compdb_by_builtin(svninfo, make_directory, make_target, &options.defines)
         }
         CompdbEngine::InterceptBuild => {
             let intercept_build_path = options
@@ -451,7 +451,7 @@ pub(crate) struct CompdbStoreItem {
     remark: Option<String>,
 }
 
-pub(crate) fn create_compdbs_table(conn: &Connection) -> anyhow::Result<()> {
+pub(crate) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
     // Note that the two generation fields should update independently
     conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, target TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, name TEXT UNIQUE, remark TEXT)", ())?;
     conn.execute(
@@ -469,7 +469,7 @@ fn add_compdb(
     compdb: &[u8],
 ) -> anyhow::Result<usize> {
     let timestamp = chrono::Utc::now().timestamp();
-    let rows = conn.execute("INSERT INTO compdbs (branch, revision, target, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![
+    let rows = conn.execute("INSERT INTO compdbs (branch, revision, target, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", params![
         branch, revision, target, timestamp, compdb
     ])?;
     Ok(rows)
@@ -625,7 +625,7 @@ impl Table {
     }
 }
 
-pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
+pub(crate) fn list_generations(conn: &Connection) -> anyhow::Result<()> {
     // Database querying
     let mut stmt = conn.prepare("SELECT generation, branch, revision, target, timestamp, name, remark FROM compdbs ORDER BY generation DESC")?;
     let data_iter = stmt.query_map([], |row| {
@@ -677,7 +677,7 @@ pub(crate) fn list_compdbs(conn: &Connection) -> anyhow::Result<()> {
     );
     let generation_pad_cols =
         generation_cols - generation_id_cols - table.indicator.chars().count() - 1;
-    let current = history_get_current(conn)?;
+    let current = get_current_generation(conn)?;
     for i in 0..table.num_rows {
         let (g, b, r, t, d, n, m) = table.get_row(i);
         println!(
@@ -715,36 +715,28 @@ pub(crate) enum DelOpt {
 }
 
 /// Delete a compilation database generation from the store
-pub(crate) fn del_compdb(conn: &Connection, opt: DelOpt) -> anyhow::Result<usize> {
+pub(crate) fn remove_generation(conn: &Connection, opt: DelOpt) -> anyhow::Result<usize> {
     let rows = match opt {
-        DelOpt::Generations(v) => {
-            conn.execute(
-                format!(
-                    "DELETE FROM compdbs WHERE generation IN ({})",
-                    v.iter().map(|_| "?").collect::<Vec<&str>>().join(", ")
-                ).as_str(),
-                rusqlite::params_from_iter(v.iter())
-            )?
-        }
+        DelOpt::Generations(v) => conn.execute(
+            format!(
+                "DELETE FROM compdbs WHERE generation IN ({})",
+                v.iter().map(|_| "?").collect::<Vec<&str>>().join(", ")
+            )
+            .as_str(),
+            params_from_iter(v.iter()),
+        )?,
         DelOpt::All => conn.execute("DELETE FROM compdbs", ())?,
-        DelOpt::Newest(n) => {
-            conn.execute(
-                "DELETE FROM compdbs WHERE timestamp in (SELECT timestamp FROM compdbs ORDER BY generation DESC LIMIT ?1)",
-                [n]
-            )?
-        }
-        DelOpt::Oldest(n) => {
-            conn.execute(
-                "DELETE FROM compdbs WHERE timestamp in (SELECT timestamp FROM compdbs ORDER BY generation ASC LIMIT ?1)",
-                [n]
-            )?
-        }
+        DelOpt::Newest(n) => conn.execute(
+            "DELETE FROM compdbs WHERE generation IN (SELECT generation FROM compdbs ORDER BY generation DESC LIMIT ?1)",
+            [n]
+        )?,
+        DelOpt::Oldest(n) => conn.execute("DELETE FROM compdbs WHERE generation in (SELECT generation FROM compdbs ORDER BY generation ASC LIMIT ?1)", [n])?
     };
     conn.execute("VACUUM", ())?;
     Ok(rows)
 }
 
-pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<()> {
+pub(crate) fn use_generation(conn: &Connection, generation: i64) -> anyhow::Result<()> {
     let item: Option<Vec<u8>> = conn
         .query_row(
             "SELECT compdb FROM compdbs WHERE generation=?1",
@@ -755,13 +747,13 @@ pub(crate) fn use_compdb(conn: &Connection, generation: i64) -> anyhow::Result<(
     let item = item.context("Generation not available")?;
     let compile_commands = decode_all(&item[..])?;
     fs::write(COMPDB_FILE, compile_commands)?;
-    history_set_current(conn, generation)?;
+    set_current_generation(conn, generation)?;
     Ok(())
 }
 
 /// Archive the compilation database into store as a new generation and
 /// optionally update history table
-pub(crate) fn ark_compdb<P>(
+pub(crate) fn archive_compdb<P>(
     conn: &Connection,
     branch: &str,
     revision: i64,
@@ -781,7 +773,11 @@ where
 /// Name a compilation database generation in the store
 ///
 /// Returns the number of rows that were changed, 1 on success, 0 on failure.
-pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> anyhow::Result<usize> {
+pub(crate) fn name_generation(
+    conn: &Connection,
+    generation: i64,
+    name: &str,
+) -> anyhow::Result<usize> {
     let rows = conn.execute(
         "UPDATE compdbs SET name = ?1 WHERE generation = ?2",
         params![name, generation],
@@ -792,7 +788,7 @@ pub(crate) fn name_compdb(conn: &Connection, generation: i64, name: &str) -> any
 /// Remark a compilation database generation
 ///
 /// Returns the number of affected rows, non-zero on success, zero on failure
-pub(crate) fn mark_compdb(
+pub(crate) fn remark_generation(
     conn: &Connection,
     generation_id: i64,
     remark: &str,
@@ -805,7 +801,7 @@ pub(crate) fn mark_compdb(
 }
 
 /// Get the most recent compilation database which equips with the biggest generation id
-pub(crate) fn get_first_compdb(conn: &Connection) -> anyhow::Result<Option<i64>> {
+pub(crate) fn get_biggest_generation(conn: &Connection) -> anyhow::Result<Option<i64>> {
     let generation = conn.query_row(
         "SELECT generation FROM compdbs ORDER BY generation DESC LIMIT 1",
         (),
@@ -817,16 +813,16 @@ pub(crate) fn get_first_compdb(conn: &Connection) -> anyhow::Result<Option<i64>>
 
 /// Set the currently used compdb to the specified generation id
 /// Please note this only takes effect on compdbs managed by store
-pub(crate) fn history_set_current(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
+pub(crate) fn set_current_generation(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
     let rows = conn.execute(
         "INSERT INTO history (generation) VALUES (?1)",
-        rusqlite::params![generation],
+        params![generation],
     )?;
     Ok(rows)
 }
 
 /// Get the generation id of the currently used compdb
-pub(crate) fn history_get_current(conn: &Connection) -> anyhow::Result<Option<i64>> {
+pub(crate) fn get_current_generation(conn: &Connection) -> anyhow::Result<Option<i64>> {
     let generation: Option<i64> = conn
         .query_row(
             "SELECT generation FROM history ORDER BY id DESC LIMIT 1",

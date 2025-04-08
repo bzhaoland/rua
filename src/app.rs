@@ -487,7 +487,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             }
 
             let conn = Connection::open(compdb::COMPDB_STORE)?;
-            compdb::create_compdbs_table(&conn)?;
+            compdb::create_tables(&conn)?;
 
             match compdb_comm {
                 CompdbCommand::Gen {
@@ -570,7 +570,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     // Archive the newly generated compilation database
                     eprint!("Archiving the newly generated compilation database to store...");
                     io::stderr().flush()?;
-                    let rows = compdb::ark_compdb(
+                    let rows = compdb::archive_compdb(
                         &conn,
                         svninfo.branch_name(),
                         svninfo.revision(),
@@ -584,16 +584,16 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         );
                     }
                     eprintln!("\rArchiving the newly generated compilation database to store...ok");
-                    if let Some(generation) = compdb::get_first_compdb(&conn)? {
-                        compdb::history_set_current(&conn, generation)?;
+                    if let Some(generation) = compdb::get_biggest_generation(&conn)? {
+                        compdb::set_current_generation(&conn, generation)?;
                     }
                     Ok(())
                 }
-                CompdbCommand::Ls => compdb::list_compdbs(&conn),
+                CompdbCommand::Ls => compdb::list_generations(&conn),
                 CompdbCommand::Use { generation } => {
                     eprint!("Switching to generation {}...", generation);
                     io::stderr().flush()?;
-                    compdb::use_compdb(&conn, generation)?;
+                    compdb::use_generation(&conn, generation)?;
                     eprintln!("\rSwitching to generation {}...ok", generation);
                     Ok(())
                 }
@@ -618,7 +618,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             generations_string
                         );
                         stderr_.flush()?;
-                        compdb::del_compdb(&conn, compdb::DelOpt::Generations(generations))?;
+                        compdb::remove_generation(&conn, compdb::DelOpt::Generations(generations))?;
                         eprintln!(
                             "\rRemoving generation{} {}...ok",
                             if many { "s" } else { "" },
@@ -632,7 +632,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             if n > 1 { "s" } else { "" }
                         );
                         stderr_.flush()?;
-                        compdb::del_compdb(&conn, compdb::DelOpt::Oldest(n))?;
+                        compdb::remove_generation(&conn, compdb::DelOpt::Oldest(n))?;
                         eprintln!(
                             "\rRemoving {} oldest generation{}...ok",
                             n,
@@ -646,7 +646,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             if n > 1 { "s" } else { "" }
                         );
                         stderr_.flush()?;
-                        compdb::del_compdb(&conn, compdb::DelOpt::Newest(n))?;
+                        compdb::remove_generation(&conn, compdb::DelOpt::Newest(n))?;
                         eprintln!(
                             "\rRemoving {} newest generation{}...ok",
                             n,
@@ -655,7 +655,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     } else if all {
                         eprint!("Removing all generations...");
                         stderr_.flush()?;
-                        compdb::del_compdb(&conn, compdb::DelOpt::All)?;
+                        compdb::remove_generation(&conn, compdb::DelOpt::All)?;
                         eprintln!("\rRemoving all generations...ok");
                     };
                     Ok(())
@@ -675,7 +675,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     );
                     io::stderr().flush()?;
                     let revision = revision.unwrap_or_else(|| svninfo.revision());
-                    compdb::ark_compdb(
+                    compdb::archive_compdb(
                         &conn,
                         svninfo.branch_name(),
                         revision,
@@ -693,8 +693,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     if file_name.is_some_and(|x| x == "compile_commands.json")
                         && parent_dir == current_dir
                     {
-                        let generation = compdb::get_first_compdb(&conn)?.unwrap();
-                        compdb::history_set_current(&conn, generation)?;
+                        let generation = compdb::get_biggest_generation(&conn)?.unwrap();
+                        compdb::set_current_generation(&conn, generation)?;
                     }
                     Ok(())
                 }
@@ -704,7 +704,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         generation, name
                     );
                     io::stderr().flush()?;
-                    let rows = compdb::name_compdb(&conn, generation, name.as_str())?;
+                    let rows = compdb::name_generation(&conn, generation, name.as_str())?;
                     if rows == 0 {
                         eprintln!(
                             "\rNaming compilation database generation {} {}...err",
@@ -724,7 +724,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         generation
                     );
                     io::stderr().flush()?;
-                    let rows = compdb::mark_compdb(&conn, generation, remark.as_str())?;
+                    let rows = compdb::remark_generation(&conn, generation, remark.as_str())?;
                     if rows == 0 {
                         eprintln!(
                             "\rRemarking compilation database generation {}...",
