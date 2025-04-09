@@ -60,7 +60,7 @@ rm -f rua  # 从当前目录删除
 
 - `rua compdb ls`: 添加当前使用项指示。下载新版本后，需要执行 `rua compdb use` 后指示才会显示出来，注意此操作会切换当前工作区下的编译数据库。
   #figure(
-    image(".assets/changelog.1_1_0.compdblsmigrate.png")
+    image("assets/changelog.1_1_0.compdblsmigrate.png")
   )
 
 #pagebreak()
@@ -107,14 +107,14 @@ rm -f rua  # 从当前目录删除
 
 + 在MX_MAIN分支下，使用 rua perfan 命令解析 profiling 文本中属于 d-plane 的地址:
   #figure(
-    image(".assets/changelog.0_25_0.origtext.png"),
+    image("assets/changelog.0_25_0.origtext.png"),
     caption: [
       原始 A3600 profiling 文本
     ],
     numbering: none,
   )
   #figure(
-    image(".assets/changelog.0_25_0.ruaperfan.png"),
+    image("assets/changelog.0_25_0.ruaperfan.png"),
     caption: [
       A3600 profiling 文本经 `rua perfan` 解析后
     ],
@@ -170,14 +170,14 @@ rm -f rua  # 从当前目录删除
 
 + 在MX_MAIN分支下，使用 rua perfan 命令解析 profiling 文本中属于 d-plane 的地址:
   #figure(
-    image(".assets/changelog.0_25_0.origtext.png"),
+    image("assets/changelog.0_25_0.origtext.png"),
     caption: [
       原始 A3600 profiling 文本
     ],
     numbering: none,
   )
   #figure(
-    image(".assets/changelog.0_25_0.ruaperfan.png"),
+    image("assets/changelog.0_25_0.ruaperfan.png"),
     caption: [
       A3600 profiling 文本经 `rua perfan` 解析后
     ],
@@ -218,11 +218,11 @@ install -D rua ~/.local/bin/rua  # 安装rua到指定位置
 
 - `rua perfan`: perfan 输出格式趋稳，在 profiling 文本的解析速度上，相比于现有工具提速1500倍左右
   #figure(
-    image(".assets/changelog.0_24_0.ruaperf.png"),
+    image("assets/changelog.0_24_0.ruaperf.png"),
     caption: [ rua perf 耗时 \<0.5s ]
   )
   #figure(
-    image(".assets/changelog.0_24_0.perf2func.png"),
+    image("assets/changelog.0_24_0.perf2func.png"),
     caption: [ 现有工具耗时 >10min ]
   )
   
@@ -265,7 +265,7 @@ chmod +x ./rua
 
 - `rua mkinfo --by-target zxc`:
   #figure(
-    image(".assets/changelog.0_23_0.mkinfobytarget.png"),
+    image("assets/changelog.0_23_0.mkinfobytarget.png"),
     caption: [
       根据编译目标`zxc`查找编译信息
     ],
@@ -301,7 +301,7 @@ chmod +x ./rua
 - `rua compdb add`:\
   将当前使用的编译数据库（compile_commands.json）添加到store中\
   #figure(
-    image(".assets/changelog.0_22_0.compdb_add.png"),
+    image("assets/changelog.0_22_0.compdb_add.png"),
     caption: [
       添加编译数据库
     ],
@@ -310,7 +310,7 @@ chmod +x ./rua
 - `rua compdb name 1 A1600-A`:\
   为store中的编译数据库 generation 1 添加一个名字，默认没有名字\
    #figure(
-    image(".assets/changelog.0_22_0.compdb_name.png"),
+    image("assets/changelog.0_22_0.compdb_name.png"),
     caption: [
       命名编译数据库
     ],
@@ -319,7 +319,7 @@ chmod +x ./rua
 - `rua compdb remark 1 "Compilation database generation for A1600-A"`:\
   为store中的编译数据库 generation 1 添加备注\
   #figure(
-    image(".assets/changelog.0_22_0.compdb_remark.png"),
+    image("assets/changelog.0_22_0.compdb_remark.png"),
     caption: [
       添加编译数据库备注
     ],
@@ -328,7 +328,7 @@ chmod +x ./rua
 - `rua compdb del --new 2`:\
   删除store中较新的两个编译数据库\
   #figure(
-    image(".assets/changelog.0_22_0.compdb_del_recent_2.png"),
+    image("assets/changelog.0_22_0.compdb_del_recent_2.png"),
     caption: [
       删除较新的两个编译数据库
     ],

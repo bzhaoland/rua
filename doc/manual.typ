@@ -77,31 +77,31 @@ Examples:
 + `rua mkinfo -6 A1000`: 生成 `A1000` 平台的构建指令，启用 IPv6 支持
   #figure(
     image(
-      ".assets/manual.mkinfo6.png"
+      "assets/manual.mkinfo6.png"
     )
   )
 + `rua mkinfo -w A1000`: 生成 `A1000` 平台的构建指令，启用 WebUI 支持
   #figure(
     image(
-      ".assets/manual.mkinfow.png"
+      "assets/manual.mkinfow.png"
     )
   )
 + `rua mkinfo -6w A1000`: 生成 `A1000` 平台的构建指令，启用 IPv6 支持以及 WebUI 支持
   #figure(
     image(
-      ".assets/manual.mkinfo6w.png"
+      "assets/manual.mkinfo6w.png"
     )
   )
 + `rua mkinfo -ss A1000`: 生成 `A1000` 平台的构建指令，上传到 10.200.6.10 服务器，即苏州服务器
   #figure(
     image(
-      ".assets/manual.mkinfos.png"
+      "assets/manual.mkinfos.png"
     )
   )
 + `rua mkinfo --format json A1000`: 生成 `A1000` 平台的构建指令，输出格式指定为 JSON 格式，适合脚本使用
   #figure(
     image(
-      ".assets/manual.mkinfojson.png"
+      "assets/manual.mkinfojson.png"
     )
   )
 #pagebreak()
@@ -204,13 +204,13 @@ Caution:
 + 在工程根目录下生成一个编译目标为 `kunlun-ipv6` 的编译数据库:
   #figure(
     image(
-      ".assets/manual.compdbgen.png"
+      "assets/manual.compdbgen.png"
     )
   )
 + 在工程根目录下为X8180平台生成一个编译数据库，编译目标为 `tai`:
   #figure(
     image(
-      ".assets/manual.compdbgentai.png"
+      "assets/manual.compdbgentai.png"
     )
   )
 
@@ -272,7 +272,7 @@ Examples:
 
 #figure(
   image(
-    ".assets/changelog.0_22_0.compdb_add.png"
+    "assets/changelog.0_22_0.compdb_add.png"
   )
 )
 
@@ -299,20 +299,20 @@ Options:
 + 删除store中的 Generation 2:
   #figure(
     image(
-      ".assets/manual.compdbdel2.png"
+      "assets/manual.compdbdel2.png"
     )
   )
 + 删除store中最旧的3个编译数据库:
   #figure(
-    image(".assets/manual.compdbdelo3.png")
+    image("assets/manual.compdbdelo3.png")
   )
 + 删除store中较新的两个编译数据库:
   #figure(
-    image(".assets/changelog.0_22_0.compdb_del_recent_2.png")
+    image("assets/changelog.0_22_0.compdb_del_recent_2.png")
   )
 + 删除store中所有的编译数据库:
   #figure(
-    image(".assets/manual.compdbdela.png")
+    image("assets/manual.compdbdela.png")
   )
 
 == 列出编译数据库(Ls)
@@ -351,7 +351,7 @@ Options:
 
 #figure(
   image(
-    ".assets/changelog.1_1_0.compdblsindicator.png"
+    "assets/changelog.1_1_0.compdblsindicator.png"
   )
 )
 
@@ -392,7 +392,7 @@ Options:
 
 为store中的编译数据库 generation 1 添加一个名字:
 #figure(
-  image(".assets/changelog.0_22_0.compdb_name.png")
+  image("assets/changelog.0_22_0.compdb_name.png")
 )
 
 == 备注编译数据库(Remark)
@@ -416,7 +416,7 @@ Options:
 
 为store中的编译数据库 Generation 1 添加备注\
 #figure(
-  image(".assets/changelog.0_22_0.compdb_remark.png")
+  image("assets/changelog.0_22_0.compdb_remark.png")
 )
 
 #pagebreak()
@@ -447,11 +447,11 @@ Options:
 
 + 显示 flow_first.c 文件的编译指令:
   #figure(
-    image(".assets/manual.showcc_flow_first.png")
+    image("assets/manual.showcc_flow_first.png")
   )
 + 显示 virtual_wire.c 的编译指令:
   #figure(
-    image(".assets/manual.showcc_virtual_wire.png")
+    image("assets/manual.showcc_virtual_wire.png")
   )
 
 #pagebreak()
@@ -509,14 +509,14 @@ Options:
 
 + 在MX_MAIN分支下，使用 rua perfan 命令解析 profiling 文本中属于 d-plane 的地址:
   #figure(
-    image(".assets/changelog.0_25_0.origtext.png"),
+    image("assets/changelog.0_25_0.origtext.png"),
     caption: [
       原始 A3600 profiling 文本
     ],
     numbering: none,
   )
   #figure(
-    image(".assets/changelog.0_25_0.ruaperfan.png"),
+    image("assets/changelog.0_25_0.ruaperfan.png"),
     caption: [
       A3600 profiling 文本经 `rua perfan` 解析后
     ],
@@ -531,7 +531,7 @@ Options:
 == 输出格式
 
 #figure(
-  image(".assets/manual.ruaperfanoutput.png"),
+  image("assets/manual.ruaperfanoutput.png"),
   caption: [
     Rua perfan 输出格式解析
   ],
