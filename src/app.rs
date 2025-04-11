@@ -50,8 +50,10 @@ pub(crate) enum CompdbCommand {
     /// may have to compile the target first before generating the compilation
     /// database under submod dir.
     ///
-    /// Note that compilation database generated under submod dir only covers
+    /// Note:
+    /// 1. Compilation database generated under submod dir only covers
     /// files in this module.
+    /// 2. R4+ releases are supported by compdb.
     #[command(visible_aliases = ["generate"],
         after_help = format!(
         r#"{0}Examples:{0:#}
@@ -243,6 +245,8 @@ pub(crate) enum Comm {
     },
 
     /// Get all matched makeinfos for product
+    ///
+    /// Note: R6+ releases are supported by mkinfo.
     #[command(
         after_help = format!(r#"{0}Examples:{0:#}
   rua mkinfo A1000      # Makeinfo for A1000 without extra features
@@ -440,7 +444,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "1.1.0",
+    version = "1.2.0",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs"#
