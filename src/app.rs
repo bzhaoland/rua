@@ -296,7 +296,7 @@ pub(crate) enum Comm {
         #[arg(short = 's', long = "image-server", value_name = "IMAGE-SERVER")]
         image_server: Option<mkinfo::ImageServer>,
 
-        /// Binaries that get out of strip processing
+        /// Binaries without stripping
         #[arg(long = "nostrip", value_name = "BINARY")]
         nostrip_bins: Vec<String>,
 
