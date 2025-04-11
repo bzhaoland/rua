@@ -675,7 +675,7 @@ pub(crate) fn gen_mkinfo_by_target(
     imagename_suffix.push('-');
     imagename_suffix.push_str(&username);
 
-    let re_target = Regex::new(format!("(?i){}", target).as_str())?;
+    let re_target = Regex::new(format!("(?i)^{}$", target).as_str())?;
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     let imagename_prodname = "SG6000";
     for mkinfo in mkinfo_list

@@ -276,11 +276,11 @@ pub(crate) enum Comm {
         #[arg(short = 'c', long = "coverity", default_value_t = false)]
         coverity: bool,
 
-        /// Build in debug mode (default is release mode)
+        /// Build in debug mode
         #[arg(short = 'd', long = "debug", default_value_t = false)]
         debug: bool,
 
-        /// Output format for makeinfos, defaults to list
+        /// Output format for makeinfos
         #[arg(long = "format", default_value = "list", value_name = "FORMAT")]
         output_format: mkinfo::DumpFormat,
 
@@ -298,17 +298,16 @@ pub(crate) enum Comm {
 
         /// Binaries without stripping
         #[arg(long = "nostrip", value_name = "BINARY")]
-        nostrip_bins: Vec<String>,
+        bins_without_strip: Vec<String>,
 
         /// Treat the positional arg as a build target other than a product name
         #[arg(long = "by-target")]
         by_target: bool,
 
-        /// Product name such as A1000, or build target (with --target switch on) such as a-dnv,
-        /// View as a product name by default. Regex is also supported when using as a product name,
-        /// e.g. 'X\d+80'.
+        /// Product name like A1000 or compile target (companioned with --by-target) like as a-dnv .
+        /// Regex is also supported when pass in a product name, e.g. 'X\d+80'.
         #[arg(value_name = "NAME-OR-TARGET")]
-        product_name_or_build_target: String,
+        product_name_or_compile_target: String,
     },
 
     /// Extensively map instructions to file locations (inline expanded)
@@ -761,10 +760,10 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             debug,
             webui,
             image_server,
-            nostrip_bins,
+            bins_without_strip,
             output_format,
             by_target,
-            product_name_or_build_target,
+            product_name_or_compile_target,
         } => {
             let conf = RuaConf::load()?;
             let image_server = if let Some(image_server) = image_server {
@@ -817,15 +816,15 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             let makeopts = MakeOpts {
                 flag: makeflag,
                 image_server,
-                nostrip_bins,
+                nostrip_bins: bins_without_strip,
                 user_defines,
             };
 
             let mkinfos = mkinfo::gen_mkinfo(
                 if by_target {
-                    GenBy::Target(product_name_or_build_target)
+                    GenBy::Target(product_name_or_compile_target)
                 } else {
-                    GenBy::Nickname(product_name_or_build_target)
+                    GenBy::Nickname(product_name_or_compile_target)
                 },
                 makeopts,
             )?;
