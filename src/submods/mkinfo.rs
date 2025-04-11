@@ -291,7 +291,7 @@ fn abbreviate_branch(svninfo: &SvnInfo) -> anyhow::Result<String> {
     Ok(nickname)
 }
 
-/// Generate the make information for the given platform for R6 releases
+/// Generate makeinfos for platforms in R6 releases
 fn gen_mkinfo_by_nickname_v1(
     svninfo: &SvnInfo,
     nickname: &str,
@@ -316,32 +316,24 @@ fn gen_mkinfo_by_nickname_v1(
     }
     mkinfo_map.shrink_to_fit();
 
-    // Compose an image name using product-series/make-target/IPv6-tag/date/username
-    let mut imagename_suffix = String::with_capacity(32);
-
     // Use branch name abbreviation to compose the image name
     let imagename_branch = abbreviate_branch(svninfo)?;
 
-    // IPv6 check
-    if makeopts.flag.contains(MakeFlag::IPV6) {
-        imagename_suffix.push_str("V6-");
-    }
-
-    // Building mode
+    // Compose an image name using product-series/make-target/IPv6-tag/date/username
+    let mut imagename_suffix = String::with_capacity(64);
+    imagename_suffix.push_str(if makeopts.flag.contains(MakeFlag::IPV6) {
+        "V6-"
+    } else {
+        ""
+    });
     imagename_suffix.push(if makeopts.flag.contains(MakeFlag::RELEASE) {
         'r'
     } else {
         'd'
     });
-
-    // Timestamp
-    let current_date = chrono::Local::now().format("%m%d").to_string();
-    imagename_suffix.push_str(&current_date);
-
-    // Username
+    imagename_suffix.push_str(chrono::Local::now().format("%m%d").to_string().as_str());
     if let Some(username) = utils::get_current_username() {
-        imagename_suffix.push('-');
-        imagename_suffix.push_str(&username);
+        imagename_suffix.push_str(format!("-{}", username).as_str())
     }
 
     let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
@@ -349,13 +341,12 @@ fn gen_mkinfo_by_nickname_v1(
     for product in product_infos.iter() {
         let imagename_prodname = re_nonalnum.replace_all(&product.short_name, "");
 
-        let mkinfo_arr = mkinfo_map.get(&product.platform_model);
-        if mkinfo_arr.is_none() {
-            continue;
-        }
-        let mkinfo_set = mkinfo_arr.unwrap();
+        let mkinfo_arr = match mkinfo_map.get(&product.platform_model) {
+            None => continue,
+            Some(v) => v,
+        };
 
-        for mkinfo in mkinfo_set.iter() {
+        for mkinfo in mkinfo_arr.iter() {
             let mut make_target = mkinfo.make_target.clone();
             if makeopts.flag.contains(MakeFlag::IPV6) {
                 make_target.push_str("-ipv6");
@@ -397,8 +388,8 @@ fn gen_mkinfo_by_nickname_v1(
                 } else {
                     0
                 },
-                makeopts.image_server.map_or(
-                    {
+                makeopts.image_server.map_or_else(
+                    || {
                         let nodename = uname().nodename().to_string_lossy().to_string();
                         if nodename.ends_with("-sz") {
                             "10.200.6.10".to_string()
@@ -443,8 +434,7 @@ fn gen_mkinfo_by_nickname_v1(
     anyhow::Ok(compile_infos)
 }
 
-/// Generate the make information for the given platform.
-/// For branches from R8
+/// Generate makeinfos for platforms in R8+ releases
 fn gen_mkinfo_by_nickname_v2(
     svninfo: &SvnInfo,
     nickname: &str,
@@ -456,7 +446,6 @@ fn gen_mkinfo_by_nickname_v2(
         .into_iter()
         .filter(|x| re_nickname.is_match(x.long_name.as_str()))
         .collect::<Vec<ProductInfo>>();
-    println!("product_infos.len() = {}", product_infos.len());
 
     // Read and hash makeinfos, allow duplicates
     let mkinfo_list = read_mkinfo_registry_v2(svninfo)?;
@@ -494,60 +483,36 @@ fn gen_mkinfo_by_nickname_v2(
         _ => false,
     };
 
-    // Compose an image name using product-series/make-target/IPv6-tag/date/username
-    let mut imagename_suffix = String::with_capacity(32);
-
-    let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
-
     // Use branch name abbreviation to compose the image name
-    let re_branch_abbr =
-        Regex::new(r"HAWAII_([-[:word:]]+)").context("Build regex for nickname failed")?;
-    let captures = re_branch_abbr.captures(svninfo.branch_name());
-    let imagename_branch = re_nonalnum
-        .replace_all(
-            &match captures {
-                Some(v) => v
-                    .get(1)
-                    .map_or(svninfo.branch_name().to_owned(), |x| x.as_str().to_string()),
-                None => svninfo.branch_name().to_string(),
-            },
-            "",
-        )
-        .to_string();
+    let imagename_branch = abbreviate_branch(svninfo)?;
 
-    // IPv6 check
-    if makeopts.flag.contains(MakeFlag::IPV6) {
-        imagename_suffix.push_str("V6-");
-    }
-
-    // Building mode
+    let mut imagename_suffix = String::with_capacity(64);
+    imagename_suffix.push_str(if makeopts.flag.contains(MakeFlag::IPV6) {
+        "V6-"
+    } else {
+        ""
+    });
     imagename_suffix.push(if makeopts.flag.contains(MakeFlag::RELEASE) {
         'r'
     } else {
         'd'
     });
-
-    // Timestamp
-    let current_date = chrono::Local::now().format("%m%d").to_string();
-    imagename_suffix.push_str(&current_date);
-
-    // Username
+    imagename_suffix.push_str(chrono::Local::now().format("%m%d").to_string().as_str());
     if let Some(username) = utils::get_current_username() {
-        imagename_suffix.push('-');
-        imagename_suffix.push_str(&username);
+        imagename_suffix.push_str(format!("-{}", username).as_str())
     }
 
+    let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for product in product_infos.iter() {
         let imagename_prodname = re_nonalnum.replace_all(&product.short_name, "");
 
-        let mkinfo_arr = mkinfo_map.get(&product.platform_model);
-        if mkinfo_arr.is_none() {
-            continue;
-        }
-        let mkinfo_set = mkinfo_arr.unwrap();
+        let mkinfo_arr = match mkinfo_map.get(&product.platform_model) {
+            None => continue,
+            Some(v) => v,
+        };
 
-        for mkinfo in mkinfo_set.iter().filter(|x| {
+        for mkinfo in mkinfo_arr.iter().filter(|x| {
             product.family.is_none()
                 || !has_product_family_in_mkinfo
                 || (x.product_family.is_some()
@@ -656,18 +621,21 @@ pub(crate) fn gen_mkinfo_by_nickname(
         );
     }
 
-    // Release check
-    let pattern_release_num = Regex::new("^HAWAII_(?:REL_)?R([[:digit:]]+)")
+    // Check release
+    let pattern_rel_num = Regex::new("^HAWAII_(?:REL_)?R([[:digit:]]+)")
         .context("Failed to build regex for release num")?;
-    let captures = pattern_release_num
+    let rel_num: usize = pattern_rel_num
         .captures(svninfo.branch_name())
-        .context("Failed to capture release num")?;
-    let rel_num: i64 = captures.get(1).unwrap().as_str().parse()?;
+        .context("Failed to capture release num")?
+        .get(1)
+        .unwrap()
+        .as_str()
+        .parse()?;
 
-    if rel_num < 8 {
-        gen_mkinfo_by_nickname_v1(&svninfo, nickname, makeopts)
-    } else {
-        gen_mkinfo_by_nickname_v2(&svninfo, nickname, makeopts)
+    match rel_num {
+        6 => gen_mkinfo_by_nickname_v1(&svninfo, nickname, makeopts),
+        x if x >= 8 => gen_mkinfo_by_nickname_v2(&svninfo, nickname, makeopts),
+        _ => bail!("Unsupported release"),
     }
 }
 
