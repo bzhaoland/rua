@@ -26,10 +26,46 @@
 #outline(indent: 2em)
 #pagebreak()
 
-= rua v1.1.0
-
 #let ftp_server_bj = "10.100.6.10"
 #let ftp_server_sz = "10.200.6.10"
+
+= rua v1.2.0
+
+#let rua_ver = "1.2.0"
+#let rua_path = [bzhao/rua/#rua_ver/rua]
+
+== 存放位置
+
+- 北京: #ftp_server_bj/#rua_path
+- 苏州: #ftp_server_sz/#rua_path
+
+== 下载安装
+
+北京，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/1.2.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+苏州，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.200.6.10/bzhao/rua/1.2.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+== 功能变更
+
++ mkinfo 支持 R6 分支
++ compdb 支持 R6 分支
+
+#pagebreak()
+
+= rua v1.1.0
+
 #let rua_ver = "1.1.0"
 #let rua_path = [bzhao/rua/#rua_ver/rua]
 
