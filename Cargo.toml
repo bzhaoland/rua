@@ -1,6 +1,6 @@
 [package]
 name = "rua"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2024"
 authors = ["bzhao"]
 description = "A toolbox for developers of StoneOS and its derivatives"

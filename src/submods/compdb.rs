@@ -352,7 +352,7 @@ pub(crate) fn gen_compdb_by_builtin(
     step += 1;
     let pb5 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] Generating JCDB {{spinner:.green}}",
+            "[{}/{}] Generating compilation database {{spinner:.green}}",
             step, NSTEPS
         ))?
         .tick_chars(TICK_CHARS),
@@ -368,7 +368,7 @@ pub(crate) fn gen_compdb_by_builtin(
     }
     fs::write(COMPDB_FILE, serde_json::to_string_pretty(&jcdb)?)?;
     pb5.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Generating JCDB...{{msg}}",
+        "[{}/{}] Generating compilation database..{{msg}}",
         step, NSTEPS
     ))?);
     pb5.finish_with_message("ok");
@@ -384,7 +384,7 @@ pub(crate) fn gen_compdb_by_intercept_build(
 ) -> anyhow::Result<()> {
     let pb = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
-            "Generating JCDB by intercept-build {spinner:.green} [{elapsed_precise}]",
+            "Generating compilation database by intercept-build {spinner:.green} [{elapsed_precise}]",
         )?
         .tick_chars(TICK_CHARS),
     );
@@ -409,7 +409,7 @@ pub(crate) fn gen_compdb_by_intercept_build(
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "Generating JCDB by intercept-build...{msg}",
+        "Generating compilation database by intercept-build...{msg}",
     )?);
     pb.finish_with_message("ok");
     Ok(())
@@ -423,7 +423,7 @@ pub(crate) fn gen_compdb_by_bear(
 ) -> anyhow::Result<()> {
     let pb = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
-            "Generating JCDB by bear {spinner:.green} [{elapsed_precise}]",
+            "Generating compilation database by bear {spinner:.green} [{elapsed_precise}]",
         )?
         .tick_chars(TICK_CHARS),
     );
@@ -448,7 +448,7 @@ pub(crate) fn gen_compdb_by_bear(
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "Generating JCDB by bear...{msg}",
+        "Generating compilation database by bear...{msg}",
     )?);
     pb.finish_with_message("ok");
     Ok(())
