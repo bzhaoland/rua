@@ -59,8 +59,22 @@ rm -f rua  # 从当前目录删除
 
 == 功能变更
 
-+ mkinfo 支持 R6 分支
-+ compdb 支持 R6 分支
++ mkinfo: 添加对 R6 分支的支持
++ compdb: 添加对 R4/R6 分支的支持
+
+== 工具当前对各分支的支持情况
+
+#let y = sym.checkmark
+#let n = sym.crossmark
+#let d = ""
+
+#table(
+  align: center,
+  columns: 7,
+  [子命令], [R4], [R6], [R8], [R10], [R11], [MX_MAIN],
+  [mkinfo], [#n], [#y], [#y], [#y], [#y], [#y],
+  [compdb], [#y], [#y], [#y], [#y], [#y], [#y],
+)
 
 #pagebreak()
 
