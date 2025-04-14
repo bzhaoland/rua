@@ -622,20 +622,25 @@ pub(crate) fn gen_mkinfo_by_nickname(
     }
 
     // Check release
-    let pattern_rel_num = Regex::new("^HAWAII_(?:REL_)?R([[:digit:]]+)")
+    let pattern_rel_num = Regex::new("^HAWAII_(?:REL_)?R([[:digit:]]+)|^MX_MAIN")
         .context("Failed to build regex for release num")?;
-    let rel_num: usize = pattern_rel_num
-        .captures(svninfo.branch_name())
-        .context("Failed to capture release num")?
-        .get(1)
-        .unwrap()
-        .as_str()
-        .parse()?;
-
-    match rel_num {
-        6 => gen_mkinfo_by_nickname_v1(&svninfo, nickname, makeopts),
-        x if x >= 8 => gen_mkinfo_by_nickname_v2(&svninfo, nickname, makeopts),
-        _ => bail!("Unsupported release"),
+    let branch = svninfo.branch_name();
+    match branch {
+        "MX_MAIN" => gen_mkinfo_by_nickname_v2(&svninfo, nickname, makeopts),
+        _ => {
+            let rel_num: usize = pattern_rel_num
+                .captures(svninfo.branch_name())
+                .context("Failed to capture release num")?
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse()?;
+            match rel_num {
+                6 => gen_mkinfo_by_nickname_v1(&svninfo, nickname, makeopts),
+                x if x >= 8 => gen_mkinfo_by_nickname_v2(&svninfo, nickname, makeopts),
+                _ => bail!("Unsupported release"),
+            }
+        }
     }
 }
 
