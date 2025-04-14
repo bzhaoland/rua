@@ -4,6 +4,7 @@ use std::fmt;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::ptr;
 use std::thread;
 
 use anstyle::{Ansi256Color, Color, Style};
@@ -202,44 +203,90 @@ pub(crate) fn gen_compdb_by_builtin(
 
     // Build the target (pseudoly)
     step += 1;
-    let pb2 = ProgressBar::no_length().with_style(
-        ProgressStyle::with_template(&format!(
-            "[{}/{}] Building pseudoly {{spinner:.green}} [{{elapsed_precise}}]",
-            step, NSTEPS
-        ))?
-        .tick_chars(TICK_CHARS),
-    );
-    pb2.enable_steady_tick(TICK_INTERVAL);
-    let mut command = Command::new("hsdocker7");
-    let vars = macros
-        .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
-        .collect::<Vec<String>>()
-        .join(" ");
-    let mut child = command
-        .arg(
-             // This whole line will be treated as a normal arg and passed into hsdocker7
-            format!("make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_BUILD_COVERITY=0 {} >{} 2>&1", make_directory, make_target, vars, BUILDLOG_PATH),
-        )
-        .spawn()
-        .context("Failed to execute hsdocker7")?;
-    let status = loop {
-        if let Some(status) = child
-            .try_wait()
-            .context("Error attempting to wait: pseudo building")?
+    unsafe {
+        let mut master_fd: libc::c_int = 0;
+        let mut slave_fd: libc::c_int = 0;
+        let mut name: [libc::c_char; 64] = [0; 64];
+
+        if libc::openpty(
+            &mut master_fd,
+            &mut slave_fd,
+            name.as_mut_ptr(),
+            ptr::null_mut(),
+            ptr::null_mut(),
+        ) == -1
         {
-            break status;
+            bail!("Failed to openpty");
         }
-        thread::sleep(TICK_INTERVAL);
-    };
-    if !status.success() {
-        bail!("Pseudo building failed ({:?})", status.code());
+
+        let pid = libc::fork();
+        match pid {
+            -1 => bail!("Failed to fork"),
+            0 => {
+                libc::close(master_fd);
+                libc::dup2(slave_fd, libc::STDOUT_FILENO);
+                libc::dup2(slave_fd, libc::STDERR_FILENO);
+                let mut command = Command::new("hsdocker7");
+                let vars = macros
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect::<Vec<String>>()
+                    .join(" ");
+                let mut child = command
+                    .arg(
+                         // This whole line will be treated as a normal arg and passed into hsdocker7
+                        format!("make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_BUILD_COVERITY=0 {} >{} 2>&1", make_directory, make_target, vars, BUILDLOG_PATH),
+                    )
+                    .spawn()
+                    .context("Failed to execute hsdocker7")?;
+                let status = loop {
+                    if let Some(status) = child
+                        .try_wait()
+                        .context("Error attempting to wait: pseudo building")?
+                    {
+                        break status;
+                    }
+                    thread::sleep(TICK_INTERVAL);
+                };
+                if !status.success() {
+                    bail!("Pseudo building failed ({:?})", status.code());
+                }
+                libc::close(slave_fd);
+                libc::exit(0);
+            }
+            child_pid => {
+                libc::close(slave_fd);
+                let pb2 = ProgressBar::no_length().with_style(
+                    ProgressStyle::with_template(&format!(
+                        "[{}/{}] Building pseudoly {{spinner:.green}} [{{elapsed_precise}}]",
+                        step, NSTEPS
+                    ))?
+                    .tick_chars(TICK_CHARS),
+                );
+                pb2.enable_steady_tick(TICK_INTERVAL);
+                let mut status: libc::c_int = 0;
+                let result = libc::waitpid(child_pid, &mut status, 0);
+                if result == -1 {
+                    bail!("Failed to waitpid");
+                }
+
+                if libc::WIFEXITED(status) {
+                    let exit_status = libc::WEXITSTATUS(status);
+                    pb2.set_style(ProgressStyle::with_template(&format!(
+                        "[{}/{}] Building pseudoly...{{msg}}",
+                        step, NSTEPS
+                    ))?);
+                    if exit_status == 0 {
+                        pb2.finish_with_message("ok");
+                    } else {
+                        pb2.finish_with_message("err");
+                    }
+                } else {
+                    pb2.finish_with_message("err");
+                }
+            }
+        }
     }
-    pb2.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Building pseudoly...{{msg}}",
-        step, NSTEPS
-    ))?);
-    pb2.finish_with_message("ok");
 
     // Restore the original makefiles
     step += 1;
