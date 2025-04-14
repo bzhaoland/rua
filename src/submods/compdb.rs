@@ -95,44 +95,46 @@ pub(crate) fn gen_compdb_by_builtin(
     macros: &IndexMap<String, String>,
 ) -> anyhow::Result<()> {
     const NSTEPS: usize = 5;
-    const LAST_RULES_MAKEFILE: &str = "scripts/last-rules.mk";
-    const RULES_MAKEFILE: &str = "scripts/rules.mk";
-    const TOP_MAKEFILE: &str = "Makefile";
 
     // Invoke svn firstly to check whether we are in a working copy
     let at_proj_root = env::current_dir()? == svninfo.working_copy_root_path();
 
-    let lastrules_path = svninfo.working_copy_root_path().join(LAST_RULES_MAKEFILE);
+    let lastrules_path = svninfo
+        .working_copy_root_path()
+        .join("scripts/last-rules.mk");
+    let rules_path = svninfo.working_copy_root_path().join("scripts/rules.mk");
+    let top_makefile = svninfo.working_copy_root_path().join("Makefile");
+
     if !lastrules_path.is_file() {
         bail!(r#"File not found: "{}""#, lastrules_path.display());
     }
-
-    let rules_path = svninfo.working_copy_root_path().join(RULES_MAKEFILE);
     if !rules_path.is_file() {
         bail!(r#"File not found: "{}""#, rules_path.display());
     }
-
-    let top_makefile = svninfo.working_copy_root_path().join(TOP_MAKEFILE);
     if at_proj_root && !top_makefile.is_file() {
         bail!(r#"File not found: "{}""#, top_makefile.display());
     }
 
     let mut step: usize = 1;
-    let modified_files_hint = if at_proj_root {
+    let modified_files = if at_proj_root {
         format!(
             "{} & {} & {}",
-            lastrules_path.display(),
-            rules_path.display(),
-            top_makefile.display(),
+            lastrules_path.file_name().unwrap().to_string_lossy(),
+            rules_path.file_name().unwrap().to_string_lossy(),
+            top_makefile.file_name().unwrap().to_string_lossy(),
         )
     } else {
-        format!("{} & {}", lastrules_path.display(), rules_path.display())
+        format!(
+            "{} & {}",
+            lastrules_path.file_name().unwrap().to_string_lossy(),
+            rules_path.file_name().unwrap().to_string_lossy()
+        )
     };
     let pb1 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
             format!(
                 "[{}/{}] Injecting mkfiles ({}) {{spinner:.green}}",
-                step, NSTEPS, modified_files_hint
+                step, NSTEPS, modified_files
             )
             .as_str(),
         )?
@@ -197,7 +199,7 @@ pub(crate) fn gen_compdb_by_builtin(
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Injecting makefiles ({} modified)...{{msg}}",
-        step, NSTEPS, modified_files_hint
+        step, NSTEPS, modified_files
     ))?);
     pb1.finish_with_message("ok");
 
@@ -293,7 +295,7 @@ pub(crate) fn gen_compdb_by_builtin(
     let pb3 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
             "[{}/{}] Restoring mkfiles ({}) {{spinner:.green}}",
-            step, NSTEPS, modified_files_hint
+            step, NSTEPS, modified_files
         ))?
         .tick_chars(TICK_CHARS),
     );
@@ -310,7 +312,7 @@ pub(crate) fn gen_compdb_by_builtin(
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Restoring mkfiles ({} restored)...{{msg}}",
-        step, NSTEPS, modified_files_hint
+        step, NSTEPS, modified_files
     ))?);
     pb3.finish_with_message("ok");
 
