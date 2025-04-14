@@ -74,6 +74,14 @@ rm -f rua  # 从当前目录删除
   [子命令], [R4], [R6], [R8], [R10], [R11], [MX_MAIN],
   [mkinfo], [#n], [#y], [#y], [#y], [#y], [#y],
   [compdb], [#y], [#y], [#y], [#y], [#y], [#y],
+  [perfan], table.cell(
+    [
+      不区分
+    ],
+    colspan: 6,
+    align: center,
+    fill: luma(200),
+  ),
 )
 
 #pagebreak()
