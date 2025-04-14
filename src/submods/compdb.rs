@@ -223,7 +223,7 @@ pub(crate) fn gen_compdb_by_builtin(
         match pid {
             -1 => bail!("Failed to fork"),
             0 => {
-                libc::close(master_fd);
+                // stdin continues to use master_fd, stdout and stderr use slave_fd
                 libc::dup2(slave_fd, libc::STDOUT_FILENO);
                 libc::dup2(slave_fd, libc::STDERR_FILENO);
                 let mut command = Command::new("hsdocker7");
