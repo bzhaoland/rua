@@ -195,7 +195,7 @@ pub(crate) fn gen_compdb_by_builtin(
             .context(format!("Can't write file: '{}'", top_makefile.display()))?;
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Injecting makefiles ({} modified)...{{msg:.green}}",
+        "[{}/{}] Injecting makefiles ({} modified)...{{msg}}",
         step, NSTEPS, modified_files_hint
     ))?);
     pb1.finish_with_message("ok");
@@ -236,7 +236,7 @@ pub(crate) fn gen_compdb_by_builtin(
         bail!("Pseudo building failed ({:?})", status.code());
     }
     pb2.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Building pseudoly...{{msg:.green}}",
+        "[{}/{}] Building pseudoly...{{msg}}",
         step, NSTEPS
     ))?);
     pb2.finish_with_message("ok");
@@ -262,7 +262,7 @@ pub(crate) fn gen_compdb_by_builtin(
             .context(format!(r#"Restoring "{}" failed"#, top_makefile.display()))?;
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Restoring mkfiles ({} restored)...{{msg:.green}}",
+        "[{}/{}] Restoring mkfiles ({} restored)...{{msg}}",
         step, NSTEPS, modified_files_hint
     ))?);
     pb3.finish_with_message("ok");
@@ -294,7 +294,7 @@ pub(crate) fn gen_compdb_by_builtin(
         });
     }
     pb4.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Parsing buildlog...{{msg:.green}}",
+        "[{}/{}] Parsing buildlog...{{msg}}",
         step, NSTEPS
     ))?);
     pb4.finish_with_message("ok");
@@ -319,7 +319,7 @@ pub(crate) fn gen_compdb_by_builtin(
     }
     fs::write(COMPDB_FILE, serde_json::to_string_pretty(&jcdb)?)?;
     pb5.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Generating JCDB...{{msg:.green}}",
+        "[{}/{}] Generating JCDB...{{msg}}",
         step, NSTEPS
     ))?);
     pb5.finish_with_message("ok");
@@ -360,7 +360,7 @@ pub(crate) fn gen_compdb_by_intercept_build(
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "Generating JCDB by intercept-build...{msg:.green}",
+        "Generating JCDB by intercept-build...{msg}",
     )?);
     pb.finish_with_message("ok");
     Ok(())
@@ -399,7 +399,7 @@ pub(crate) fn gen_compdb_by_bear(
     fs::remove_file(BUILDLOG_PATH)?;
     pb.disable_steady_tick();
     pb.set_style(ProgressStyle::with_template(
-        "Generating JCDB by bear...{msg:.green}",
+        "Generating JCDB by bear...{msg}",
     )?);
     pb.finish_with_message("ok");
     Ok(())
@@ -737,6 +737,10 @@ pub(crate) fn remove_generation(conn: &Connection, opt: DelOpt) -> anyhow::Resul
 }
 
 pub(crate) fn use_generation(conn: &Connection, generation: i64) -> anyhow::Result<()> {
+    let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
+        format!("Switching to generation {}...{{msg}}", generation).as_str(),
+    )?);
+    pb.tick();
     let item: Option<Vec<u8>> = conn
         .query_row(
             "SELECT compdb FROM compdbs WHERE generation=?1",
@@ -748,6 +752,7 @@ pub(crate) fn use_generation(conn: &Connection, generation: i64) -> anyhow::Resu
     let compile_commands = decode_all(&item[..])?;
     fs::write(COMPDB_FILE, compile_commands)?;
     set_current_generation(conn, generation)?;
+    pb.finish_with_message("ok");
     Ok(())
 }
 

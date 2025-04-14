@@ -52,7 +52,7 @@ pub(crate) enum CompdbCommand {
     ///
     /// Note:
     /// 1. Compilation database generated under submod dir only covers
-    /// files in this module.
+    ///    files in this module.
     /// 2. R4+ releases are supported by compdb.
     #[command(visible_aliases = ["generate"],
         after_help = format!(
@@ -587,6 +587,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         );
                     }
                     eprintln!("\rArchiving the newly generated compilation database to store...ok");
+
+                    // Get the generation id and insert it into the history table
                     if let Some(generation) = compdb::get_biggest_generation(&conn)? {
                         compdb::set_current_generation(&conn, generation)?;
                     }
@@ -594,10 +596,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
                 CompdbCommand::Ls => compdb::list_generations(&conn),
                 CompdbCommand::Use { generation } => {
-                    eprint!("Switching to generation {}...", generation);
-                    io::stderr().flush()?;
                     compdb::use_generation(&conn, generation)?;
-                    eprintln!("\rSwitching to generation {}...ok", generation);
                     Ok(())
                 }
                 CompdbCommand::Del {
