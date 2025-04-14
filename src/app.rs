@@ -9,6 +9,7 @@ use clap::builder::styling;
 use clap::{ArgGroup, CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use indexmap::IndexMap;
+use indicatif::{ProgressBar, ProgressStyle};
 use rusqlite::Connection;
 
 use crate::config::RuaConf;
@@ -571,8 +572,10 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     compdb::gen_compdb(&svninfo, &product_dir, &make_target, compdb_options)?;
 
                     // Archive the newly generated compilation database
-                    eprint!("Archiving the newly generated compilation database to store...");
-                    io::stderr().flush()?;
+                    let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
+                        "Archiving the newly generated compilation database to store...{msg}",
+                    )?);
+                    pb.tick();
                     let rows = compdb::archive_compdb(
                         &conn,
                         svninfo.branch_name(),
@@ -586,7 +589,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             "\rFailed to archive the newly generated compilation database to store"
                         );
                     }
-                    eprintln!("\rArchiving the newly generated compilation database to store...ok");
+                    pb.finish_with_message("ok");
 
                     // Get the generation id and insert it into the history table
                     if let Some(generation) = compdb::get_biggest_generation(&conn)? {
