@@ -29,6 +29,41 @@
 #let ftp_server_bj = "10.100.6.10"
 #let ftp_server_sz = "10.200.6.10"
 
+= rua v1.2.1
+
+#let rua_ver = "1.2.1"
+#let rua_path = [bzhao/rua/#rua_ver/rua]
+
+== 存放位置
+
+- 北京: #ftp_server_bj/#rua_path
+- 苏州: #ftp_server_sz/#rua_path
+
+== 下载安装
+
+北京，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/1.2.1/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+苏州，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.200.6.10/bzhao/rua/1.2.1/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+== 功能修复
+
+- review: 分支获取错误修复。当在非工程根目录下使用 rua review 时，上传到 review board 后显示分支错误。reported-by\@lnzeng
+- compdb: 优化输出，消除了 hsdocker7 脚本所产生的冗余输出
+
+#pagebreak()
+
 = rua v1.2.0
 
 #let rua_ver = "1.2.0"
