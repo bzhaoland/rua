@@ -55,7 +55,7 @@ pub fn get_current_username() -> Option<String> {
 pub struct SvnInfo {
     working_copy_root_path: String,
     url: String,
-    rel_url: String,
+    relative_url: String,
     repo_root: String,
     repo_uuid: String,
     revision: i64,
@@ -85,7 +85,7 @@ last_changed_date: {}
 }}"#,
             self.working_copy_root_path,
             self.url,
-            self.rel_url,
+            self.relative_url,
             self.repo_root,
             self.repo_uuid,
             self.revision,
@@ -134,7 +134,7 @@ Last Changed Date: ([^\n]+)"#,
         Ok(SvnInfo {
             working_copy_root_path: captures.get(1).unwrap().as_str().to_string(),
             url: captures.get(2).unwrap().as_str().to_string(),
-            rel_url: captures.get(3).unwrap().as_str().to_string(),
+            relative_url: captures.get(3).unwrap().as_str().to_string(),
             repo_root: captures.get(4).unwrap().as_str().to_string(),
             repo_uuid: captures.get(5).unwrap().as_str().to_string(),
             revision: captures
@@ -170,7 +170,7 @@ Last Changed Date: ([^\n]+)"#,
 
     #[allow(dead_code)]
     pub fn relative_url(&self) -> &str {
-        self.rel_url.as_str()
+        self.relative_url.as_str()
     }
 
     #[allow(dead_code)]
@@ -179,7 +179,7 @@ Last Changed Date: ([^\n]+)"#,
             LazyLock::new(|| Regex::new(r#"\^/branches/([^/]+)"#).unwrap());
 
         REGEX_BRANCH
-            .captures(self.rel_url.as_str())
+            .captures(self.relative_url.as_str())
             .expect("Capture branch failed")
             .get(1)
             .unwrap()
