@@ -680,7 +680,8 @@ pub(crate) fn gen_mkinfo_by_target(
     imagename_suffix.push('-');
     imagename_suffix.push_str(&username);
 
-    let re_target = Regex::new(format!("(?i)^{}$", target).as_str())?;
+    let re_target =
+        Regex::new(format!("(?i)^{}$", target.strip_suffix("-ipv6").unwrap_or(target)).as_str())?;
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     let imagename_prodname = "SG6000";
     for mkinfo in mkinfo_list
@@ -690,10 +691,10 @@ pub(crate) fn gen_mkinfo_by_target(
         let imagename_target = re_nonalnum
             .replace_all(mkinfo.make_target.as_str(), "")
             .to_uppercase();
-        let make_target = if makeopts.flag.contains(MakeFlag::IPV6) {
-            mkinfo.make_target.clone() + "-ipv6"
+        let make_target = if !target.ends_with("-ipv6") && makeopts.flag.contains(MakeFlag::IPV6) {
+            target.to_string() + "-ipv6"
         } else {
-            mkinfo.make_target.clone()
+            target.to_string()
         };
         let make_comm = format!(
             r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={}-{}-{}-{} >build.log 2>&1""#,
