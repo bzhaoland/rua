@@ -1,6 +1,7 @@
 use std::os::unix::ffi::OsStringExt;
 use std::path::Path;
 use std::process::Command;
+use std::sync::LazyLock;
 use std::{ffi::OsString, fmt::Display};
 
 use anyhow::{Context, anyhow, bail};
@@ -174,9 +175,10 @@ Last Changed Date: ([^\n]+)"#,
 
     #[allow(dead_code)]
     pub fn branch_name(&self) -> &str {
-        Regex::new(r#"\^/branches/(.+)"#)
-            .context("Failed to build pattern for branch name")
-            .unwrap()
+        static RE_BRANCH: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r#"\^/branches/([^/]+)"#).unwrap());
+
+        RE_BRANCH
             .captures(self.relative_url.as_str())
             .expect("Failed to match branch name")
             .get(1)
