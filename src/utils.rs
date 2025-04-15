@@ -55,7 +55,7 @@ pub fn get_current_username() -> Option<String> {
 pub struct SvnInfo {
     working_copy_root_path: String,
     url: String,
-    relative_url: String,
+    rel_url: String,
     repo_root: String,
     repo_uuid: String,
     revision: i64,
@@ -85,7 +85,7 @@ last_changed_date: {}
 }}"#,
             self.working_copy_root_path,
             self.url,
-            self.relative_url,
+            self.rel_url,
             self.repo_root,
             self.repo_uuid,
             self.revision,
@@ -125,16 +125,16 @@ Last Changed Author: ([^\n]+)
 Last Changed Rev: ([[:digit:]]+)
 Last Changed Date: ([^\n]+)"#,
         )
-        .context("Regex pattern for svn info")?;
+        .context("Failed to construct regex for svn info")?;
 
         let captures = pattern
             .captures(&output)
-            .context("Failed to capture svn info")?;
+            .context("Capture svn info failed")?;
 
         Ok(SvnInfo {
             working_copy_root_path: captures.get(1).unwrap().as_str().to_string(),
             url: captures.get(2).unwrap().as_str().to_string(),
-            relative_url: captures.get(3).unwrap().as_str().to_string(),
+            rel_url: captures.get(3).unwrap().as_str().to_string(),
             repo_root: captures.get(4).unwrap().as_str().to_string(),
             repo_uuid: captures.get(5).unwrap().as_str().to_string(),
             revision: captures
@@ -143,7 +143,7 @@ Last Changed Date: ([^\n]+)"#,
                 .as_str()
                 .to_string()
                 .parse()
-                .context("Can't convert revision string to number")?,
+                .context("Parse revision failed")?,
             node_kind: captures.get(7).unwrap().as_str().to_string(),
             schedule: captures.get(8).unwrap().as_str().to_string(),
             last_changed_author: captures.get(9).unwrap().as_str().to_string(),
@@ -153,7 +153,7 @@ Last Changed Date: ([^\n]+)"#,
                 .as_str()
                 .to_string()
                 .parse()
-                .context("Can't convert last changed revision to number")?,
+                .context("Parse last changed revision failed")?,
             last_changed_date: captures.get(11).unwrap().as_str().to_string(),
         })
     }
@@ -170,17 +170,17 @@ Last Changed Date: ([^\n]+)"#,
 
     #[allow(dead_code)]
     pub fn relative_url(&self) -> &str {
-        self.relative_url.as_str()
+        self.rel_url.as_str()
     }
 
     #[allow(dead_code)]
     pub fn branch_name(&self) -> &str {
-        static RE_BRANCH: LazyLock<Regex> =
+        static REGEX_BRANCH: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r#"\^/branches/([^/]+)"#).unwrap());
 
-        RE_BRANCH
-            .captures(self.relative_url.as_str())
-            .expect("Failed to match branch name")
+        REGEX_BRANCH
+            .captures(self.rel_url.as_str())
+            .expect("Capture branch failed")
             .get(1)
             .unwrap()
             .as_str()
