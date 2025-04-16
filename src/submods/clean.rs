@@ -1,6 +1,6 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::str::FromStr;
 use std::{env, fs};
 
 use anyhow::{Context, bail};
@@ -22,8 +22,8 @@ fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
             std::path::Component::ParentDir => {
                 normalized.pop(); // Go up one directory
             }
-            std::path::Component::Normal(name) => {
-                normalized.push(name); // Push normal components
+            std::path::Component::Normal(v) => {
+                normalized.push(v); // Push normal components
             }
             _ => {} // Skip current directory (.) and others
         }
@@ -45,16 +45,15 @@ pub fn clean_build(
         );
     }
 
-    let mut ignores = ignores
-        .map(|x| {
-            x.iter()
-                .map(|p| normalize_path(Path::new(p)))
-                .collect::<Vec<PathBuf>>()
-        })
-        .unwrap_or_default();
-    ignores.push(PathBuf::from_str(PROJ_RUA_DIR)?);
-    ignores.push(PathBuf::from_str(".cache")?); // clangd cache
-    ignores.push(PathBuf::from_str(COMPDB_FILE)?);
+    let mut ignore_set = HashSet::with_capacity(64);
+    ignore_set.insert(normalize_path(PROJ_RUA_DIR));
+    ignore_set.insert(normalize_path(".cache")); // clangd cache
+    ignore_set.insert(normalize_path(COMPDB_FILE));
+    if let Some(v) = ignores {
+        for item in v.iter() {
+            ignore_set.insert(normalize_path(Path::new(item)));
+        }
+    }
 
     let num_steps = 3;
     let mut step: usize = 0;
@@ -72,7 +71,10 @@ pub fn clean_build(
             .follow_links(false)
         {
             let entry = entry?;
-            if ignores.iter().any(|x| entry.path().starts_with(x)) {
+
+            if ignore_set.contains(entry.path())
+                || ignore_set.iter().any(|x| entry.path().starts_with(x))
+            {
                 continue;
             }
 
@@ -102,7 +104,10 @@ pub fn clean_build(
     if webui_dir.exists() && webui_dir.symlink_metadata()?.is_dir() {
         for entry in walkdir::WalkDir::new(&webui_dir).contents_first(true) {
             let entry = entry?;
-            if ignores.iter().any(|x| entry.path().starts_with(x)) {
+
+            if ignore_set.contains(entry.path())
+                || ignore_set.iter().any(|x| entry.path().starts_with(x))
+            {
                 continue;
             }
 
@@ -152,9 +157,22 @@ pub fn clean_build(
         if let Some(captures) = regex_unversioneds.captures(line) {
             let item = Path::new(captures.get(1).unwrap().as_str());
             let entry = normalize_path(item);
-            if ignores.iter().any(|x| x == entry.as_path()) {
+
+            if ignore_set.contains(&entry) || ignore_set.iter().any(|x| entry.starts_with(x)) {
                 continue;
             }
+
+            let mut skip = ignore_set.contains(&entry); // Has this file
+            for item in ignore_set.iter() {
+                if entry.starts_with(item) {
+                    skip = true;
+                    break;
+                }
+            }
+            if skip {
+                continue;
+            }
+
             pb3.set_message(entry.as_path().to_string_lossy().to_string());
             if entry.symlink_metadata()?.is_dir() {
                 fs::remove_dir_all(&entry)
