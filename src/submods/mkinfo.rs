@@ -404,7 +404,7 @@ fn gen_mkinfo_by_nickname_v1(
                 ),
                 if !makeopts.nostrip_bins.is_empty() {
                     format!(
-                        r#" NOSTRIP="{}""#,
+                        " NOSTRIP={}",
                         makeopts
                             .nostrip_bins
                             .iter()
