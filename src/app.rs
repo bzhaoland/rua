@@ -458,21 +458,19 @@ pub(crate) struct Cli {
 }
 
 pub(crate) fn run_app(args: &Cli) -> Result<()> {
+    let conf = RuaConf::new()?;
     match args.command.clone() {
         Comm::Clean { dirs, ignores } => {
-            let conf = RuaConf::load()?;
-            let ignores = if ignores.is_some() {
-                ignores.as_ref()
-            } else if let Some(conf) = conf.as_ref() {
-                if let Some(v) = conf.clean.as_ref() {
-                    v.ignores.as_ref()
-                } else {
-                    None
+            let mut ignore_list = Vec::new();
+            if let Some(v) = ignores {
+                ignore_list.extend(v);
+            }
+            if let Some(v) = conf.clean {
+                if let Some(x) = v.ignores {
+                    ignore_list.extend(x);
                 }
-            } else {
-                None
-            };
-            clean::clean_build(dirs.as_ref(), ignores)
+            }
+            clean::clean_build(dirs.as_ref(), Some(&ignore_list))
         }
         Comm::Compdb { compdb_comm } => {
             let rua_cache = Path::new(compdb::COMPDB_STORE);
@@ -498,76 +496,71 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     product_dir,
                     make_target,
                     defines,
-                    mut engine,
-                    mut bear_path,
-                    mut intercept_build_path,
+                    engine,
+                    bear_path,
+                    intercept_build_path,
                 } => {
-                    let conf = RuaConf::load()?;
+                    let compdb_conf = conf.compdb;
+
+                    // Get bear path from config or argument
+                    let mut final_bear_path = None;
+                    if let Some(v) = compdb_conf.as_ref() {
+                        if let Some(x) = v.bear_path.as_ref() {
+                            final_bear_path = Some(Path::new(x))
+                        }
+                    }
+                    if let Some(v) = bear_path.as_ref() {
+                        final_bear_path = Some(Path::new(v));
+                    }
+
+                    // Get intercept-build path from config or argument
+                    let mut final_intercept_build_path = None;
+                    if let Some(v) = compdb_conf.as_ref() {
+                        if let Some(x) = v.intercept_build_path.as_ref() {
+                            final_intercept_build_path = Some(Path::new(x));
+                        }
+                    }
+                    if let Some(v) = intercept_build_path.as_ref() {
+                        final_intercept_build_path = Some(Path::new(v));
+                    }
+
+                    let mut final_engine = None;
+                    if let Some(v) = compdb_conf.as_ref() {
+                        if let Some(x) = v.engine.as_ref() {
+                            final_engine = match x.as_str() {
+                                "built-in" => Some(CompdbEngine::BuiltIn),
+                                "bear" => Some(CompdbEngine::Bear),
+                                "intercept-build" => Some(CompdbEngine::InterceptBuild),
+                                y => bail!("Invalid engine specified in config: {}", y),
+                            };
+                        }
+                    }
+                    if let Some(v) = engine {
+                        final_engine = Some(v);
+                    }
+                    
                     let svninfo = utils::SvnInfo::new()?;
-                    if bear_path.is_none() {
-                        if let Some(rua_conf) = conf.as_ref() {
-                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                                if let Some(v) = compdb_conf.bear_path.as_ref() {
-                                    bear_path = Some(v.to_owned());
-                                }
-                            }
-                        }
-                    }
-                    if intercept_build_path.is_none() {
-                        if let Some(rua_conf) = conf.as_ref() {
-                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                                if let Some(v) = compdb_conf.intercept_build_path.as_ref() {
-                                    intercept_build_path = Some(v.to_owned());
-                                }
-                            }
-                        }
-                    }
 
-                    if engine.is_none() {
-                        if let Some(rua_conf) = conf.as_ref() {
-                            if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                                if let Some(engine_key) = compdb_conf.engine.as_ref() {
-                                    engine = match engine_key.as_str() {
-                                        "built-in" => Some(CompdbEngine::BuiltIn),
-                                        "bear" => Some(CompdbEngine::Bear),
-                                        "intercept-build" => Some(CompdbEngine::InterceptBuild),
-                                        _ => bail!("Invalid config: engine = {}", engine_key),
-                                    };
-                                }
-                            }
-                        }
-                    }
-
-                    // Add defines from command line and configuration.
-                    // If a define appears multiplely, use the last one.
+                    // Add defines from config and cli
                     let mut defines_map: IndexMap<String, String> = IndexMap::new();
+                    if let Some(configi) = compdb_conf.as_ref() {
+                        if let Some(x) = configi.defines.as_ref() {
+                            defines_map.extend(x.clone());
+                        }
+                    }
                     for item in defines.iter() {
                         if let Some((k, v)) = item.split_once("=") {
-                            defines_map.insert(k.to_owned(), v.to_owned());
+                            defines_map.insert(k.to_string(), v.to_string());
                         } else {
                             bail!("Invalid key-value pair: {}", item);
                         }
                     }
 
-                    // Add defines from configuration, repsect the defines from command line.
-                    // If a define appears multiplely, use the first one.
-                    if let Some(rua_conf) = conf.as_ref() {
-                        if let Some(compdb_conf) = rua_conf.compdb.as_ref() {
-                            if let Some(defines_conf) = compdb_conf.defines.as_ref() {
-                                for (k, v) in defines_conf {
-                                    defines_map
-                                        .entry(k.to_owned())
-                                        .or_insert_with(|| v.to_owned());
-                                }
-                            }
-                        }
-                    }
-
                     let compdb_options = compdb::CompdbOptions {
                         defines: defines_map,
-                        engine,
-                        bear_path,
-                        intercept_build_path,
+                        engine: final_engine,
+                        bear_path: final_bear_path.map(|x| x.to_path_buf()),
+                        intercept_build_path: final_intercept_build_path.map(|x| x.to_path_buf()),
                     };
                     compdb::gen_compdb(&svninfo, &product_dir, &make_target, compdb_options)?;
 
@@ -767,33 +760,36 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             by_target,
             product_name_or_compile_target,
         } => {
-            let conf = RuaConf::load()?;
-            let image_server = if let Some(image_server) = image_server {
-                Some(image_server)
-            } else if let Some(conf) = conf.as_ref() {
-                if let Some(mkinfo_conf) = conf.mkinfo.as_ref() {
-                    if let Some(v) = mkinfo_conf.image_server.as_ref() {
-                        match v.to_lowercase().as_str() {
-                            "beijing" | "bj" | "b" => Some(mkinfo::ImageServer::B),
-                            "suzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
-                            other => {
-                                eprintln!(
-                                    r#"WARNING: Invalid config item: image_server = {:?}! Falling back to "Suzhou" as image server"#,
-                                    other
-                                );
-                                Some(mkinfo::ImageServer::S)
-                            }
+            let mkinfo_conf = conf.mkinfo;
+
+            let mut final_image_server = None;
+            if let Some(ref v) = mkinfo_conf {
+                if let Some(x) = v.image_server.as_deref() {
+                    final_image_server = match x {
+                        "beijing" | "bj" | "b" => Some(mkinfo::ImageServer::B),
+                        "suzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
+                        other => {
+                            eprintln!(
+                                r#"WARNING: Invalid config item: image_server = {:?}! Falling back to "Suzhou" as image server"#,
+                                other
+                            );
+                            Some(mkinfo::ImageServer::S)
                         }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
+                    };
                 }
-            } else {
-                None
-            };
-            let user_defines = Vec::new(); // TODO: Not implemented yet
+            }
+            if let Some(v) = image_server {
+                final_image_server = Some(v);
+            }
+
+            let mut define_map = IndexMap::new();
+            if let Some(ref v) = mkinfo_conf {
+                if let Some(x) = v.defines.as_ref() {
+                    for (key, val) in x.clone() {
+                        define_map.insert(key, val);
+                    }
+                }
+            }
 
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
@@ -817,9 +813,9 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
 
             let makeopts = MakeOpts {
                 flag: makeflag,
-                image_server,
+                image_server: final_image_server,
                 nostrip_bins: bins_without_strip,
-                user_defines,
+                defines: define_map,
             };
 
             let mkinfos = mkinfo::gen_mkinfo(
@@ -852,18 +848,16 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             revisions,
             template_file,
         } => {
-            let conf = RuaConf::load()?;
-            let template_file = if let Some(v) = template_file {
-                Some(v)
-            } else if let Some(conf) = conf.as_ref() {
-                if let Some(v) = conf.review.as_ref() {
-                    v.template_file.clone()
-                } else {
-                    None
+            let mut final_template_file = None;
+            if let Some(review_conf) = conf.review.as_ref() {
+                if let Some(v) = review_conf.template_file.as_ref() {
+                    final_template_file = Some(v.to_owned());
                 }
-            } else {
-                None
-            };
+            }
+            if let Some(v) = template_file.as_deref() {
+                final_template_file = Some(v.to_string());
+            }
+            
             let options = review::ReviewOptions {
                 bug_id,
                 review_id,
@@ -873,7 +867,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 branch_name,
                 repo_name,
                 revisions,
-                template_file,
+                template_file: final_template_file,
             };
             tokio::runtime::Runtime::new()?.block_on(review::review(&options))
         }

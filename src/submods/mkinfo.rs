@@ -9,6 +9,7 @@ use anyhow::{self, Context, Result, bail};
 use bitflags::bitflags;
 use clap::ValueEnum;
 use console::Term;
+use indexmap::IndexMap;
 use regex::Regex;
 use rustix::system::uname;
 use serde_json::{Value, json};
@@ -49,7 +50,7 @@ pub(crate) struct MakeOpts {
     pub(crate) flag: MakeFlag,
     pub(crate) image_server: Option<ImageServer>,
     pub(crate) nostrip_bins: Vec<String>,
-    pub(crate) user_defines: Vec<String>,
+    pub(crate) defines: IndexMap<String, String>,
 }
 
 impl fmt::Display for MakeOpts {
@@ -62,7 +63,7 @@ impl fmt::Display for MakeOpts {
     nostrip_bins: {:?},
     user_defines: {:?},
 }}"#,
-            self.flag, self.image_server, self.nostrip_bins, self.user_defines
+            self.flag, self.image_server, self.nostrip_bins, self.defines
         )
     }
 }
@@ -361,7 +362,7 @@ fn gen_mkinfo_by_nickname_v1(
             );
 
             let make_comm = format!(
-                r#"hsdocker7 "make -C . -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={}{} IMG_NAME={} >build.log 2>&1""#,
+                r#"hsdocker7 "make -C . -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} {}IMG_NAME={} {}>build.log 2>&1""#,
                 make_target,
                 if makeopts.flag.contains(MakeFlag::RELEASE) {
                     1
@@ -392,31 +393,38 @@ fn gen_mkinfo_by_nickname_v1(
                     || {
                         let nodename = uname().nodename().to_string_lossy().to_string();
                         if nodename.ends_with("-sz") {
-                            "10.200.6.10".to_string()
+                            "10.200.6.10"
                         } else {
-                            "10.100.6.10".to_string()
+                            "10.100.6.10"
                         }
                     },
                     |v| match v {
-                        ImageServer::B => "10.100.6.10".to_string(),
-                        ImageServer::S => "10.200.6.10".to_string(),
+                        ImageServer::B => "10.100.6.10",
+                        ImageServer::S => "10.200.6.10",
                     }
                 ),
                 if !makeopts.nostrip_bins.is_empty() {
                     format!(
-                        " NOSTRIP={}",
+                        "NOSTRIP={} ",
                         makeopts
                             .nostrip_bins
                             .iter()
-                            .map(|x| x.trim().to_string())
-                            .collect::<Vec<String>>()
+                            .map(|x| x.trim())
+                            .collect::<Vec<&str>>()
                             .join(",")
                             .as_str()
                     )
                 } else {
                     String::new()
                 },
-                imagename
+                imagename,
+                makeopts
+                    .defines
+                    .iter()
+                    .map(|(k, v)| k.trim().to_owned() + "=" + v.trim())
+                    .collect::<Vec<String>>()
+                    .join(" ")
+                    + " ",
             );
             compile_infos.push(CompileInfo {
                 product_name: product.long_name.clone(),

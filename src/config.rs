@@ -1,6 +1,5 @@
-use std::fs;
-
-use anyhow::{Context, Result};
+use anyhow::Context;
+use config::Config;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -23,12 +22,16 @@ impl CleanConf {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct MkinfoConf {
     pub(crate) image_server: Option<String>,
+    pub(crate) defines: Option<IndexMap<String, String>>,
 }
 
 impl MkinfoConf {
     #[allow(dead_code)]
     pub(crate) fn new() -> MkinfoConf {
-        MkinfoConf { image_server: None }
+        MkinfoConf {
+            image_server: None,
+            defines: None,
+        }
     }
 }
 
@@ -76,45 +79,29 @@ pub(crate) struct RuaConf {
 
 impl RuaConf {
     #[allow(dead_code)]
-    pub(crate) fn new() -> RuaConf {
-        RuaConf {
-            clean: None,
-            mkinfo: None,
-            review: None,
-            compdb: None,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn load() -> Result<Option<RuaConf>> {
+    pub(crate) fn new() -> anyhow::Result<RuaConf> {
         let svninfo = SvnInfo::new()?;
-
-        let proj_conf_file = svninfo.working_copy_root_path().join(".rua/config.toml");
-        if proj_conf_file.is_file() {
-            return toml::from_str(
-                &fs::read_to_string(proj_conf_file.as_path())
-                    .context(format!("Can not read: {}", proj_conf_file.display()))?,
+        let s = Config::builder()
+            .add_source(config::File::with_name(
+                home::home_dir()
+                    .context("Failed to get home dir")?
+                    .join(".config/rua/config.toml")
+                    .to_str()
+                    .unwrap(),
+            ))
+            .add_source(
+                config::File::with_name(
+                    svninfo
+                        .working_copy_root_path()
+                        .join(".rua/config.toml")
+                        .as_path()
+                        .to_str()
+                        .unwrap(),
+                )
+                .required(false),
             )
-            .context(format!(
-                "Failed to parse config file: {}",
-                proj_conf_file.display()
-            ));
-        }
+            .build()?;
 
-        let user_conf_file = home::home_dir()
-            .context("Unable to get home directory")?
-            .join(".config/rua/config.toml");
-        if user_conf_file.is_file() {
-            return toml::from_str(
-                &fs::read_to_string(user_conf_file.as_path())
-                    .context(format!("Can not read: {}", user_conf_file.display()))?,
-            )
-            .context(format!(
-                "Failed to parse file: {}",
-                user_conf_file.display()
-            ));
-        }
-
-        Ok(None)
+        Ok(s.try_deserialize().unwrap())
     }
 }
