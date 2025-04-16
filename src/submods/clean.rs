@@ -62,7 +62,7 @@ pub fn clean_build(
     // Cleaning the objects generated in building process
     step += 1;
     let pb1 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Removing target objs: {{msg:.green}}",
+        "[{}/{}] Removing target objs: {{msg}}",
         step, num_steps
     ))?);
     let target_dir = normalize_path("target");
@@ -87,7 +87,7 @@ pub fn clean_build(
         }
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Removing target objs...{{msg:.green}}",
+        "[{}/{}] Removing target objs...{{msg}}",
         step, num_steps
     ))?);
     pb1.finish_with_message("ok");
@@ -95,7 +95,7 @@ pub fn clean_build(
     // Clean UI files
     step += 1;
     let pb2 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Removing WebUI objs: {{msg:.green}}",
+        "[{}/{}] Removing WebUI objs: {{msg}}",
         step, num_steps
     ))?);
     let webui_dir = normalize_path(svninfo.branch_name()); // UI directory name is the same as the branch name
@@ -117,7 +117,7 @@ pub fn clean_build(
         }
     }
     pb2.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Removing WebUI objs...{{msg:.green}}",
+        "[{}/{}] Removing WebUI objs...{{msg}}",
         step, num_steps
     ))?);
     pb2.finish_with_message("ok");
@@ -126,7 +126,7 @@ pub fn clean_build(
     step += 1;
     let pb3 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] Listing unversioneds {{spinner:.green}}",
+            "[{}/{}] Fetching unversioned files {{spinner}}",
             step, num_steps
         ))?
         .tick_chars(TICK_CHARS),
@@ -143,7 +143,7 @@ pub fn clean_build(
     }
     pb3.disable_steady_tick();
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Cleaning unversioneds: {{msg:.green}}",
+        "[{}/{}] Removing unversioneds: {{msg}}",
         step, num_steps,
     ))?);
     let regex_unversioneds = Regex::new(r#"^\?[[:blank:]]+(.+)[[:blank:]]*$"#)?; // Pattern for out-of-control files
@@ -165,7 +165,7 @@ pub fn clean_build(
         }
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Cleaning unversioneds...{{msg:.green}}",
+        "[{}/{}] Removing unversioneds...{{msg}}",
         step, num_steps
     ))?);
     pb3.finish_with_message("ok");
