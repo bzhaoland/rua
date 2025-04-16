@@ -139,7 +139,7 @@ pub fn clean_build(
         .output()
         .context(format!("Command `svn status {:?}` failed", dirs))?;
     if !output.status.success() {
-        bail!("Can't invoke `svn status {:?}`", dirs.join(" "));
+        bail!("Command `svn status {:?}` failed", dirs.join(" "));
     }
     pb3.disable_steady_tick();
     pb3.set_style(ProgressStyle::with_template(&format!(
@@ -152,15 +152,15 @@ pub fn clean_build(
         if let Some(captures) = regex_unversioneds.captures(line) {
             let item = Path::new(captures.get(1).unwrap().as_str());
             let entry = normalize_path(item);
-            if ignores.iter().all(|x| x != &entry) {
-                pb3.set_message(entry.as_path().to_string_lossy().to_string());
-                if entry.symlink_metadata()?.is_dir() {
-                    fs::remove_dir_all(&entry)
-                        .context(format!("Failed to remove {}", entry.display()))?;
-                } else if entry.is_dir() {
-                    fs::remove_file(&entry)
-                        .context(format!("Failed to remove {}", entry.display()))?;
-                }
+            if ignores.iter().any(|x| x == entry.as_path()) {
+                continue;
+            }
+            pb3.set_message(entry.as_path().to_string_lossy().to_string());
+            if entry.symlink_metadata()?.is_dir() {
+                fs::remove_dir_all(&entry)
+                    .context(format!("Failed to remove {}", entry.display()))?;
+            } else {
+                fs::remove_file(&entry).context(format!("Failed to remove {}", entry.display()))?;
             }
         }
     }
