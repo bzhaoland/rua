@@ -3,7 +3,7 @@ use std::process::Command;
 use std::str::FromStr;
 use std::{env, fs};
 
-use anyhow::{Context, anyhow, bail};
+use anyhow::{Context, bail};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
@@ -66,23 +66,24 @@ pub fn clean_build(
         step, num_steps
     ))?);
     let target_dir = normalize_path("target");
-    if target_dir.is_dir() {
+    if target_dir.exists() && target_dir.symlink_metadata()?.is_dir() {
         for entry in walkdir::WalkDir::new(&target_dir)
             .contents_first(true)
             .follow_links(false)
         {
             let entry = entry?;
+            println!("Deleting {:?}...", entry.path());
             if ignores.iter().any(|x| entry.path().starts_with(x)) {
                 continue;
             }
 
             pb1.set_message(entry.path().to_string_lossy().to_string());
-            if entry.path().is_file() || entry.path().is_symlink() {
-                fs::remove_file(entry.path())
-                    .context(format!("Failed to remove {}", entry.path().display()))?;
-            } else if entry.path().is_dir() {
+            if entry.file_type().is_dir() {
                 fs::remove_dir(entry.path())
-                    .context(format!("Failed to remove {}", entry.path().display()))?;
+                    .context(format!("Remove {} failed", entry.path().display()))?;
+            } else {
+                fs::remove_file(entry.path())
+                    .context(format!("Remove {} failed", entry.path().display()))?;
             }
         }
     }
@@ -99,7 +100,7 @@ pub fn clean_build(
         step, num_steps
     ))?);
     let webui_dir = normalize_path(svninfo.branch_name()); // UI directory name is the same as the branch name
-    if webui_dir.is_dir() {
+    if webui_dir.exists() && webui_dir.symlink_metadata()?.is_dir() {
         for entry in walkdir::WalkDir::new(&webui_dir).contents_first(true) {
             let entry = entry?;
             if ignores.iter().any(|x| entry.path().starts_with(x)) {
@@ -107,11 +108,11 @@ pub fn clean_build(
             }
 
             pb2.set_message(entry.path().to_string_lossy().to_string());
-            if entry.path().is_file() || entry.path().is_symlink() {
-                fs::remove_file(entry.path())
+            if entry.file_type().is_dir() {
+                fs::remove_dir(entry.path())
                     .context(format!("Failed to remove {}", entry.path().display()))?;
             } else if entry.path().is_dir() {
-                fs::remove_dir(entry.path())
+                fs::remove_file(entry.path())
                     .context(format!("Failed to remove {}", entry.path().display()))?;
             }
         }
@@ -146,20 +147,19 @@ pub fn clean_build(
         "[{}/{}] Cleaning unversioneds: {{msg:.green}}",
         step, num_steps,
     ))?);
-    let pattern_for_unversioneds = Regex::new(r#"^\?[[:blank:]]+(.+)[[:blank:]]*$"#)?; // Pattern for out-of-control files
-    let output_str =
-        String::from_utf8(output.stdout).context(anyhow!("Can't convert to String"))?;
+    let regex_unversioneds = Regex::new(r#"^\?[[:blank:]]+(.+)[[:blank:]]*$"#)?; // Pattern for out-of-control files
+    let output_str = String::from_utf8(output.stdout)?;
     for line in output_str.lines() {
-        if let Some(captures) = pattern_for_unversioneds.captures(line) {
+        if let Some(captures) = regex_unversioneds.captures(line) {
             let item = Path::new(captures.get(1).unwrap().as_str());
             let entry = normalize_path(item);
             if ignores.iter().all(|x| x != &entry) {
                 pb3.set_message(entry.as_path().to_string_lossy().to_string());
-                if entry.is_file() || entry.is_symlink() {
-                    fs::remove_file(&entry)
+                if entry.symlink_metadata()?.is_dir() {
+                    fs::remove_dir_all(&entry)
                         .context(format!("Failed to remove {}", entry.display()))?;
                 } else if entry.is_dir() {
-                    fs::remove_dir(&entry)
+                    fs::remove_file(&entry)
                         .context(format!("Failed to remove {}", entry.display()))?;
                 }
             }
