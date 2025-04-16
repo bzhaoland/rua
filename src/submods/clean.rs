@@ -62,7 +62,7 @@ pub fn clean_build(
     // Cleaning the objects generated in building process
     step += 1;
     let pb1 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Cleaning target objs: {{msg:.green}}",
+        "[{}/{}] Removing target objs: {{msg:.green}}",
         step, num_steps
     ))?);
     let target_dir = normalize_path("target");
@@ -72,7 +72,6 @@ pub fn clean_build(
             .follow_links(false)
         {
             let entry = entry?;
-            println!("Deleting {:?}...", entry.path());
             if ignores.iter().any(|x| entry.path().starts_with(x)) {
                 continue;
             }
@@ -88,7 +87,7 @@ pub fn clean_build(
         }
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Cleaning target objs...{{msg:.green}}",
+        "[{}/{}] Removing target objs...{{msg:.green}}",
         step, num_steps
     ))?);
     pb1.finish_with_message("ok");
@@ -96,7 +95,7 @@ pub fn clean_build(
     // Clean UI files
     step += 1;
     let pb2 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Cleaning webui objs: {{msg:.green}}",
+        "[{}/{}] Removing WebUI objs: {{msg:.green}}",
         step, num_steps
     ))?);
     let webui_dir = normalize_path(svninfo.branch_name()); // UI directory name is the same as the branch name
@@ -118,7 +117,7 @@ pub fn clean_build(
         }
     }
     pb2.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Cleaning webui objs...{{msg:.green}}",
+        "[{}/{}] Removing WebUI objs...{{msg:.green}}",
         step, num_steps
     ))?);
     pb2.finish_with_message("ok");
