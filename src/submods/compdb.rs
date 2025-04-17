@@ -206,6 +206,26 @@ pub(crate) fn gen_compdb_by_builtin(
 
     // Build the target (pseudoly)
     step += 1;
+    let mut cmd = Command::new("hsdocker7");
+    let arg = format!(
+        "make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_BUILD_COVERITY=0{} >{} 2>&1",
+        make_directory,
+        make_target,
+        if !macros.is_empty() {
+            " ".to_string()
+                + macros
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect::<Vec<String>>()
+                    .join(" ")
+                    .as_str()
+        } else {
+            String::new()
+        },
+        BUILDLOG_PATH
+    );
+    cmd.arg(arg.as_str());
+    let cmdline = format!(r#"hsdocker7 "{}""#, arg);
     unsafe {
         let mut master_fd: libc::c_int = 0;
         let mut slave_fd: libc::c_int = 0;
@@ -229,19 +249,7 @@ pub(crate) fn gen_compdb_by_builtin(
                 // stdin continues to use master_fd, stdout and stderr use slave_fd
                 libc::dup2(slave_fd, libc::STDOUT_FILENO);
                 libc::dup2(slave_fd, libc::STDERR_FILENO);
-                let mut command = Command::new("hsdocker7");
-                let vars = macros
-                    .iter()
-                    .map(|(k, v)| format!("{}={}", k, v))
-                    .collect::<Vec<String>>()
-                    .join(" ");
-                let mut child = command
-                    .arg(
-                         // This whole line will be treated as a normal arg and passed into hsdocker7
-                        format!("make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_BUILD_COVERITY=0 {} >{} 2>&1", make_directory, make_target, vars, BUILDLOG_PATH),
-                    )
-                    .spawn()
-                    .context("Failed to execute hsdocker7")?;
+                let mut child = cmd.spawn().context("Failed to execute hsdocker7")?;
                 let status = loop {
                     if let Some(status) = child
                         .try_wait()
@@ -261,8 +269,8 @@ pub(crate) fn gen_compdb_by_builtin(
                 libc::close(slave_fd);
                 let pb2 = ProgressBar::no_length().with_style(
                     ProgressStyle::with_template(&format!(
-                        "[{}/{}] Building pseudoly {{spinner:.green}} [{{elapsed_precise}}]",
-                        step, NSTEPS
+                        "[{}/{}] Building pseudoly ({}) {{spinner:.green}} [{{elapsed_precise}}]",
+                        step, NSTEPS, cmdline
                     ))?
                     .tick_chars(TICK_CHARS),
                 );
@@ -276,8 +284,8 @@ pub(crate) fn gen_compdb_by_builtin(
                 if libc::WIFEXITED(status) {
                     let exit_status = libc::WEXITSTATUS(status);
                     pb2.set_style(ProgressStyle::with_template(&format!(
-                        "[{}/{}] Building pseudoly...{{msg}}",
-                        step, NSTEPS
+                        "[{}/{}] Building pseudoly ({})...{{msg}}",
+                        step, NSTEPS, cmdline
                     ))?);
                     if exit_status == 0 {
                         pb2.finish_with_message("ok");
@@ -486,7 +494,10 @@ pub(crate) fn gen_compdb(
             )
         }
         CompdbEngine::Bear => {
-            let bear_path = options.bear_path.as_deref().unwrap_or(Path::new(DEFAULT_BEAR_PATH));
+            let bear_path = options
+                .bear_path
+                .as_deref()
+                .unwrap_or(Path::new(DEFAULT_BEAR_PATH));
             gen_compdb_by_bear(svninfo, bear_path, make_directory, make_target)
         }
     }?;
