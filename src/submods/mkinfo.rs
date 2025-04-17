@@ -104,22 +104,15 @@ pub(crate) struct ProductInfo {
     pub(crate) icon: Option<String>,
 }
 
-// Makeinfo structure for R6 derivatives
 #[derive(Clone, Debug)]
-pub struct MakeInfoV1 {
-    pub(crate) platform_model: String,
-    pub(crate) make_target: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct MakeInfoV2 {
+pub struct MakeInfo {
     pub(crate) platform_model: String,
     pub(crate) product_family: Option<String>,
     pub(crate) make_target: String,
     pub(crate) make_directory: String,
 }
 
-impl fmt::Display for MakeInfoV2 {
+impl fmt::Display for MakeInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -207,8 +200,7 @@ pub(crate) fn read_product_registry(svninfo: &SvnInfo) -> Result<Vec<ProductInfo
 }
 
 /// Load makeinfos from the registry into a list
-#[allow(unused)]
-pub(crate) fn read_mkinfo_registry_v1(svninfo: &SvnInfo) -> anyhow::Result<Vec<MakeInfoV1>> {
+pub(crate) fn read_mkinfo_registry(svninfo: &SvnInfo) -> anyhow::Result<Vec<MakeInfo>> {
     let makeinfo_path = svninfo
         .working_copy_root_path()
         .join("scripts/platform_table");
@@ -219,44 +211,74 @@ pub(crate) fn read_mkinfo_registry_v1(svninfo: &SvnInfo) -> anyhow::Result<Vec<M
     let makeinfo_file = fs::File::open(&makeinfo_path)
         .context(format!(r#"Can't open file "{}""#, makeinfo_path.display()))?;
     let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
-    let pattern_makeinfo = Regex::new(r#"^[[:blank:]]*([[:word:]]+)[[:blank:]]*([-[:word:]]+)"#)
-        .context("Failed to build regex for makeinfo")?;
-    let mut buf = String::with_capacity(128);
-    let mut mkinfos: Vec<MakeInfoV1> = Vec::with_capacity(64);
-    while makeinfo_reader.read_line(&mut buf)? != 0 {
-        if let Some(captures) = pattern_makeinfo.captures(&buf) {
-            mkinfos.push(MakeInfoV1 {
-                platform_model: captures.get(1).unwrap().as_str().to_string(),
-                make_target: captures.get(2).unwrap().as_str().to_string(),
-            });
-        }
-        buf.clear()
-    }
-    mkinfos.shrink_to_fit();
-
-    Ok(mkinfos)
-}
-
-/// Load makeinfos from the registry into a list
-#[allow(unused)]
-pub(crate) fn read_mkinfo_registry_v2(svninfo: &SvnInfo) -> anyhow::Result<Vec<MakeInfoV2>> {
-    let makeinfo_path = svninfo
-        .working_copy_root_path()
-        .join("scripts/platform_table");
-    if !makeinfo_path.is_file() {
-        bail!(r#"File "{}" not available"#, makeinfo_path.display());
-    }
-
-    let makeinfo_file = fs::File::open(&makeinfo_path)
-        .context(format!(r#"Can't open file "{}""#, makeinfo_path.display()))?;
-    let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
-    let re_makeinfo = Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
-        .context("Failed to build regex for makeinfo")?;
     let mut buf = String::with_capacity(256);
-    let mut mkinfos: Vec<MakeInfoV2> = Vec::with_capacity(256);
+    let mut mkinfos: Vec<MakeInfo> = Vec::with_capacity(256);
+
+    match svninfo.branch_name() {
+        "MX_MAIN" => {
+            let re_makeinfo_new = Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
+        .context("Failed to build regex for makeinfo")?;
+            while makeinfo_reader.read_line(&mut buf)? != 0 {
+                if let Some(captures) = re_makeinfo_new.captures(&buf) {
+                    mkinfos.push(MakeInfo {
+                        platform_model: captures.get(1).unwrap().as_str().to_string(),
+                        product_family: captures.get(4).map(|v| v.as_str().to_string()),
+                        make_target: captures.get(2).unwrap().as_str().to_string(),
+                        make_directory: captures.get(3).unwrap().as_str().to_string(),
+                    });
+                }
+                buf.clear()
+            }
+        }
+        _ => {
+            let rel_num: usize = RE_RELNUM
+                .captures(svninfo.branch_name())
+                .context("Failed to capture release num")?
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse()?;
+            match rel_num {
+                6 => {
+                    let re_makeinfo_old =
+                        Regex::new(r#"^[[:blank:]]*([[:word:]]+)[[:blank:]]*([-[:word:]]+)"#)
+                            .context("Failed to build regex for makeinfo")?;
+                    while makeinfo_reader.read_line(&mut buf)? != 0 {
+                        if let Some(captures) = re_makeinfo_old.captures(&buf) {
+                            mkinfos.push(MakeInfo {
+                                platform_model: captures.get(1).unwrap().as_str().to_string(),
+                                make_target: captures.get(2).unwrap().as_str().to_string(),
+                                product_family: None,
+                                make_directory: ".".to_string(),
+                            });
+                        }
+                        buf.clear()
+                    }
+                }
+                x if x >= 8 => {
+                    let re_makeinfo_new = Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
+        .context("Failed to build regex for makeinfo")?;
+                    while makeinfo_reader.read_line(&mut buf)? != 0 {
+                        if let Some(captures) = re_makeinfo_new.captures(&buf) {
+                            mkinfos.push(MakeInfo {
+                                platform_model: captures.get(1).unwrap().as_str().to_string(),
+                                product_family: captures.get(4).map(|v| v.as_str().to_string()),
+                                make_target: captures.get(2).unwrap().as_str().to_string(),
+                                make_directory: captures.get(3).unwrap().as_str().to_string(),
+                            });
+                        }
+                        buf.clear()
+                    }
+                }
+                _ => bail!("Unsupported release"),
+            }
+        }
+    };
+    let re_makeinfo_new = Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
+        .context("Failed to build regex for makeinfo")?;
     while makeinfo_reader.read_line(&mut buf)? != 0 {
-        if let Some(captures) = re_makeinfo.captures(&buf) {
-            mkinfos.push(MakeInfoV2 {
+        if let Some(captures) = re_makeinfo_new.captures(&buf) {
+            mkinfos.push(MakeInfo {
                 platform_model: captures.get(1).unwrap().as_str().to_string(),
                 product_family: captures.get(4).map(|v| v.as_str().to_string()),
                 make_target: captures.get(2).unwrap().as_str().to_string(),
@@ -265,6 +287,7 @@ pub(crate) fn read_mkinfo_registry_v2(svninfo: &SvnInfo) -> anyhow::Result<Vec<M
         }
         buf.clear()
     }
+
     mkinfos.shrink_to_fit();
 
     Ok(mkinfos)
@@ -293,167 +316,18 @@ fn abbreviate_branch(branch: &str) -> anyhow::Result<String> {
     Ok(nickname)
 }
 
-/// Generate makeinfos for platforms in R6 releases
-fn gen_mkinfo_by_nickname_v1(
-    svninfo: &SvnInfo,
-    nickname: &str,
-    makeopts: MakeOpts,
-) -> anyhow::Result<Vec<CompileInfo>> {
-    // Read and filter products
-    let re_nickname = Regex::new(format!(r#"(?i){}$"#, nickname).as_str())?;
-    let product_infos = read_product_registry(svninfo)?
-        .into_iter()
-        .filter(|x| re_nickname.is_match(x.long_name.as_str()))
-        .collect::<Vec<ProductInfo>>();
+const RE_NONALNUM: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"[^[:alnum:]]+"#)
+        .context("Build regex for nonalnum failed")
+        .unwrap()
+});
 
-    // Read and hash makeinfos, allow duplicates
-    let mkinfo_list = read_mkinfo_registry_v1(svninfo)?;
-    let mut mkinfo_map = HashMap::with_capacity(256);
-    for item in mkinfo_list {
-        mkinfo_map
-            .entry(item.platform_model.clone())
-            .or_insert(Vec::with_capacity(1));
-        let v = mkinfo_map.get_mut(item.platform_model.as_str()).unwrap();
-        v.push(item);
-    }
-    mkinfo_map.shrink_to_fit();
-
-    // Use branch name abbreviation to compose the image name
-    let imagename_branch = abbreviate_branch(svninfo.branch_name())?;
-
-    // Compose an image name using product-series/make-target/IPv6-tag/date/username
-    let mut imagename_suffix = String::with_capacity(64);
-    imagename_suffix.push_str(if makeopts.flag.contains(MakeFlag::IPV6) {
-        "V6-"
-    } else {
-        ""
-    });
-    imagename_suffix.push(if makeopts.flag.contains(MakeFlag::RELEASE) {
-        'r'
-    } else {
-        'd'
-    });
-    imagename_suffix.push_str(chrono::Local::now().format("%m%d").to_string().as_str());
-    if let Some(username) = utils::get_current_username() {
-        imagename_suffix.push_str(format!("-{}", username).as_str())
-    }
-
-    let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
-    let mut compile_infos: Vec<CompileInfo> = Vec::new();
-    for product in product_infos.iter() {
-        let imagename_prodname = re_nonalnum.replace_all(&product.short_name, "");
-
-        let mkinfo_arr = match mkinfo_map.get(&product.platform_model) {
-            None => continue,
-            Some(v) => v,
-        };
-
-        for mkinfo in mkinfo_arr.iter() {
-            let mut make_target = mkinfo.make_target.clone();
-            if makeopts.flag.contains(MakeFlag::IPV6) {
-                make_target.push_str("-ipv6");
-            }
-
-            let imagename_target = re_nonalnum
-                .replace_all(&mkinfo.make_target, "")
-                .to_uppercase();
-            let imagename = format!(
-                "{}-{}-{}-{}",
-                imagename_prodname, imagename_branch, imagename_target, imagename_suffix
-            );
-
-            let make_comm = format!(
-                r#"hsdocker7 "make -C . -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} {}IMG_NAME={} {}>build.log 2>&1""#,
-                make_target,
-                if makeopts.flag.contains(MakeFlag::RELEASE) {
-                    1
-                } else {
-                    0
-                },
-                if makeopts.flag.contains(MakeFlag::WEBUI) {
-                    0
-                } else {
-                    1
-                },
-                if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
-                    1
-                } else {
-                    0
-                },
-                if makeopts.flag.contains(MakeFlag::COVERAGE) {
-                    1
-                } else {
-                    0
-                },
-                if makeopts.flag.contains(MakeFlag::COVERITY) {
-                    1
-                } else {
-                    0
-                },
-                makeopts.image_server.map_or_else(
-                    || {
-                        let nodename = uname().nodename().to_string_lossy().to_string();
-                        if nodename.ends_with("-sz") {
-                            "10.200.6.10"
-                        } else {
-                            "10.100.6.10"
-                        }
-                    },
-                    |v| match v {
-                        ImageServer::B => "10.100.6.10",
-                        ImageServer::S => "10.200.6.10",
-                    }
-                ),
-                if !makeopts.nostrip_bins.is_empty() {
-                    format!(
-                        "NOSTRIP={} ",
-                        makeopts
-                            .nostrip_bins
-                            .iter()
-                            .map(|x| x.trim())
-                            .collect::<Vec<&str>>()
-                            .join(",")
-                            .as_str()
-                    )
-                } else {
-                    String::new()
-                },
-                imagename,
-                makeopts
-                    .defines
-                    .iter()
-                    .map(|(k, v)| k.trim().to_owned() + "=" + v.trim())
-                    .collect::<Vec<String>>()
-                    .join(" ")
-                    + " ",
-            );
-            compile_infos.push(CompileInfo {
-                product_name: product.long_name.clone(),
-                product_model: product.product_model.clone(),
-                product_oem_id: product.oem_id.clone(),
-                product_family: product.family.clone(),
-                platform_model: mkinfo.platform_model.clone(),
-                make_target,
-                make_directory: ".".to_string(),
-                make_command: make_comm,
-            });
-        }
-    }
-
-    anyhow::Ok(compile_infos)
-}
-
-fn compose_compileinfo_v2(
+fn compose_compileinfo(
     product: &ProductInfo,
     branch: &str,
-    mkinfo: &MakeInfoV2,
+    mkinfo: &MakeInfo,
     makeopts: &MakeOpts,
 ) -> anyhow::Result<CompileInfo> {
-    static RE_NONALNUM: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"[^[:alnum:]]+"#)
-            .context("Build regex for nonalnum failed")
-            .unwrap()
-    });
     let mut make_target = mkinfo.make_target.clone();
     if makeopts.flag.contains(MakeFlag::IPV6) {
         make_target.push_str("-ipv6");
@@ -582,21 +456,36 @@ fn compose_compileinfo_v2(
     })
 }
 
-/// Generate makeinfos for platforms in R8+ releases
-fn gen_mkinfo_by_nickname_v2(
-    svninfo: &SvnInfo,
+// Get release number
+const RE_RELNUM: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^HAWAII_(?:REL_)?R([[:digit:]]+)|^MX_MAIN")
+        .expect("Failed to build regex for release num")
+});
+
+pub(crate) fn gen_mkinfo_by_nickname(
     nickname: &str,
     makeopts: MakeOpts,
 ) -> anyhow::Result<Vec<CompileInfo>> {
+    let svninfo = utils::SvnInfo::new()?;
+
+    // Check location
+    let proj_root = svninfo.working_copy_root_path();
+    if env::current_dir()?.as_path() != proj_root {
+        bail!(
+            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
+            proj_root.display()
+        );
+    }
+
     // Read and filter products
     let re_nickname = Regex::new(format!(r#"(?i){}$"#, nickname).as_str())?;
-    let product_infos = read_product_registry(svninfo)?
+    let product_infos = read_product_registry(&svninfo)?
         .into_iter()
         .filter(|x| re_nickname.is_match(x.long_name.as_str()))
         .collect::<Vec<ProductInfo>>();
 
     // Read and hash makeinfos, allow duplicates
-    let mkinfo_list = read_mkinfo_registry_v2(svninfo)?;
+    let mkinfo_list = read_mkinfo_registry(&svninfo)?;
     let mut mkinfo_map = HashMap::with_capacity(256);
     for item in mkinfo_list {
         mkinfo_map
@@ -645,50 +534,12 @@ fn gen_mkinfo_by_nickname_v2(
                     && x.product_family.as_ref().unwrap() == product.family.as_ref().unwrap())
         }) {
             let compile_info =
-                compose_compileinfo_v2(product, svninfo.branch_name(), mkinfo, &makeopts)?;
+                compose_compileinfo(product, svninfo.branch_name(), mkinfo, &makeopts)?;
             compile_infos.push(compile_info);
         }
     }
 
     anyhow::Ok(compile_infos)
-}
-
-pub(crate) fn gen_mkinfo_by_nickname(
-    nickname: &str,
-    makeopts: MakeOpts,
-) -> anyhow::Result<Vec<CompileInfo>> {
-    let svninfo = utils::SvnInfo::new()?;
-
-    // Check location
-    let proj_root = svninfo.working_copy_root_path();
-    if env::current_dir()?.as_path() != proj_root {
-        bail!(
-            r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
-            proj_root.display()
-        );
-    }
-
-    // Check release
-    let pattern_rel_num = Regex::new("^HAWAII_(?:REL_)?R([[:digit:]]+)|^MX_MAIN")
-        .context("Failed to build regex for release num")?;
-    let branch = svninfo.branch_name();
-    match branch {
-        "MX_MAIN" => gen_mkinfo_by_nickname_v2(&svninfo, nickname, makeopts),
-        _ => {
-            let rel_num: usize = pattern_rel_num
-                .captures(svninfo.branch_name())
-                .context("Failed to capture release num")?
-                .get(1)
-                .unwrap()
-                .as_str()
-                .parse()?;
-            match rel_num {
-                6 => gen_mkinfo_by_nickname_v1(&svninfo, nickname, makeopts),
-                x if x >= 8 => gen_mkinfo_by_nickname_v2(&svninfo, nickname, makeopts),
-                _ => bail!("Unsupported release"),
-            }
-        }
-    }
 }
 
 pub(crate) fn gen_mkinfo_by_target(
@@ -706,11 +557,10 @@ pub(crate) fn gen_mkinfo_by_target(
         );
     }
 
-    let mkinfo_list = read_mkinfo_registry_v2(&svninfo)?;
+    let mkinfo_list = read_mkinfo_registry(&svninfo)?;
     let product_list = read_product_registry(&svninfo)?;
 
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
-    let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum")?;
     let imagename_branch = abbreviate_branch(svninfo.branch_name())?;
     let mut imagename_suffix = String::with_capacity(32);
     if makeopts.flag.contains(MakeFlag::IPV6) {
@@ -735,7 +585,7 @@ pub(crate) fn gen_mkinfo_by_target(
         .iter()
         .filter(|x| re_target.is_match(x.make_target.as_str()))
     {
-        let imagename_target = re_nonalnum
+        let imagename_target = RE_NONALNUM
             .replace_all(mkinfo.make_target.as_str(), "")
             .to_uppercase();
         let make_target = if !target.ends_with("-ipv6") && makeopts.flag.contains(MakeFlag::IPV6) {

@@ -29,6 +29,44 @@
 #let ftp_server_bj = "10.100.6.10"
 #let ftp_server_sz = "10.200.6.10"
 
+= rua v1.2.2
+
+#let rua_ver = "1.2.2"
+#let rua_path = [bzhao/rua/#rua_ver/rua]
+
+== 存放位置
+
+- 北京: #ftp_server_bj/#rua_path
+- 苏州: #ftp_server_sz/#rua_path
+
+== 下载安装
+
+北京，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/1.2.2/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+苏州，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.200.6.10/bzhao/rua/1.2.2/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+== 功能修复
+
++ clean: 完善了清理功能，clean 会做以下三个工作：
+  + 删除 target 文件夹
+  + 删除 webui 文件夹（与分支同名）
+  + 删除未受SVN管控的文件，改功能与 make stoneos-clean 相似，但允许保留特定文件（通过配置文件或命令行参数）
+- 
+
+#pagebreak()
+
 = rua v1.2.1
 
 #let rua_ver = "1.2.1"
