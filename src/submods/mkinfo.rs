@@ -644,10 +644,6 @@ fn gen_mkinfo_by_nickname_v2(
                 || (x.product_family.is_some()
                     && x.product_family.as_ref().unwrap() == product.family.as_ref().unwrap())
         }) {
-            let mut make_target = mkinfo.make_target.clone();
-            if makeopts.flag.contains(MakeFlag::IPV6) {
-                make_target.push_str("-ipv6");
-            }
             let compile_info =
                 compose_compileinfo_v2(product, svninfo.branch_name(), mkinfo, &makeopts)?;
             compile_infos.push(compile_info);
