@@ -334,6 +334,67 @@ fn compose_compileinfo(
     }
     let mut make_comm = format!("make -C {} -j8 {}", mkinfo.make_directory, make_target);
 
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::RELEASE) {
+        " ISBUILDRELEASE=1"
+    } else {
+        " ISBUILDRELEASE=0"
+    });
+
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::WEBUI) {
+        " NOTBUILDUNIWEBUI=0"
+    } else {
+        " NOTBUILDUNIWEBUI=1"
+    });
+
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
+        " HS_SHELL_PASSWORD=1"
+    } else {
+        " HS_SHELL_PASSWORD=0"
+    });
+
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::COVERAGE) {
+        " HS_BUILD_COVERAGE=1"
+    } else {
+        " HS_BUILD_COVERAGE=0"
+    });
+
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::COVERITY) {
+        " HS_BUILD_COVERITY=1"
+    } else {
+        " HS_BUILD_COVERITY=0"
+    });
+
+    make_comm.push_str(makeopts.image_server.map_or(
+        {
+            let nodename = uname().nodename().to_string_lossy().to_string();
+            if nodename.ends_with("-sz") {
+                " OS_IMAGE_FTP_IP=10.200.6.10"
+            } else {
+                " OS_IMAGE_FTP_IP=10.100.6.10"
+            }
+        },
+        |v| match v {
+            ImageServer::B => " OS_IMAGE_FTP_IP=10.100.6.10",
+            ImageServer::S => " OS_IMAGE_FTP_IP=10.200.6.10",
+        },
+    ));
+
+    if !makeopts.nostrip_bins.is_empty() {
+        make_comm.push_str(
+            format!(
+                " NOSTRIP={}",
+                makeopts
+                    .nostrip_bins
+                    .iter()
+                    .map(|x| x.trim().to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+                    .as_str()
+            )
+            .as_str(),
+        );
+    }
+
     let prodname = RE_NONALNUM.replace_all(&product.short_name, "");
     let branch = abbreviate_branch(branch)?;
     let imagename_target = RE_NONALNUM
@@ -358,78 +419,7 @@ fn compose_compileinfo(
         "{}-{}-{}-{}",
         prodname, branch, imagename_target, imagename_suffix
     );
-    make_comm.push(' ');
-    make_comm.push_str(&imagename);
-
-    make_comm.push(' ');
-    make_comm.push_str(if makeopts.flag.contains(MakeFlag::RELEASE) {
-        "ISBUILDRELEASE=1"
-    } else {
-        "ISBUILDRELEASE=0"
-    });
-
-    make_comm.push(' ');
-    make_comm.push_str(if makeopts.flag.contains(MakeFlag::WEBUI) {
-        "NOTBUILDUNIWEBUI=0"
-    } else {
-        "NOTBUILDUNIWEBUI=1"
-    });
-
-    make_comm.push(' ');
-    make_comm.push_str(if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
-        "HS_SHELL_PASSWORD=1"
-    } else {
-        "HS_SHELL_PASSWORD=0"
-    });
-
-    make_comm.push(' ');
-    make_comm.push_str(if makeopts.flag.contains(MakeFlag::COVERAGE) {
-        "HS_BUILD_COVERAGE=1"
-    } else {
-        "HS_BUILD_COVERAGE=0"
-    });
-
-    make_comm.push(' ');
-    make_comm.push_str(if makeopts.flag.contains(MakeFlag::COVERITY) {
-        "HS_BUILD_COVERITY=1"
-    } else {
-        "HS_BUILD_COVERITY=0"
-    });
-
-    make_comm.push(' ');
-    make_comm.push_str(makeopts.image_server.map_or(
-        {
-            let nodename = uname().nodename().to_string_lossy().to_string();
-            if nodename.ends_with("-sz") {
-                "OS_IMAGE_FTP_IP=10.200.6.10"
-            } else {
-                "OS_IMAGE_FTP_IP=10.100.6.10"
-            }
-        },
-        |v| match v {
-            ImageServer::B => "OS_IMAGE_FTP_IP=10.100.6.10",
-            ImageServer::S => "OS_IMAGE_FTP_IP=10.200.6.10",
-        },
-    ));
-
-    if !makeopts.nostrip_bins.is_empty() {
-        make_comm.push_str(
-            format!(
-                " NOSTRIP={}",
-                makeopts
-                    .nostrip_bins
-                    .iter()
-                    .map(|x| x.trim().to_string())
-                    .collect::<Vec<String>>()
-                    .join(",")
-                    .as_str()
-            )
-            .as_str(),
-        );
-    }
-
-    make_comm.push(' ');
-    make_comm.push_str(&format!("IMG_NAME={}", imagename));
+    make_comm.push_str(&format!(" IMG_NAME={}", imagename));
 
     if !makeopts.defines.is_empty() {
         make_comm.push(' ');
