@@ -27,12 +27,8 @@ const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Col
 const STYLE_YELLOW_BOLD: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
-const STYLE_GREEN_BOLD: Style = Style::new()
-    .fg_color(Some(Color::Ansi256(Ansi256Color(2))))
-    .bold();
-const STYLE_CYAN_BOLD: Style = Style::new()
-    .fg_color(Some(Color::Ansi256(Ansi256Color(6))))
-    .bold();
+const STYLE_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
+const STYLE_CYAN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(6))));
 const STYLE_RED: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(1))));
 const STYLE_RED_BOLD: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(1))))
@@ -41,8 +37,8 @@ const STYLE_ITALIC: Style = Style::new().italic();
 const STYLES: styling::Styles = styling::Styles::styled()
     .header(STYLE_YELLOW_BOLD)
     .usage(STYLE_YELLOW_BOLD)
-    .literal(STYLE_GREEN_BOLD)
-    .placeholder(STYLE_CYAN_BOLD);
+    .literal(STYLE_GREEN)
+    .placeholder(STYLE_CYAN);
 
 #[derive(Clone, Debug, Subcommand)]
 pub(crate) enum CompdbCommand {
@@ -79,9 +75,10 @@ pub(crate) enum CompdbCommand {
      - scripts/rules.mk
   These files may be left dirty if compdb process aborted unexpectedly. You
   could manually restore them by execute:
-  {0}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{0:#}"#,
-      STYLE_YELLOW,
-      STYLE_RED_BOLD))]
+  {2}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{2:#}"#,
+      STYLE_YELLOW_BOLD,
+      STYLE_RED_BOLD,
+      STYLE_YELLOW))]
     Gen {
         #[arg(
             short = 'D',
@@ -228,7 +225,7 @@ pub(crate) enum Comm {
 
 {1}Caution:{1:#}
   All unversioned files will be {2}REMOVED{2:#} permanantly, including files created by YOU but not
-  added to SVN. Use it carefully."#,
+  added to SVN. Use it carefully!"#,
   STYLE_YELLOW_BOLD,
   STYLE_RED_BOLD,
   STYLE_RED))]
