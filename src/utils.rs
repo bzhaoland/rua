@@ -1,5 +1,5 @@
 use std::os::unix::ffi::OsStringExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::LazyLock;
 use std::{ffi::OsString, fmt::Display};
@@ -225,4 +225,23 @@ Last Changed Date: ([^\n]+)"#,
     pub fn last_changed_date(&self) -> &str {
         self.last_changed_date.as_str()
     }
+}
+
+pub(crate) fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.as_ref().components() {
+        match component {
+            std::path::Component::RootDir => {
+                normalized.push(component);
+            }
+            std::path::Component::ParentDir => {
+                normalized.pop(); // Go up one directory
+            }
+            std::path::Component::Normal(v) => {
+                normalized.push(v); // Push normal components
+            }
+            _ => {} // Skip current directory (.) and others
+        }
+    }
+    normalized
 }

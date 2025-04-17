@@ -7,29 +7,9 @@ use anyhow::{Context, bail};
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
-use crate::config::PROJ_RUA_DIR;
-use crate::submods::compdb::COMPDB_FILE;
-use crate::utils::SvnInfo;
+use crate::config::{CLANGD_CACHE_DIR, COMPDB_FILE, PROJ_LEVEL_RUA_DIR};
 use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
-
-fn normalize_path<P: AsRef<Path>>(path: P) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.as_ref().components() {
-        match component {
-            std::path::Component::RootDir => {
-                normalized.push(component);
-            }
-            std::path::Component::ParentDir => {
-                normalized.pop(); // Go up one directory
-            }
-            std::path::Component::Normal(v) => {
-                normalized.push(v); // Push normal components
-            }
-            _ => {} // Skip current directory (.) and others
-        }
-    }
-    normalized
-}
+use crate::utils::{SvnInfo, normalize_path};
 
 pub fn clean_build(
     dirs: Option<&Vec<String>>,
@@ -37,7 +17,6 @@ pub fn clean_build(
 ) -> anyhow::Result<()> {
     // Check directory
     let svninfo = SvnInfo::new()?;
-    let _a = String::from("asdf").as_str();
     if env::current_dir()?.as_path() != svninfo.working_copy_root_path() {
         bail!(
             r#"Location error! Please run this command under the project root, i.e. "{}"."#,
@@ -45,10 +24,12 @@ pub fn clean_build(
         );
     }
 
-    let mut ignore_set = HashSet::with_capacity(64);
-    ignore_set.insert(normalize_path(PROJ_RUA_DIR));
-    ignore_set.insert(normalize_path(".cache")); // clangd cache
-    ignore_set.insert(normalize_path(COMPDB_FILE));
+    let mut ignore_set: HashSet<PathBuf> = HashSet::from_iter(vec![
+        PROJ_LEVEL_RUA_DIR.clone(),
+        COMPDB_FILE.clone(),      // compile_commands.json
+        CLANGD_CACHE_DIR.clone(), // clangd cache
+    ]);
+
     if let Some(v) = ignores {
         for item in v.iter() {
             ignore_set.insert(normalize_path(Path::new(item)));

@@ -12,7 +12,7 @@ use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use rusqlite::Connection;
 
-use crate::config::RuaConf;
+use crate::config::{COMPDB_FILE, COMPDB_STORE, RuaConf};
 use crate::submods::clean;
 use crate::submods::compdb::{self, CompdbEngine};
 use crate::submods::mkinfo::{self, GenBy, MakeOpts};
@@ -471,7 +471,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
         }
         Comm::Compdb { compdb_comm } => {
             let conf = RuaConf::new()?;
-            let rua_cache = Path::new(compdb::COMPDB_STORE);
+            let compdb_store = COMPDB_STORE;
+            let rua_cache = compdb_store.as_path();
             if !rua_cache.is_file() {
                 print!("The compilation database store does not exist, create it? [Y/n]: ");
                 io::stdout().flush()?;
@@ -486,7 +487,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
             }
 
-            let conn = Connection::open(compdb::COMPDB_STORE)?;
+            let conn = Connection::open(COMPDB_STORE.as_path())?;
             compdb::create_tables(&conn)?;
 
             match compdb_comm {
@@ -662,9 +663,10 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     compdb_path,
                 } => {
                     let svninfo = utils::SvnInfo::new()?;
+                    let compdb_file = COMPDB_FILE;
                     let compdb_path = compdb_path
                         .as_ref()
-                        .map_or_else(|| compdb::COMPDB_FILE, |x| x.as_str());
+                        .map_or_else(|| compdb_file.as_path(), |x| Path::new(x.as_str()));
                     eprint!(
                         "Archiving compilation database for {} into store...",
                         target

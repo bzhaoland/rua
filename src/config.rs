@@ -1,3 +1,5 @@
+use std::{path::PathBuf, str::FromStr, sync::LazyLock};
+
 use anyhow::Context;
 use config::Config;
 use indexmap::IndexMap;
@@ -5,7 +7,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::SvnInfo;
 
-pub(crate) const PROJ_RUA_DIR: &str = ".rua";
+pub(crate) const PROJ_LEVEL_RUA_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| PathBuf::from_str(".rua").expect("Construct PROJ_LEVEL_RUA_DIR failed"));
+pub(crate) const CLANGD_CACHE_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| PathBuf::from_str(".cache").expect("Construct CLANGD_CACHE_DIR failed"));
+pub(crate) const COMPDB_FILE: LazyLock<PathBuf> = LazyLock::new(|| {
+    PathBuf::from_str("compile_commands.json").expect("Construct COMPDB_FILE failed")
+});
+pub(crate) const COMPDB_STORE: LazyLock<PathBuf> =
+    LazyLock::new(|| PathBuf::from_str(".rua/compdbs.db3").expect("Construct COMPDB_STORE failed"));
+pub(crate) const DEFAULT_BEAR: LazyLock<PathBuf> = LazyLock::new(|| {
+    PathBuf::from_str("/devel/sw/bear/bin/bear").expect("Construct DEFAULT_BEAR failed")
+});
+pub(crate) const DEFAULT_INTERCEPT_BUILD: LazyLock<PathBuf> = LazyLock::new(|| {
+    PathBuf::from_str("/devel/sw/llvm/bin/intercept-build")
+        .expect("Construct DEFAULT_INTERCEPT_BUILD failed")
+});
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CleanConf {

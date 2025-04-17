@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
 use zstd::{decode_all, encode_all};
 
+use crate::config::{COMPDB_FILE, DEFAULT_BEAR, DEFAULT_INTERCEPT_BUILD};
 use crate::utils::SvnInfo;
 use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
 
@@ -83,11 +84,7 @@ impl fmt::Display for CompdbRecord {
     }
 }
 
-pub(crate) const COMPDB_FILE: &str = "compile_commands.json";
-pub(crate) const COMPDB_STORE: &str = ".rua/compdbs.db3";
-pub(crate) const DEFAULT_BEAR_PATH: &str = "/devel/sw/bear/bin/bear";
-pub(crate) const DEFAULT_INTERCEPT_BUILD_PATH: &str = "/devel/sw/llvm/bin/intercept-build";
-pub(crate) const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
+const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
 
 pub(crate) fn gen_compdb_by_builtin(
     svninfo: &SvnInfo,
@@ -375,7 +372,7 @@ pub(crate) fn gen_compdb_by_builtin(
             "file": item.file,
         }));
     }
-    fs::write(COMPDB_FILE, serde_json::to_string_pretty(&jcdb)?)?;
+    fs::write(COMPDB_FILE.as_path(), serde_json::to_string_pretty(&jcdb)?)?;
     pb5.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Generating compilation database..{{msg}}",
         step, NSTEPS
@@ -482,10 +479,11 @@ pub(crate) fn gen_compdb(
             gen_compdb_by_builtin(svninfo, make_directory, make_target, &options.defines)
         }
         CompdbEngine::InterceptBuild => {
+            let default_ib = DEFAULT_INTERCEPT_BUILD;
             let intercept_build_path = options
                 .intercept_build_path
                 .as_deref()
-                .unwrap_or(Path::new(DEFAULT_INTERCEPT_BUILD_PATH));
+                .unwrap_or(default_ib.as_path());
             gen_compdb_by_intercept_build(
                 svninfo,
                 intercept_build_path,
@@ -494,10 +492,11 @@ pub(crate) fn gen_compdb(
             )
         }
         CompdbEngine::Bear => {
+            let default_bear = DEFAULT_BEAR;
             let bear_path = options
                 .bear_path
                 .as_deref()
-                .unwrap_or(Path::new(DEFAULT_BEAR_PATH));
+                .unwrap_or(default_bear.as_path());
             gen_compdb_by_bear(svninfo, bear_path, make_directory, make_target)
         }
     }?;
@@ -817,7 +816,7 @@ pub(crate) fn use_generation(conn: &Connection, generation: i64) -> anyhow::Resu
         .optional()?;
     let item = item.context("Generation not available")?;
     let compile_commands = decode_all(&item[..])?;
-    fs::write(COMPDB_FILE, compile_commands)?;
+    fs::write(COMPDB_FILE.as_path(), compile_commands)?;
     set_current_generation(conn, generation)?;
     pb.finish_with_message("ok");
     Ok(())
