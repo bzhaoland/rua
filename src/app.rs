@@ -256,17 +256,8 @@ pub(crate) enum Comm {
   rua mkinfo --by-target a-dnv  # Makeinfos for a-dnv target"#, STYLE_YELLOW)
     )]
     Mkinfo {
-        /// Build with only IPv4 enabled
-        #[arg(short = '4', long = "ipv4", default_value_t = true)]
-        ipv4: bool,
-
         /// Build with IPv6 enabled
-        #[arg(
-            short = '6',
-            long = "ipv6",
-            default_value_t = false,
-            conflicts_with_all = ["ipv4"]
-        )]
+        #[arg(short = '6', long = "ipv6", default_value_t = false)]
         ipv6: bool,
 
         /// Run coverage
@@ -748,7 +739,6 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
         }
         Comm::Silist { prefix } => silist::gen_silist(&prefix),
         Comm::Mkinfo {
-            ipv4: _,
             ipv6,
             coverage,
             coverity,
