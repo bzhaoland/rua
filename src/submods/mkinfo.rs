@@ -3,6 +3,7 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::sync::LazyLock;
 
 use anstyle::{Ansi256Color, Color, Style};
 use anyhow::{self, Context, Result, bail};
@@ -272,19 +273,19 @@ pub(crate) fn read_mkinfo_registry_v2(svninfo: &SvnInfo) -> anyhow::Result<Vec<M
 const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
 const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 
-fn abbreviate_branch(svninfo: &SvnInfo) -> anyhow::Result<String> {
+fn abbreviate_branch(branch: &str) -> anyhow::Result<String> {
     let pattern_branch_part =
         Regex::new(r"HAWAII_([-[:word:]]+)").context("Build regex for nickname failed")?;
     let pattern_nonalnum =
         Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
-    let captures = pattern_branch_part.captures(svninfo.branch_name());
+    let captures = pattern_branch_part.captures(branch);
     let nickname = pattern_nonalnum
         .replace_all(
             &match captures {
                 Some(v) => v
                     .get(1)
-                    .map_or(svninfo.branch_name().to_owned(), |x| x.as_str().to_string()),
-                None => svninfo.branch_name().to_string(),
+                    .map_or(branch.to_owned(), |x| x.as_str().to_string()),
+                None => branch.to_string(),
             },
             "",
         )
@@ -318,7 +319,7 @@ fn gen_mkinfo_by_nickname_v1(
     mkinfo_map.shrink_to_fit();
 
     // Use branch name abbreviation to compose the image name
-    let imagename_branch = abbreviate_branch(svninfo)?;
+    let imagename_branch = abbreviate_branch(svninfo.branch_name())?;
 
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let mut imagename_suffix = String::with_capacity(64);
@@ -442,6 +443,145 @@ fn gen_mkinfo_by_nickname_v1(
     anyhow::Ok(compile_infos)
 }
 
+fn compose_compileinfo_v2(
+    product: &ProductInfo,
+    branch: &str,
+    mkinfo: &MakeInfoV2,
+    makeopts: &MakeOpts,
+) -> anyhow::Result<CompileInfo> {
+    static RE_NONALNUM: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"[^[:alnum:]]+"#)
+            .context("Build regex for nonalnum failed")
+            .unwrap()
+    });
+    let mut make_target = mkinfo.make_target.clone();
+    if makeopts.flag.contains(MakeFlag::IPV6) {
+        make_target.push_str("-ipv6");
+    }
+    let mut make_comm = format!("make -C {} -j8 {}", mkinfo.make_directory, make_target);
+
+    let prodname = RE_NONALNUM.replace_all(&product.short_name, "");
+    let branch = abbreviate_branch(branch)?;
+    let imagename_target = RE_NONALNUM
+        .replace_all(&mkinfo.make_target, "")
+        .to_uppercase();
+    let mut imagename_suffix = String::with_capacity(16);
+    imagename_suffix.push_str(if makeopts.flag.contains(MakeFlag::IPV6) {
+        "V6-"
+    } else {
+        ""
+    });
+    imagename_suffix.push(if makeopts.flag.contains(MakeFlag::RELEASE) {
+        'r'
+    } else {
+        'd'
+    });
+    imagename_suffix.push_str(chrono::Local::now().format("%m%d").to_string().as_str());
+    if let Some(username) = utils::get_current_username() {
+        imagename_suffix.push_str(format!("-{}", username).as_str())
+    }
+    let imagename = format!(
+        "{}-{}-{}-{}",
+        prodname, branch, imagename_target, imagename_suffix
+    );
+    make_comm.push(' ');
+    make_comm.push_str(&imagename);
+
+    make_comm.push(' ');
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::RELEASE) {
+        "ISBUILDRELEASE=1"
+    } else {
+        "ISBUILDRELEASE=0"
+    });
+
+    make_comm.push(' ');
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::WEBUI) {
+        "NOTBUILDUNIWEBUI=0"
+    } else {
+        "NOTBUILDUNIWEBUI=1"
+    });
+
+    make_comm.push(' ');
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
+        "HS_SHELL_PASSWORD=1"
+    } else {
+        "HS_SHELL_PASSWORD=0"
+    });
+
+    make_comm.push(' ');
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::COVERAGE) {
+        "HS_BUILD_COVERAGE=1"
+    } else {
+        "HS_BUILD_COVERAGE=0"
+    });
+
+    make_comm.push(' ');
+    make_comm.push_str(if makeopts.flag.contains(MakeFlag::COVERITY) {
+        "HS_BUILD_COVERITY=1"
+    } else {
+        "HS_BUILD_COVERITY=0"
+    });
+
+    make_comm.push(' ');
+    make_comm.push_str(makeopts.image_server.map_or(
+        {
+            let nodename = uname().nodename().to_string_lossy().to_string();
+            if nodename.ends_with("-sz") {
+                "OS_IMAGE_FTP_IP=10.200.6.10"
+            } else {
+                "OS_IMAGE_FTP_IP=10.100.6.10"
+            }
+        },
+        |v| match v {
+            ImageServer::B => "OS_IMAGE_FTP_IP=10.100.6.10",
+            ImageServer::S => "OS_IMAGE_FTP_IP=10.200.6.10",
+        },
+    ));
+
+    if !makeopts.nostrip_bins.is_empty() {
+        make_comm.push_str(
+            format!(
+                " NOSTRIP={}",
+                makeopts
+                    .nostrip_bins
+                    .iter()
+                    .map(|x| x.trim().to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+                    .as_str()
+            )
+            .as_str(),
+        );
+    }
+
+    make_comm.push(' ');
+    make_comm.push_str(&format!("IMG_NAME={}", imagename));
+
+    if !makeopts.defines.is_empty() {
+        make_comm.push(' ');
+        make_comm.push_str(
+            makeopts
+                .defines
+                .iter()
+                .map(|(k, v)| k.trim().to_owned() + "=" + v.trim())
+                .collect::<Vec<String>>()
+                .join(" ")
+                .as_str(),
+        );
+    }
+
+    Ok(CompileInfo {
+        product_name: product.long_name.clone(),
+        product_model: product.product_model.clone(),
+        product_oem_id: product.oem_id.clone(),
+        product_family: product.family.clone(),
+        platform_model: mkinfo.platform_model.clone(),
+        make_target,
+        make_directory: mkinfo.make_directory.clone(),
+        make_command: format!(r#"hsdocker7 "{} >build.log 2>&1""#, make_comm),
+    })
+}
+
 /// Generate makeinfos for platforms in R8+ releases
 fn gen_mkinfo_by_nickname_v2(
     svninfo: &SvnInfo,
@@ -491,30 +631,8 @@ fn gen_mkinfo_by_nickname_v2(
         _ => false,
     };
 
-    // Use branch name abbreviation to compose the image name
-    let imagename_branch = abbreviate_branch(svninfo)?;
-
-    let mut imagename_suffix = String::with_capacity(64);
-    imagename_suffix.push_str(if makeopts.flag.contains(MakeFlag::IPV6) {
-        "V6-"
-    } else {
-        ""
-    });
-    imagename_suffix.push(if makeopts.flag.contains(MakeFlag::RELEASE) {
-        'r'
-    } else {
-        'd'
-    });
-    imagename_suffix.push_str(chrono::Local::now().format("%m%d").to_string().as_str());
-    if let Some(username) = utils::get_current_username() {
-        imagename_suffix.push_str(format!("-{}", username).as_str())
-    }
-
-    let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for product in product_infos.iter() {
-        let imagename_prodname = re_nonalnum.replace_all(&product.short_name, "");
-
         let mkinfo_arr = match mkinfo_map.get(&product.platform_model) {
             None => continue,
             Some(v) => v,
@@ -530,84 +648,9 @@ fn gen_mkinfo_by_nickname_v2(
             if makeopts.flag.contains(MakeFlag::IPV6) {
                 make_target.push_str("-ipv6");
             }
-
-            let imagename_target = re_nonalnum
-                .replace_all(&mkinfo.make_target, "")
-                .to_uppercase();
-            let imagename = format!(
-                "{}-{}-{}-{}",
-                imagename_prodname, imagename_branch, imagename_target, imagename_suffix
-            );
-
-            let make_comm = format!(
-                r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={}{} IMG_NAME={} >build.log 2>&1""#,
-                mkinfo.make_directory,
-                make_target,
-                if makeopts.flag.contains(MakeFlag::RELEASE) {
-                    1
-                } else {
-                    0
-                },
-                if makeopts.flag.contains(MakeFlag::WEBUI) {
-                    0
-                } else {
-                    1
-                },
-                if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
-                    1
-                } else {
-                    0
-                },
-                if makeopts.flag.contains(MakeFlag::COVERAGE) {
-                    1
-                } else {
-                    0
-                },
-                if makeopts.flag.contains(MakeFlag::COVERITY) {
-                    1
-                } else {
-                    0
-                },
-                makeopts.image_server.map_or(
-                    {
-                        let nodename = uname().nodename().to_string_lossy().to_string();
-                        if nodename.ends_with("-sz") {
-                            "10.200.6.10".to_string()
-                        } else {
-                            "10.100.6.10".to_string()
-                        }
-                    },
-                    |v| match v {
-                        ImageServer::B => "10.100.6.10".to_string(),
-                        ImageServer::S => "10.200.6.10".to_string(),
-                    }
-                ),
-                if !makeopts.nostrip_bins.is_empty() {
-                    format!(
-                        r#" NOSTRIP="{}""#,
-                        makeopts
-                            .nostrip_bins
-                            .iter()
-                            .map(|x| x.trim().to_string())
-                            .collect::<Vec<String>>()
-                            .join(",")
-                            .as_str()
-                    )
-                } else {
-                    String::new()
-                },
-                imagename
-            );
-            compile_infos.push(CompileInfo {
-                product_name: product.long_name.clone(),
-                product_model: product.product_model.clone(),
-                product_oem_id: product.oem_id.clone(),
-                product_family: product.family.clone(),
-                platform_model: mkinfo.platform_model.clone(),
-                make_target,
-                make_directory: mkinfo.make_directory.clone(),
-                make_command: make_comm,
-            });
+            let compile_info =
+                compose_compileinfo_v2(product, svninfo.branch_name(), mkinfo, &makeopts)?;
+            compile_infos.push(compile_info);
         }
     }
 
@@ -672,7 +715,7 @@ pub(crate) fn gen_mkinfo_by_target(
 
     // Compose an image name using product-series/make-target/IPv6-tag/date/username
     let re_nonalnum = Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum")?;
-    let imagename_branch = abbreviate_branch(&svninfo)?;
+    let imagename_branch = abbreviate_branch(svninfo.branch_name())?;
     let mut imagename_suffix = String::with_capacity(32);
     if makeopts.flag.contains(MakeFlag::IPV6) {
         imagename_suffix.push_str("V6-");

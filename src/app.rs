@@ -458,9 +458,9 @@ pub(crate) struct Cli {
 }
 
 pub(crate) fn run_app(args: &Cli) -> Result<()> {
-    let conf = RuaConf::new()?;
     match args.command.clone() {
         Comm::Clean { dirs, ignores } => {
+            let conf = RuaConf::new()?;
             let mut ignore_list = Vec::new();
             if let Some(v) = ignores {
                 ignore_list.extend(v);
@@ -473,6 +473,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             clean::clean_build(dirs.as_ref(), Some(&ignore_list))
         }
         Comm::Compdb { compdb_comm } => {
+            let conf = RuaConf::new()?;
             let rua_cache = Path::new(compdb::COMPDB_STORE);
             if !rua_cache.is_file() {
                 print!("The compilation database store does not exist, create it? [Y/n]: ");
@@ -538,7 +539,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     if let Some(v) = engine {
                         final_engine = Some(v);
                     }
-                    
+
                     let svninfo = utils::SvnInfo::new()?;
 
                     // Add defines from config and cli
@@ -760,6 +761,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             by_target,
             product_name_or_compile_target,
         } => {
+            let conf = RuaConf::new()?;
             let mkinfo_conf = conf.mkinfo;
 
             let mut final_image_server = None;
@@ -848,6 +850,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             revisions,
             template_file,
         } => {
+            let conf = RuaConf::new()?;
             let mut final_template_file = None;
             if let Some(review_conf) = conf.review.as_ref() {
                 if let Some(v) = review_conf.template_file.as_ref() {
@@ -857,7 +860,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             if let Some(v) = template_file.as_deref() {
                 final_template_file = Some(v.to_string());
             }
-            
+
             let options = review::ReviewOptions {
                 bug_id,
                 review_id,
