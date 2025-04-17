@@ -567,7 +567,7 @@ pub(crate) fn gen_mkinfo_by_target(
         .filter(|x| re_target.is_match(x.make_target.as_str()))
     {
         let mut makeopts_new = makeopts.clone();
-        if !target.ends_with("-ipv6") {
+        if target.ends_with("-ipv6") {
             makeopts_new.flag |= MakeFlag::IPV6;
         }
 
