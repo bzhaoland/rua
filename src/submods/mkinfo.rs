@@ -557,91 +557,19 @@ pub(crate) fn gen_mkinfo_by_target(
         );
     }
 
-    let mkinfo_list = read_mkinfo_registry(&svninfo)?;
     let product_list = read_product_registry(&svninfo)?;
-
-    // Compose an image name using product-series/make-target/IPv6-tag/date/username
-    let imagename_branch = abbreviate_branch(svninfo.branch_name())?;
-    let mut imagename_suffix = String::with_capacity(32);
-    if makeopts.flag.contains(MakeFlag::IPV6) {
-        imagename_suffix.push_str("V6-");
-    }
-    imagename_suffix.push(if makeopts.flag.contains(MakeFlag::RELEASE) {
-        'r'
-    } else {
-        'd'
-    });
-    let current_date = chrono::Local::now().format("%m%d").to_string();
-    imagename_suffix.push_str(&current_date);
-    let username = utils::get_current_username().context("Failed to get username")?;
-    imagename_suffix.push('-');
-    imagename_suffix.push_str(&username);
-
+    let mkinfo_list = read_mkinfo_registry(&svninfo)?;
     let re_target =
         Regex::new(format!("(?i)^{}$", target.strip_suffix("-ipv6").unwrap_or(target)).as_str())?;
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
-    let imagename_prodname = "SG6000";
     for mkinfo in mkinfo_list
         .iter()
         .filter(|x| re_target.is_match(x.make_target.as_str()))
     {
-        let imagename_target = RE_NONALNUM
-            .replace_all(mkinfo.make_target.as_str(), "")
-            .to_uppercase();
-        let make_target = if !target.ends_with("-ipv6") && makeopts.flag.contains(MakeFlag::IPV6) {
-            target.to_string() + "-ipv6"
-        } else {
-            target.to_string()
-        };
-        let make_comm = format!(
-            r#"hsdocker7 "make -C {} -j8 {} ISBUILDRELEASE={} NOTBUILDUNIWEBUI={} HS_SHELL_PASSWORD={} HS_BUILD_COVERAGE={} HS_BUILD_COVERITY={} OS_IMAGE_FTP_IP={} IMG_NAME={}-{}-{}-{} >build.log 2>&1""#,
-            mkinfo.make_directory,
-            make_target,
-            if makeopts.flag.contains(MakeFlag::RELEASE) {
-                1
-            } else {
-                0
-            },
-            if makeopts.flag.contains(MakeFlag::WEBUI) {
-                0
-            } else {
-                1
-            },
-            if makeopts.flag.contains(MakeFlag::SHELL_PASSWORD) {
-                1
-            } else {
-                0
-            },
-            if makeopts.flag.contains(MakeFlag::COVERAGE) {
-                1
-            } else {
-                0
-            },
-            if makeopts.flag.contains(MakeFlag::COVERITY) {
-                1
-            } else {
-                0
-            },
-            makeopts.image_server.map_or(
-                {
-                    let nodename = uname().nodename().to_string_lossy().to_string();
-                    if nodename.ends_with("-sz") {
-                        "10.200.6.10".to_string()
-                    } else {
-                        "10.100.6.10".to_string()
-                    }
-                },
-                |v| match v {
-                    ImageServer::B => "10.100.6.10".to_string(),
-                    ImageServer::S => "10.200.6.10".to_string(),
-                }
-            ),
-            // Image name parts begin
-            imagename_prodname,
-            imagename_branch,
-            imagename_target,
-            imagename_suffix
-        );
+        let mut makeopts_new = makeopts.clone();
+        if !target.ends_with("-ipv6") {
+            makeopts_new.flag |= MakeFlag::IPV6;
+        }
 
         for item in product_list
             .iter()
@@ -655,19 +583,12 @@ pub(crate) fn gen_mkinfo_by_target(
                 }
             }
 
-            compile_infos.push(CompileInfo {
-                product_name: item.long_name.clone(),
-                product_model: item.product_model.clone(),
-                product_oem_id: item.oem_id.clone(),
-                product_family: mkinfo
-                    .product_family
-                    .clone()
-                    .or_else(|| item.family.clone()),
-                platform_model: mkinfo.platform_model.clone(),
-                make_target: make_target.clone(),
-                make_directory: mkinfo.make_directory.clone(),
-                make_command: make_comm.clone(),
-            });
+            compile_infos.push(compose_compileinfo(
+                item,
+                svninfo.branch_name(),
+                mkinfo,
+                &makeopts,
+            )?);
         }
     }
 
