@@ -587,7 +587,7 @@ pub(crate) fn gen_mkinfo_by_target(
                 item,
                 svninfo.branch_name(),
                 mkinfo,
-                &makeopts,
+                &makeopts_new,
             )?);
         }
     }
