@@ -169,31 +169,25 @@ pub(crate) fn gen_compdb_by_builtin(
     // Hacking for make target when running at project root
     let mut top_makefile_text = String::new();
     if at_proj_root {
-        let pattern_target = Regex::new(r#"(?m)^( *)stoneos-image:(.*)$"#)
-            .context("Failed to build regex for make target")?;
+        let regex_core_rule =
+            Regex::new(r#"(?m)^((?:\s*[^:\s]*\s+)*stoneos-image(?:\s+[^:\s]*)*):(.*)$"#)
+                .context("Construct regex for core rule failed")?;
         top_makefile_text = fs::read_to_string(top_makefile.as_path())
-            .context(format!(r#"Failed to read "{}"""#, top_makefile.display()))?;
-        let captures = pattern_target
+            .context(format!("Failed to read {}", top_makefile.display()))?;
+        let captures = regex_core_rule
             .captures(&top_makefile_text)
-            .context(format!(
-                "Failed to capture '{}' from '{}'",
-                pattern_target.as_str(),
-                top_makefile.display()
-            ))?;
-        let prefix = captures.get(1).unwrap();
-        let suffix = captures.get(2).unwrap();
-        let top_makefile_text_hacked = pattern_target
+            .context(format!("Failed to match {}", regex_core_rule.as_str(),))?;
+        let targets_renamed = Regex::new(r#"\S+"#)
+            .context("Construct regex for target failed")?
+            .replace_all(captures.get(1).unwrap().as_str(), "$0-orig");
+        let top_makefile_text_hacked = regex_core_rule
             .replace(
                 &top_makefile_text,
-                format!(
-                    "stoneos-image: make_sub\n\n{}stoneos-image.orig:{}",
-                    prefix.as_str(),
-                    suffix.as_str()
-                ),
+                format!("$1: make_sub\n\n{}:$2", targets_renamed),
             )
             .to_string();
         fs::write(top_makefile.as_path(), &top_makefile_text_hacked)
-            .context(format!("Can't write file: '{}'", top_makefile.display()))?;
+            .context(format!("Failed to write {}", top_makefile.display()))?;
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Injecting makefiles ({} modified)...{{msg}}",
@@ -300,7 +294,7 @@ pub(crate) fn gen_compdb_by_builtin(
     step += 1;
     let pb3 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] Restoring mkfiles ({}) {{spinner:.green}}",
+            "[{}/{}] Restoring makefiles ({}) {{spinner:.green}}",
             step, NSTEPS, modified_files
         ))?
         .tick_chars(TICK_CHARS),
@@ -317,7 +311,7 @@ pub(crate) fn gen_compdb_by_builtin(
             .context(format!(r#"Restoring "{}" failed"#, top_makefile.display()))?;
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Restoring mkfiles ({} restored)...{{msg}}",
+        "[{}/{}] Restoring makefiles ({} restored)...{{msg}}",
         step, NSTEPS, modified_files
     ))?);
     pb3.finish_with_message("ok");
