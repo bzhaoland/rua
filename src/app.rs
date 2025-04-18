@@ -232,15 +232,15 @@ pub(crate) enum Comm {
     Clean {
         #[arg(
             value_name = "ENTRY",
-            help = "Files or directories to be cleaned ('target' is always included even if not specified)"
+            help = "Files or dirs to be cleaned ('target' is always included even if not specified)"
         )]
         dirs: Option<Vec<String>>,
 
         #[arg(
             short = 'n',
-            long = "ignores",
-            value_name = "IGNORES",
-            help = "List of files and directories seperated by commas to be ignored"
+            long = "ignore",
+            value_name = "FILE",
+            help = "File or directory to be ignored while cleaning. You can add multiple ignores by specifying this option multiple times"
         )]
         ignores: Option<Vec<String>>,
     },

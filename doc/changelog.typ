@@ -59,11 +59,35 @@ rm -f rua  # 从当前目录删除
 
 == 功能修复
 
-+ clean: 完善了清理功能，clean 会做以下三个工作：
++ compdb: 适配最新MX_MAIN分支，修复了Makefile优化后编译数据库生成失败的问题
++ clean: 代码清理，功能类似现在的 MX_MAIN 分支上进行了 Makefile 优化后的 stoneos-clean target。此前存在一些问题，本次完善了该功能。clean 会做以下三个工作：
   + 删除 target 文件夹
   + 删除 webui 文件夹（与分支同名）
-  + 删除未受SVN管控的文件，改功能与 make stoneos-clean 相似，但允许保留特定文件（通过配置文件或命令行参数）
-- 
+  + 删除未受SVN管控的文件，改功能与 make stoneos-clean 相似。
+  Rua clean 允许保留特定文件（通过配置文件或命令行参数）。既可以通过传入 cli 参数，也可以通过配置文件来实现特定文件的保留。
+
+== 使用示例
+
++ 清除工程根目录下的所有编译文件:
+  ```bash
+  rua clean .
+  ```
+  注意: 该命令会删除当前目录下的所有编译文件，包括 webui 文件夹和 target 文件夹
++ 清除工程根目录下的所有编译文件，但保留文件夹 .rua、.cache 和文件 .ignore 和 compile_commands.json:
+  ```bash
+  rua clean -n .rua -n .cache -n .ignore -n compile_commands.json .
+  ```
+  #figure(
+    image("assets/changelog.1_2_2.clean.png"),
+  )
++ 在 \~/.rua/config.toml 或 \$workspace/.rua/config.toml 中添加下面的配置内容，rua clean 在执行时会自动忽略这些文件:
+  ```toml
+  [clean]
+  ignores = ["compile_commands.json", ".cache", ".rua", ".ignore"]
+  ```
+  #figure(
+    image("assets/changelog.1_2_2.clean_config.png"),
+  )
 
 #pagebreak()
 
