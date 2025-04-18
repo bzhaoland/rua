@@ -60,3 +60,8 @@ Use this command to generate completion scripts for a specific shell. With auto-
 ```shell
 eval "$(rua init bash)"
 ```
+
+== WIP
+
+[ ] Trash utility (a riskless clean implementation)
+[ ] Self upgrade (simplify tool upgrading)
