@@ -546,6 +546,62 @@ Options:
 
 #pagebreak()
 
+= clean
+
+清除工程根目录下的所有编译文件。该功能类似于最新 MX_MAIN 分支上（进行了 Makefile 优化）的stoneos-clean。此前存在一些问题，本次完善了该功能。clean 会做以下三个工作：
+  + 删除 target 文件夹
+  + 删除 webui 文件夹（与分支同名）
+  + 删除未受SVN管控的文件，改功能与 make stoneos-clean 相似。
+Rua clean 允许开发者自己指定所要保留的文件（通过配置文件或命令行参数）。
+
+== 用法
+
+用户可以通过 `rua init -h` 查看帮助信息：
+
+```bash
+❯ rua clean -h
+Clean build files (run under project root)
+
+Usage: rua clean [OPTIONS] [ENTRY]...
+
+Arguments:
+  [ENTRY]...  Files or dirs to be cleaned ('target' is always included even if not specified)
+
+Options:
+  -n, --ignore <FILE>  File or directory to be ignored while cleaning. You can add multiple ignores by specifying this option multiple times
+  -h, --help           Print help
+
+Examples:
+  rua clean  # Clean the entire project
+
+Caution:
+  All unversioned files will be REMOVED permanantly, including files created by YOU but not
+  added to SVN. Use it carefully!
+```
+
+== 示例
+
++ 清除工程根目录下的所有编译文件:
+  ```bash
+  rua clean .
+  ```
+  注意: 该命令会删除当前目录下的所有编译文件，包括 webui 文件夹和 target 文件夹
++ 清除工程根目录下的所有编译文件，但保留文件夹 .rua、.cache 和文件 .ignore 和 compile_commands.json:
+  ```bash
+  rua clean -n .rua -n .cache -n .ignore -n compile_commands.json .
+  ```
+  #figure(
+    image("assets/changelog.1_2_2.clean.png"),
+  )
++ 在 \~/.rua/config.toml 或 \$workspace/.rua/config.toml 中添加下面的配置内容，rua clean 在执行时会自动忽略这些文件:
+  ```toml
+  [clean]
+  ignores = ["compile_commands.json", ".cache", ".rua", ".ignore"]
+  ```
+  #figure(
+    image("assets/changelog.1_2_2.clean_config.png"),
+  )
+
 = init
 
 rua 可以在 bash/zsh/fish 等 shell 中自动补全。
