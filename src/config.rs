@@ -99,13 +99,16 @@ impl RuaConf {
     pub(crate) fn new() -> anyhow::Result<RuaConf> {
         let svninfo = SvnInfo::new()?;
         let s = Config::builder()
-            .add_source(config::File::with_name(
-                home::home_dir()
-                    .context("Failed to get home dir")?
-                    .join(".config/rua/config.toml")
-                    .to_str()
-                    .unwrap(),
-            ))
+            .add_source(
+                config::File::with_name(
+                    home::home_dir()
+                        .context("Failed to get home dir")?
+                        .join(".config/rua/config.toml")
+                        .to_str()
+                        .unwrap(),
+                )
+                .required(false),
+            )
             .add_source(
                 config::File::with_name(
                     svninfo
