@@ -302,10 +302,10 @@ pub(crate) enum Comm {
         #[arg(long = "by-target")]
         by_target: bool,
 
-        /// Product name like A1000 or compile target (companioned with --by-target) like as a-dnv .
-        /// Regex is also supported when pass in a product name, e.g. 'X\d+80'.
-        #[arg(value_name = "NAME-OR-TARGET")]
-        product_name_or_compile_target: String,
+        /// Product name like A1000 or compile target (companioned with --by-target) like a-dnv,
+        /// can also be provided in regex like 'X\d+80' representing X6180/X7180/X8180...
+        #[arg(value_name = "NAME")]
+        name: String,
     },
 
     /// Extensively map instructions to file locations (inline expanded)
@@ -757,7 +757,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             bins_without_strip,
             output_format,
             by_target,
-            product_name_or_compile_target,
+            name: product_name_or_compile_target,
         } => {
             let conf = RuaConf::new()?;
             let mkinfo_conf = conf.mkinfo;
