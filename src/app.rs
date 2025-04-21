@@ -302,8 +302,8 @@ pub(crate) enum Comm {
         #[arg(long = "by-target")]
         by_target: bool,
 
-        /// Product name like A1000 or compile target (companioned with --by-target) like a-dnv,
-        /// can also be provided in regex like 'X\d+80' representing X6180/X7180/X8180...
+        /// Product name like A1000, or compile target (when specify --by-target) like a-dnv.
+        /// Can also be provided in regex like 'X\d+80' representing X6180/X7180/X8180, etc.
         #[arg(value_name = "NAME")]
         name: String,
     },
