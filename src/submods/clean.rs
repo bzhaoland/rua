@@ -96,7 +96,7 @@ pub fn clean_build(
             if entry.file_type().is_dir() {
                 fs::remove_dir(entry.path())
                     .context(format!("Failed to remove {}", entry.path().display()))?;
-            } else if entry.path().is_dir() {
+            } else {
                 fs::remove_file(entry.path())
                     .context(format!("Failed to remove {}", entry.path().display()))?;
             }
