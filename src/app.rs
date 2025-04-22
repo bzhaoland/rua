@@ -73,8 +73,8 @@ pub(crate) enum CompdbCommand {
   2. When running under submod dir:
      - scripts/last-rules.mk
      - scripts/rules.mk
-  These files may be left dirty if compdb process aborted unexpectedly. You
-  could manually restore them by execute:
+  These files may be left dirty if compdb aborted unexpectedly. You can restore
+  them by command (make sure you have backed up the changes you made):
   {2}svn revert Makefile scripts/last-rules.mk scripts/rules.mk{2:#}"#,
       STYLE_YELLOW_BOLD,
       STYLE_RED_BOLD,
@@ -441,7 +441,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "1.2.2",
+    version = "1.2.3",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs"#
