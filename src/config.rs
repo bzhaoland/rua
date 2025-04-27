@@ -7,15 +7,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::{SvnInfo, normalize_path};
 
-pub(crate) const PROJ_LEVEL_RUA_DIR: LazyLock<PathBuf> = LazyLock::new(|| normalize_path(".rua"));
-pub(crate) const CLANGD_CACHE: LazyLock<PathBuf> = LazyLock::new(|| normalize_path(".cache"));
-pub(crate) const COMPDB_FILE: LazyLock<PathBuf> =
+pub(crate) static PROJ_LEVEL_RUA_DIR: LazyLock<PathBuf> = LazyLock::new(|| normalize_path(".rua"));
+pub(crate) static CLANGD_CACHE: LazyLock<PathBuf> = LazyLock::new(|| normalize_path(".cache"));
+pub(crate) static COMPDB_FILE: LazyLock<PathBuf> =
     LazyLock::new(|| normalize_path("compile_copmmands.json"));
-pub(crate) const COMPDB_STORE: LazyLock<PathBuf> =
+pub(crate) static COMPDB_STORE: LazyLock<PathBuf> =
     LazyLock::new(|| normalize_path(".rua/compdbs.db3"));
-pub(crate) const DEFAULT_BEAR: LazyLock<PathBuf> =
+pub(crate) static DEFAULT_BEAR: LazyLock<PathBuf> =
     LazyLock::new(|| normalize_path("/devel/sw/bear/bin/bear"));
-pub(crate) const DEFAULT_INTERCEPT_BUILD: LazyLock<PathBuf> = LazyLock::new(|| {
+pub(crate) static DEFAULT_INTERCEPT_BUILD: LazyLock<PathBuf> = LazyLock::new(|| {
     PathBuf::from_str("/devel/sw/llvm/bin/intercept-build")
         .expect("Construct DEFAULT_INTERCEPT_BUILD failed")
 });

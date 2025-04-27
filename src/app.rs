@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -464,9 +463,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 .add(globset::Glob::new(
                     format!("{}/*", PROJ_LEVEL_RUA_DIR.as_path().to_str().unwrap()).as_str(),
                 )?)
-                .add(globset::Glob::new(
-                    format!("{}", COMPDB_FILE.as_path().to_str().unwrap()).as_str(),
-                )?)
+                .add(globset::Glob::new(COMPDB_FILE.as_path().to_str().unwrap())?)
                 .add(globset::Glob::new(
                     format!("{}/*", CLANGD_CACHE.as_path().to_str().unwrap()).as_str(),
                 )?);
@@ -497,8 +494,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
         }
         Comm::Compdb { compdb_comm } => {
             let conf = RuaConf::new()?;
-            let compdb_store = COMPDB_STORE;
-            let rua_cache = compdb_store.as_path();
+            let rua_cache = COMPDB_STORE.as_path();
             if !rua_cache.is_file() {
                 print!("The compilation database store does not exist, create it? [Y/n]: ");
                 io::stdout().flush()?;
@@ -689,10 +685,9 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     compdb_path,
                 } => {
                     let svninfo = utils::SvnInfo::new()?;
-                    let compdb_file = COMPDB_FILE;
                     let compdb_path = compdb_path
                         .as_ref()
-                        .map_or_else(|| compdb_file.as_path(), |x| Path::new(x.as_str()));
+                        .map_or_else(|| COMPDB_FILE.as_path(), |x| Path::new(x.as_str()));
                     eprint!(
                         "Archiving compilation database for {} into store...",
                         target

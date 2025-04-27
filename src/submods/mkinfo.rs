@@ -316,11 +316,8 @@ fn abbreviate_branch(branch: &str) -> anyhow::Result<String> {
     Ok(nickname)
 }
 
-const RE_NONALNUM: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"[^[:alnum:]]+"#)
-        .context("Build regex for nonalnum failed")
-        .unwrap()
-});
+static RE_NONALNUM: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"[^[:alnum:]]+"#).expect("Failed to build regex for non-alnum"));
 
 fn compose_compileinfo(
     product: &ProductInfo,
@@ -447,7 +444,7 @@ fn compose_compileinfo(
 }
 
 // Get release number
-const RE_RELNUM: LazyLock<Regex> = LazyLock::new(|| {
+static RE_RELNUM: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new("^HAWAII_(?:REL_)?R([[:digit:]]+)|^MX_MAIN")
         .expect("Failed to build regex for release num")
 });

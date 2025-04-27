@@ -473,11 +473,10 @@ pub(crate) fn gen_compdb(
             gen_compdb_by_builtin(svninfo, make_directory, make_target, &options.defines)
         }
         CompdbEngine::InterceptBuild => {
-            let default_ib = DEFAULT_INTERCEPT_BUILD;
             let intercept_build_path = options
                 .intercept_build_path
                 .as_deref()
-                .unwrap_or(default_ib.as_path());
+                .unwrap_or(DEFAULT_INTERCEPT_BUILD.as_path());
             gen_compdb_by_intercept_build(
                 svninfo,
                 intercept_build_path,
@@ -486,11 +485,10 @@ pub(crate) fn gen_compdb(
             )
         }
         CompdbEngine::Bear => {
-            let default_bear = DEFAULT_BEAR;
             let bear_path = options
                 .bear_path
                 .as_deref()
-                .unwrap_or(default_bear.as_path());
+                .unwrap_or(DEFAULT_BEAR.as_path());
             gen_compdb_by_bear(svninfo, bear_path, make_directory, make_target)
         }
     }?;
