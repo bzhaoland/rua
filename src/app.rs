@@ -1,10 +1,11 @@
+use std::collections::HashSet;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs, io};
 
 use anstyle::{Ansi256Color, Color, Style};
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use clap::builder::styling;
 use clap::{ArgGroup, CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
@@ -12,7 +13,7 @@ use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use rusqlite::Connection;
 
-use crate::config::{COMPDB_FILE, COMPDB_STORE, RuaConf};
+use crate::config::{CLANGD_CACHE, COMPDB_FILE, COMPDB_STORE, PROJ_LEVEL_RUA_DIR, RuaConf};
 use crate::submods::clean;
 use crate::submods::compdb::{self, CompdbEngine};
 use crate::submods::mkinfo::{self, GenBy, MakeOpts};
@@ -458,16 +459,41 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
     match args.command.clone() {
         Comm::Clean { dirs, ignores } => {
             let conf = RuaConf::new()?;
-            let mut ignore_list = Vec::new();
+            let mut ignore_globset_builder = globset::GlobSetBuilder::new();
+            ignore_globset_builder
+                .add(globset::Glob::new(
+                    format!("{}/*", PROJ_LEVEL_RUA_DIR.as_path().to_str().unwrap()).as_str(),
+                )?)
+                .add(globset::Glob::new(
+                    format!("{}", COMPDB_FILE.as_path().to_str().unwrap()).as_str(),
+                )?)
+                .add(globset::Glob::new(
+                    format!("{}/*", CLANGD_CACHE.as_path().to_str().unwrap()).as_str(),
+                )?);
+
             if let Some(v) = ignores {
-                ignore_list.extend(v);
+                for item in v {
+                    ignore_globset_builder.add(
+                        globset::Glob::new(item.as_str())
+                            .context(format!("Failed to parse glob {}", item))?,
+                    );
+                }
             }
             if let Some(v) = conf.clean {
                 if let Some(x) = v.ignores {
-                    ignore_list.extend(x);
+                    for item in x {
+                        ignore_globset_builder.add(
+                            globset::Glob::new(item.as_str())
+                                .context(format!("Failed to parse glob {}", item))?,
+                        );
+                    }
                 }
             }
-            clean::clean_build(dirs.as_ref(), Some(&ignore_list))
+
+            let ignore_globset = ignore_globset_builder
+                .build()
+                .context("Failed to build globset for ignores")?;
+            clean::clean_build(dirs.as_ref(), &ignore_globset)
         }
         Comm::Compdb { compdb_comm } => {
             let conf = RuaConf::new()?;

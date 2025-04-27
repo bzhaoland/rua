@@ -1,20 +1,16 @@
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use std::{env, fs};
 
 use anyhow::{Context, bail};
+use globset::GlobSet;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
-use crate::config::{CLANGD_CACHE_DIR, COMPDB_FILE, PROJ_LEVEL_RUA_DIR};
 use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
 use crate::utils::{SvnInfo, normalize_path};
 
-pub fn clean_build(
-    dirs: Option<&Vec<String>>,
-    ignores: Option<&Vec<String>>,
-) -> anyhow::Result<()> {
+pub fn clean_build(dirs: Option<&Vec<String>>, ignores: &GlobSet) -> anyhow::Result<()> {
     // Check directory
     let svninfo = SvnInfo::new()?;
     if env::current_dir()?.as_path() != svninfo.working_copy_root_path() {
@@ -22,18 +18,6 @@ pub fn clean_build(
             r#"Location error! Please run this command under the project root, i.e. "{}"."#,
             svninfo.working_copy_root_path().display()
         );
-    }
-
-    let mut ignore_set: HashSet<PathBuf> = HashSet::from_iter(vec![
-        PROJ_LEVEL_RUA_DIR.clone(),
-        COMPDB_FILE.clone(),      // compile_commands.json
-        CLANGD_CACHE_DIR.clone(), // clangd cache
-    ]);
-
-    if let Some(v) = ignores {
-        for item in v.iter() {
-            ignore_set.insert(normalize_path(Path::new(item)));
-        }
     }
 
     let num_steps = 3;
@@ -52,12 +36,6 @@ pub fn clean_build(
             .follow_links(false)
         {
             let entry = entry?;
-
-            if ignore_set.contains(entry.path())
-                || ignore_set.iter().any(|x| entry.path().starts_with(x))
-            {
-                continue;
-            }
 
             pb1.set_message(entry.path().to_string_lossy().to_string());
             if entry.file_type().is_dir() {
@@ -85,12 +63,6 @@ pub fn clean_build(
     if webui_dir.exists() && webui_dir.symlink_metadata()?.is_dir() {
         for entry in walkdir::WalkDir::new(&webui_dir).contents_first(true) {
             let entry = entry?;
-
-            if ignore_set.contains(entry.path())
-                || ignore_set.iter().any(|x| entry.path().starts_with(x))
-            {
-                continue;
-            }
 
             pb2.set_message(entry.path().to_string_lossy().to_string());
             if entry.file_type().is_dir() {
@@ -139,18 +111,7 @@ pub fn clean_build(
             let item = Path::new(captures.get(1).unwrap().as_str());
             let entry = normalize_path(item);
 
-            if ignore_set.contains(&entry) || ignore_set.iter().any(|x| entry.starts_with(x)) {
-                continue;
-            }
-
-            let mut skip = ignore_set.contains(&entry); // Has this file
-            for item in ignore_set.iter() {
-                if entry.starts_with(item) {
-                    skip = true;
-                    break;
-                }
-            }
-            if skip {
+            if ignores.is_match(entry.as_path()) {
                 continue;
             }
 
