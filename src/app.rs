@@ -4,15 +4,16 @@ use std::str::FromStr;
 use std::{env, fs, io};
 
 use anstyle::{Ansi256Color, Color, Style};
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use clap::builder::styling;
 use clap::{ArgGroup, CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
+use regex::Regex;
 use rusqlite::Connection;
 
-use crate::config::{CLANGD_CACHE, COMPDB_FILE, COMPDB_STORE, PROJ_LEVEL_RUA_DIR, RuaConf};
+use crate::config::{CLANGD_CACHE, COMPDB_FILE, COMPDB_STORE, PROJ_RUA_DIR, RuaConf};
 use crate::submods::clean;
 use crate::submods::compdb::{self, CompdbEngine};
 use crate::submods::mkinfo::{self, GenBy, MakeOpts};
@@ -441,7 +442,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "1.2.3",
+    version = "1.2.4",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs"#
@@ -458,43 +459,29 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
     match args.command.clone() {
         Comm::Clean { dirs, ignores } => {
             let conf = RuaConf::new()?;
-            let mut ignore_globset_builder = globset::GlobSetBuilder::new();
-            ignore_globset_builder
-                .add(globset::Glob::new(
-                    format!("{}/*", PROJ_LEVEL_RUA_DIR.as_path().to_str().unwrap()).as_str(),
-                )?)
-                .add(globset::Glob::new(COMPDB_FILE.as_path().to_str().unwrap())?)
-                .add(globset::Glob::new(
-                    format!("{}/*", CLANGD_CACHE.as_path().to_str().unwrap()).as_str(),
-                )?);
+            let mut ignore_set: Vec<Regex> = Vec::new();
+            ignore_set.push(Regex::new(format!("^{}$", COMPDB_FILE).as_str()).unwrap());
+            ignore_set.push(Regex::new(format!("^{}$", CLANGD_CACHE).as_str()).unwrap());
+            ignore_set.push(Regex::new(format!(r#"^{}(?:/.*)?$"#, PROJ_RUA_DIR).as_str()).unwrap());
 
             if let Some(v) = ignores {
                 for item in v {
-                    ignore_globset_builder.add(
-                        globset::Glob::new(item.as_str())
-                            .context(format!("Failed to parse glob {}", item))?,
-                    );
+                    ignore_set.push(Regex::new(format!("^{}$", item).as_str()).unwrap());
                 }
             }
             if let Some(v) = conf.clean {
                 if let Some(x) = v.ignores {
                     for item in x {
-                        ignore_globset_builder.add(
-                            globset::Glob::new(item.as_str())
-                                .context(format!("Failed to parse glob {}", item))?,
-                        );
+                        ignore_set.push(Regex::new(format!("^{}$", item).as_str()).unwrap());
                     }
                 }
             }
 
-            let ignore_globset = ignore_globset_builder
-                .build()
-                .context("Failed to build globset for ignores")?;
-            clean::clean_build(dirs.as_ref(), &ignore_globset)
+            clean::clean_build(dirs.as_ref(), &ignore_set)
         }
         Comm::Compdb { compdb_comm } => {
             let conf = RuaConf::new()?;
-            let rua_cache = COMPDB_STORE.as_path();
+            let rua_cache = Path::new(COMPDB_STORE);
             if !rua_cache.is_file() {
                 print!("The compilation database store does not exist, create it? [Y/n]: ");
                 io::stdout().flush()?;
@@ -509,7 +496,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
             }
 
-            let conn = Connection::open(COMPDB_STORE.as_path())?;
+            let conn = Connection::open(COMPDB_STORE)?;
             compdb::create_tables(&conn)?;
 
             match compdb_comm {
@@ -687,7 +674,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     let svninfo = utils::SvnInfo::new()?;
                     let compdb_path = compdb_path
                         .as_ref()
-                        .map_or_else(|| COMPDB_FILE.as_path(), |x| Path::new(x.as_str()));
+                        .map_or_else(|| COMPDB_FILE, |x| x.as_str());
                     eprint!(
                         "Archiving compilation database for {} into store...",
                         target

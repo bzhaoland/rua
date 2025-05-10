@@ -3,14 +3,13 @@ use std::process::Command;
 use std::{env, fs};
 
 use anyhow::{Context, bail};
-use globset::GlobSet;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
 use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
 use crate::utils::{SvnInfo, normalize_path};
 
-pub fn clean_build(dirs: Option<&Vec<String>>, ignores: &GlobSet) -> anyhow::Result<()> {
+pub fn clean_build(dirs: Option<&Vec<String>>, ignore_set: &Vec<Regex>) -> anyhow::Result<()> {
     // Check directory
     let svninfo = SvnInfo::new()?;
     if env::current_dir()?.as_path() != svninfo.working_copy_root_path() {
@@ -111,11 +110,19 @@ pub fn clean_build(dirs: Option<&Vec<String>>, ignores: &GlobSet) -> anyhow::Res
             let item = Path::new(captures.get(1).unwrap().as_str());
             let entry = normalize_path(item);
 
-            if ignores.is_match(entry.as_path()) {
+            let mut skip = false;
+            for re in ignore_set {
+                if re.is_match(entry.as_path().to_str().unwrap()) {
+                    skip = true;
+                    break;
+                }
+            }
+
+            if skip {
                 continue;
             }
 
-            pb3.set_message(entry.as_path().to_string_lossy().to_string());
+            pb3.set_message(entry.as_path().display().to_string());
             if entry.symlink_metadata()?.is_dir() {
                 fs::remove_dir_all(&entry)
                     .context(format!("Failed to remove {}", entry.display()))?;

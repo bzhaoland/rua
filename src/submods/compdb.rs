@@ -366,7 +366,7 @@ pub(crate) fn gen_compdb_by_builtin(
             "file": item.file,
         }));
     }
-    fs::write(COMPDB_FILE.as_path(), serde_json::to_string_pretty(&jcdb)?)?;
+    fs::write(COMPDB_FILE, serde_json::to_string_pretty(&jcdb)?)?;
     pb5.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Generating compilation database..{{msg}}",
         step, NSTEPS
@@ -476,7 +476,7 @@ pub(crate) fn gen_compdb(
             let intercept_build_path = options
                 .intercept_build_path
                 .as_deref()
-                .unwrap_or(DEFAULT_INTERCEPT_BUILD.as_path());
+                .unwrap_or(Path::new(DEFAULT_INTERCEPT_BUILD));
             gen_compdb_by_intercept_build(
                 svninfo,
                 intercept_build_path,
@@ -488,7 +488,7 @@ pub(crate) fn gen_compdb(
             let bear_path = options
                 .bear_path
                 .as_deref()
-                .unwrap_or(DEFAULT_BEAR.as_path());
+                .unwrap_or(Path::new(DEFAULT_BEAR));
             gen_compdb_by_bear(svninfo, bear_path, make_directory, make_target)
         }
     }?;
@@ -808,7 +808,7 @@ pub(crate) fn use_generation(conn: &Connection, generation: i64) -> anyhow::Resu
         .optional()?;
     let item = item.context("Generation not available")?;
     let compile_commands = decode_all(&item[..])?;
-    fs::write(COMPDB_FILE.as_path(), compile_commands)?;
+    fs::write(COMPDB_FILE, compile_commands)?;
     set_current_generation(conn, generation)?;
     pb.finish_with_message("ok");
     Ok(())
