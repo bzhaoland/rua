@@ -114,6 +114,13 @@ pub(crate) enum CompdbCommand {
         intercept_build_path: Option<String>,
 
         #[arg(
+            long = "merge",
+            value_name = "OTHER-COMPDB",
+            help = "Other compilation databases to be merged in. Multiple compilation databases can be passed in by specifying this option multiple times"
+        )]
+        merge_seq: Option<Vec<String>>,
+
+        #[arg(
             value_name = "PATH",
             help = "Path for the target where platform-specific makefiles reside, such as 'products/vfw'"
         )]
@@ -133,7 +140,7 @@ pub(crate) enum CompdbCommand {
     Add {
         #[arg(
             value_name = "TARGET",
-            help = "Target specified for the compilation database"
+            help = "To which the new compilation database belongs"
         )]
         target: String,
 
@@ -183,6 +190,28 @@ pub(crate) enum CompdbCommand {
     /// List all compilation database generations in store
     #[command(visible_alias = "list")]
     Ls,
+
+    /// Merge compilation databases into the one in the current directory
+    Merge {
+        #[arg(
+            short = 't',
+            long = "target",
+            value_name = "TARGET",
+            help = "Target for the new compilation database"
+        )]
+        target: String,
+
+        #[arg(
+            short = 'r',
+            long = "revision",
+            value_name = "REVISION",
+            help = "Revision for the new compilation database (defaults to current svn revision)"
+        )]
+        revision: Option<i64>,
+
+        #[arg(value_name = "FILE", help = "Compilation database to be joined")]
+        files: Vec<String>,
+    },
 
     /// Select a compilation database generation from store to use
     Use {
@@ -507,6 +536,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     engine,
                     bear_path,
                     intercept_build_path,
+                    merge_seq: to_merge,
                 } => {
                     let compdb_conf = conf.compdb;
 
@@ -551,8 +581,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
 
                     // Add defines from config and cli
                     let mut defines_map: IndexMap<String, String> = IndexMap::new();
-                    if let Some(configi) = compdb_conf.as_ref() {
-                        if let Some(x) = configi.defines.as_ref() {
+                    if let Some(c) = compdb_conf.as_ref() {
+                        if let Some(x) = c.defines.as_ref() {
                             defines_map.extend(x.clone());
                         }
                     }
@@ -564,11 +594,26 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         }
                     }
 
+                    let mut merge_list: Vec<PathBuf> = Vec::new();
+                    if let Some(c) = compdb_conf.as_ref() {
+                        if let Some(list) = c.merge.as_ref() {
+                            for item in list.iter().map(PathBuf::from) {
+                                merge_list.push(item);
+                            }
+                        }
+                    }
+                    if let Some(list) = to_merge {
+                        for item in list.iter().map(PathBuf::from) {
+                            merge_list.push(item);
+                        }
+                    }
+
                     let compdb_options = compdb::CompdbOptions {
                         defines: defines_map,
                         engine: final_engine,
                         bear_path: final_bear_path.map(|x| x.to_path_buf()),
                         intercept_build_path: final_intercept_build_path.map(|x| x.to_path_buf()),
+                        to_merge: merge_list,
                     };
                     compdb::gen_compdb(&svninfo, &product_dir, &make_target, compdb_options)?;
 
@@ -675,10 +720,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     let compdb_path = compdb_path
                         .as_ref()
                         .map_or_else(|| COMPDB_FILE, |x| x.as_str());
-                    eprint!(
-                        "Archiving compilation database for {} into store...",
-                        target
-                    );
+                    eprint!("Archiving compilation database for {}...", target);
                     io::stderr().flush()?;
                     let revision = revision.unwrap_or_else(|| svninfo.revision());
                     compdb::archive_compdb(
@@ -688,10 +730,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         target.as_str(),
                         compdb_path,
                     )?;
-                    eprintln!(
-                        "\rArchiving compilation database for {} into store...ok",
-                        target
-                    );
+                    eprintln!("\rArchiving compilation database for {}...ok", target);
                     let file = Path::new(compdb_path);
                     let file_name = file.file_name();
                     let parent_dir = file.parent().unwrap();
@@ -702,6 +741,32 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         let generation = compdb::get_biggest_generation(&conn)?.unwrap();
                         compdb::set_current_generation(&conn, generation)?;
                     }
+                    Ok(())
+                }
+                CompdbCommand::Merge {
+                    target,
+                    revision,
+                    files,
+                } => {
+                    eprint!("Merging compilation databases...");
+                    io::stderr().flush()?;
+                    compdb::merge_compdb(files)?;
+                    eprintln!("\rMerging compilation databases...ok");
+                    let svninfo = utils::SvnInfo::new()?;
+                    let revision = revision.unwrap_or_else(|| svninfo.revision());
+                    eprint!("\rArchiving compilation database for {}...", target);
+                    compdb::archive_compdb(
+                        &conn,
+                        svninfo.branch_name(),
+                        revision,
+                        target.as_str(),
+                        COMPDB_FILE,
+                    )?;
+                    eprintln!("\rArchiving compilation database for {}...ok", target);
+                    compdb::set_current_generation(
+                        &conn,
+                        compdb::get_biggest_generation(&conn)?.unwrap(),
+                    )?;
                     Ok(())
                 }
                 CompdbCommand::Name { generation, name } => {

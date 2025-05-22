@@ -7,7 +7,7 @@ use crate::utils::SvnInfo;
 
 pub(crate) const PROJ_RUA_DIR: &str = ".rua";
 pub(crate) static CLANGD_CACHE: &str = ".cache";
-pub(crate) static COMPDB_FILE: &str = "compile_copmmands.json";
+pub(crate) static COMPDB_FILE: &str = "compile_commands.json";
 pub(crate) static COMPDB_STORE: &str = ".rua/compdbs.db3";
 pub(crate) static DEFAULT_BEAR: &str = "/devel/sw/bear/bin/bear";
 pub(crate) static DEFAULT_INTERCEPT_BUILD: &str = "/devel/sw/llvm/bin/intercept-build";
@@ -60,6 +60,7 @@ pub(crate) struct CompdbConf {
     pub(crate) engine: Option<String>,
     pub(crate) bear_path: Option<String>,
     pub(crate) intercept_build_path: Option<String>,
+    pub(crate) merge: Option<Vec<String>>,
 }
 
 impl CompdbConf {
@@ -70,6 +71,7 @@ impl CompdbConf {
             engine: None,
             bear_path: None,
             intercept_build_path: None,
+            merge: None,
         }
     }
 }
@@ -87,6 +89,16 @@ impl RuaConf {
     pub(crate) fn new() -> anyhow::Result<RuaConf> {
         let svninfo = SvnInfo::new()?;
         let s = Config::builder()
+            .add_source(
+                config::File::with_name(
+                    home::home_dir()
+                        .context("Failed to get home dir")?
+                        .join(".rua/config.toml")
+                        .to_str()
+                        .unwrap(),
+                )
+                .required(false),
+            )
             .add_source(
                 config::File::with_name(
                     home::home_dir()

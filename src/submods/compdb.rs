@@ -2,6 +2,7 @@ use std::cmp;
 use std::env;
 use std::fmt;
 use std::fs;
+use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -47,6 +48,7 @@ pub(crate) struct CompdbOptions {
     pub(crate) engine: Option<CompdbEngine>,
     pub(crate) intercept_build_path: Option<PathBuf>,
     pub(crate) bear_path: Option<PathBuf>,
+    pub(crate) to_merge: Vec<PathBuf>,
 }
 
 impl fmt::Display for CompdbOptions {
@@ -493,7 +495,7 @@ pub(crate) fn gen_compdb(
         }
     }?;
 
-    Ok(())
+    merge_compdb(options.to_merge)
 }
 
 #[allow(unused)]
@@ -831,6 +833,36 @@ where
     let compressed = encode_all(content.as_bytes(), 0)?;
     let rows = add_compdb(conn, branch, revision, target, &compressed)?;
     Ok(rows)
+}
+
+pub(crate) fn merge_compdb<T: AsRef<Path>>(files: Vec<T>) -> anyhow::Result<()> {
+    let mut merged: serde_json::Value = json!([]);
+    let compdb = Path::new(COMPDB_FILE);
+    if compdb.is_file() {
+        let file = fs::File::open(compdb)?;
+        let reader = io::BufReader::new(file);
+        let content: serde_json::Value = serde_json::from_reader(reader)
+            .context(format!("Failed to deserialize {}", compdb.display()))?;
+        for elem in content.as_array().unwrap() {
+            merged.as_array_mut().unwrap().push(elem.clone());
+        }
+    }
+    for item in files.iter().map(|x| x.as_ref()) {
+        if !item.is_file() {
+            eprintln!("File {} not found", item.display());
+            continue;
+        }
+        let file = fs::File::open(item)?;
+        let reader = io::BufReader::new(file);
+        let content: serde_json::Value = serde_json::from_reader(reader)
+            .context(format!("Failed to deserialize {}", item.display()))?;
+        for elem in content.as_array().unwrap() {
+            merged.as_array_mut().unwrap().push(elem.clone());
+        }
+    }
+
+    fs::write(compdb, serde_json::to_string_pretty(&merged)?)?;
+    Ok(())
 }
 
 /// Name a compilation database generation in the store

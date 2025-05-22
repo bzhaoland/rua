@@ -29,6 +29,54 @@
 #let ftp_server_bj = "10.100.6.10"
 #let ftp_server_sz = "10.200.6.10"
 
+= rua v1.3.0
+
+#let rua_ver = "1.3.0"
+#let rua_path = [bzhao/rua/#rua_ver/rua]
+
+== 存放位置
+
+- 北京: #ftp_server_bj/#rua_path
+- 苏州: #ftp_server_sz/#rua_path
+
+== 下载安装
+
+北京，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/1.3.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+苏州，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.200.6.10/bzhao/rua/1.3.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+== 功能变更
+
++ `rua compdb`: 新增命令 merge，可将多个编译数据库手动个合入当前文件夹下的编译数据库
++ `rua compdb gen`: 新增选项 `--merge`，可在生成时指定要合入的其他便宜数据库，可通过指定多次该选项来传递多个编译数据库
++ `rua compdb gen`: 新增配置项 `merge`，列表类型，和 `rua compdb gen` 中的 `--merge` 效用相同
+
+== 使用示例
+
++ `rua compdb merge --target a-dnv path/to/another/compile_commands.json`\
+  会将 `path/to/another/compile_commands.json` 里面的内容提取出来，插入到当前目录下的 `compile_commands.json` 中
++ `rua compdb gen --merge path/to/another/compile_commands.json products/ngfw_as a-dnv`\
+  除了像以往一样生成编译数据库外，还会合入 path/to/another/compile_commands.json
++ 将下述内容写入用户配置文件 `~/.config/rua/config.toml` 或工程根目录下的配置文件 `.rua/config.toml`，可实现自动合入（工程根目录下配置文件优先）
+  ```toml
+  [compdb]
+  merge = ["path/to/another/compile_commands.json"]
+  ```
+
+#pagebreak()
+
 = rua v1.2.3
 
 #let rua_ver = "1.2.3"
