@@ -66,7 +66,8 @@ rm -f rua  # 从当前目录删除
 == 使用示例
 
 + `rua compdb merge --target a-dnv path/to/another/compile_commands.json`\
-  会将 `path/to/another/compile_commands.json` 里面的内容提取出来，插入到当前目录下的 `compile_commands.json` 中
+  会将 `path/to/another/compile_commands.json` 里面的内容提取出来，插入到当前目录下的 `compile_commands.json` 中。\
+  为了指示最终的数据库针对哪个编译目标而生成（在 rua compdb ls 中显示），需要传入一个额外的 `--target` 参数
 + `rua compdb gen --merge path/to/another/compile_commands.json products/ngfw_as a-dnv`\
   除了像以往一样生成编译数据库外，还会合入 path/to/another/compile_commands.json
 + 将下述内容写入用户配置文件 `~/.config/rua/config.toml` 或工程根目录下的配置文件 `.rua/config.toml`，可实现自动合入（工程根目录下配置文件优先）
@@ -74,6 +75,8 @@ rm -f rua  # 从当前目录删除
   [compdb]
   merge = ["path/to/another/compile_commands.json"]
   ```
+
+新增命令和选项的用法可随时通过 `-h` 选项查看。
 
 #pagebreak()
 
