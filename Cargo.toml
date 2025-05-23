@@ -38,9 +38,12 @@ walkdir = "2.5.0"
 zstd = "0.13.2"
 
 [profile.opt]
+codegen-units = 1
+debug = "full"
 inherits = "release"
-lto = "thin"
+lto = true
 opt-level = "s"
 panic = "abort"
-strip = "debuginfo"
-codegen-units = 2
+split-debuginfo = "packed"
+strip = "symbols"
+incremental = true
