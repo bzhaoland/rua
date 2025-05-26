@@ -94,6 +94,13 @@ pub(crate) fn gen_compdb_by_builtin(
     make_target: &str,
     macros: &IndexMap<String, String>,
 ) -> anyhow::Result<()> {
+    #[allow(unused)]
+    struct ChangedFile<'a> {
+        file: &'a Path,
+        orig: String,
+        post: String,
+    }
+
     const NSTEPS: usize = 5;
 
     // Invoke svn firstly to check whether we are in a working copy
@@ -103,6 +110,9 @@ pub(crate) fn gen_compdb_by_builtin(
         .working_copy_root_path()
         .join("scripts/last-rules.mk");
     let rules_path = svninfo.working_copy_root_path().join("scripts/rules.mk");
+    let common_rules_path = svninfo
+        .working_copy_root_path()
+        .join("scripts/common-rules.mk");
     let top_makefile = svninfo.working_copy_root_path().join("Makefile");
 
     if !lastrules_path.is_file() {
@@ -110,6 +120,9 @@ pub(crate) fn gen_compdb_by_builtin(
     }
     if !rules_path.is_file() {
         bail!(r#"File not found: "{}""#, rules_path.display());
+    }
+    if !common_rules_path.is_file() {
+        bail!(r#"File not found: "{}""#, common_rules_path.display());
     }
     if at_proj_root && !top_makefile.is_file() {
         bail!(r#"File not found: "{}""#, top_makefile.display());
@@ -142,8 +155,10 @@ pub(crate) fn gen_compdb_by_builtin(
     );
     pb1.enable_steady_tick(TICK_INTERVAL);
 
+    let mut changed_files: Vec<ChangedFile> = Vec::new();
+
     // Hacking for c files
-    let pattern_c = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(HS_CC\)[[:blank:]]+(\$\(CFLAGS[[:word:]]*\)[[:blank:]]+\$\(CFLAGS[[:word:]]*\)[[:blank:]]+-MMD[[:blank:]]+-c[[:blank:]]+-o[[:blank:]]+\$@[[:blank:]]+\$<)[[:blank:]]*$"#)
+    let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+(\$\(CFLAGS\w*\)\s+\$\(CFLAGS\w*\)\s+-MMD\s+-MP\s+-MT\$@\s+-c\s+-o\s+\$@\s+\$<)\s*$"#)
         .context("Failed to build regex for C compilation")?;
     let lastrules_text = fs::read_to_string(lastrules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, lastrules_path.display()))?;
@@ -156,25 +171,49 @@ pub(crate) fn gen_compdb_by_builtin(
         r#"Writing to file "{}" failed"#,
         lastrules_path.display()
     ))?;
+    changed_files.push(ChangedFile {
+        file: &lastrules_path,
+        orig: lastrules_text,
+        post: lastrules_text_hacked,
+    });
 
     // Hacking for cxx files
     let pattern_cxx = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
         .context("Building regex pattern for C++ compilation")?;
     let rules_text = fs::read_to_string(rules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, rules_path.display()))?;
-    let rules_text_hacked = pattern_cxx.replace_all(&rules_text, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
-    fs::write(rules_path.as_path(), &rules_text_hacked).context(format!(
-        r#"Writing to file "{}" failed"#,
-        rules_path.display()
-    ))?;
+    if pattern_cxx.is_match(&rules_text) {
+        let rules_text_hacked = pattern_cxx.replace_all(&rules_text, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
+        fs::write(rules_path.as_path(), &rules_text_hacked).context(format!(
+            r#"Writing to file "{}" failed"#,
+            rules_path.display()
+        ))?;
+        changed_files.push(ChangedFile {
+            file: &rules_path,
+            orig: rules_text,
+            post: rules_text_hacked,
+        });
+    }
+    let common_rules_text = fs::read_to_string(common_rules_path.as_path())?;
+    if pattern_cxx.is_match(&common_rules_text) {
+        let common_rules_text_hacked = pattern_cxx.replace_all(&common_rules_text, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
+        fs::write(common_rules_path.as_path(), &common_rules_text_hacked).context(format!(
+            r#"Writing to file "{}" failed"#,
+            common_rules_path.display()
+        ))?;
+        changed_files.push(ChangedFile {
+            file: &common_rules_path,
+            orig: common_rules_text,
+            post: common_rules_text_hacked,
+        });
+    }
 
     // Hacking for make target when running at project root
-    let mut top_makefile_text = String::new();
     if at_proj_root {
         let regex_core_rule =
             Regex::new(r#"(?m)^((?:\s*[^:\s]*\s+)*stoneos-image(?:\s+[^:\s]*)*):(.*)$"#)
                 .context("Construct regex for core rule failed")?;
-        top_makefile_text = fs::read_to_string(top_makefile.as_path())
+        let top_makefile_text = fs::read_to_string(top_makefile.as_path())
             .context(format!("Failed to read {}", top_makefile.display()))?;
         let captures = regex_core_rule
             .captures(&top_makefile_text)
@@ -190,6 +229,11 @@ pub(crate) fn gen_compdb_by_builtin(
             .to_string();
         fs::write(top_makefile.as_path(), &top_makefile_text_hacked)
             .context(format!("Failed to write {}", top_makefile.display()))?;
+        changed_files.push(ChangedFile {
+            file: &top_makefile,
+            orig: top_makefile_text,
+            post: top_makefile_text_hacked,
+        });
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Injecting makefiles ({} modified)...{{msg}}",
@@ -292,7 +336,7 @@ pub(crate) fn gen_compdb_by_builtin(
         }
     }
 
-    // Restore the original makefiles
+    // Restore all modified files
     step += 1;
     let pb3 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
@@ -302,15 +346,9 @@ pub(crate) fn gen_compdb_by_builtin(
         .tick_chars(TICK_CHARS),
     );
     pb3.enable_steady_tick(TICK_INTERVAL);
-    fs::write(lastrules_path.as_path(), &lastrules_text).context(format!(
-        r#"Restoring "{}" failed"#,
-        lastrules_path.display()
-    ))?;
-    fs::write(rules_path.as_path(), &rules_text)
-        .context(format!(r#"Restoring "{}" failed"#, rules_path.display()))?;
-    if at_proj_root {
-        fs::write(top_makefile.as_path(), &top_makefile_text)
-            .context(format!(r#"Restoring "{}" failed"#, top_makefile.display()))?;
+    for item in changed_files {
+        fs::write(item.file, item.orig)
+            .context(format!("Failed to restore {}", item.file.display()))?;
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Restoring makefiles ({} restored)...{{msg}}",
