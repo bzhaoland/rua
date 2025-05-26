@@ -23,6 +23,7 @@ use crate::submods::shinit;
 use crate::submods::showcc;
 use crate::submods::silist;
 use crate::utils;
+use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
 
 const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 const STYLE_YELLOW_BOLD: Style = Style::new()
@@ -619,7 +620,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
 
                     // Archive the newly generated compilation database
                     let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
-                        "Archiving the newly generated compilation database to store...{msg}",
+                        "Archiving the newly generated compilation database...{msg}",
                     )?);
                     pb.tick();
                     let rows = compdb::archive_compdb(
@@ -748,13 +749,19 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     revision,
                     files,
                 } => {
-                    eprint!("Merging compilation databases...");
-                    io::stderr().flush()?;
+                    let pbar = ProgressBar::no_length().with_style(
+                        ProgressStyle::with_template("Merging compilation databases...{msg}")?
+                            .tick_chars(TICK_CHARS),
+                    );
+                    pbar.enable_steady_tick(TICK_INTERVAL);
                     compdb::merge_compdb(files)?;
-                    eprintln!("\rMerging compilation databases...ok");
+                    pbar.finish_with_message("ok");
                     let svninfo = utils::SvnInfo::new()?;
                     let revision = revision.unwrap_or_else(|| svninfo.revision());
-                    eprint!("\rArchiving compilation database for {}...", target);
+                    pbar.set_style(ProgressStyle::with_template(
+                        "Archiving the newly generated compilation database...{msg}",
+                    )?);
+                    pbar.enable_steady_tick(TICK_INTERVAL);
                     compdb::archive_compdb(
                         &conn,
                         svninfo.branch_name(),
@@ -762,11 +769,11 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         target.as_str(),
                         COMPDB_FILE,
                     )?;
-                    eprintln!("\rArchiving compilation database for {}...ok", target);
                     compdb::set_current_generation(
                         &conn,
                         compdb::get_biggest_generation(&conn)?.unwrap(),
                     )?;
+                    pbar.finish_with_message("ok");
                     Ok(())
                 }
                 CompdbCommand::Name { generation, name } => {

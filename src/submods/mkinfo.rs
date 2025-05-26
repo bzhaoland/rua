@@ -214,80 +214,46 @@ pub(crate) fn read_mkinfo_registry(svninfo: &SvnInfo) -> anyhow::Result<Vec<Make
     let mut buf = String::with_capacity(256);
     let mut mkinfos: Vec<MakeInfo> = Vec::with_capacity(256);
 
-    match svninfo.branch_name() {
-        "MX_MAIN" => {
-            let re_makeinfo_new = Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
-        .context("Failed to build regex for makeinfo")?;
-            while makeinfo_reader.read_line(&mut buf)? != 0 {
-                if let Some(captures) = re_makeinfo_new.captures(&buf) {
-                    mkinfos.push(MakeInfo {
-                        platform_model: captures.get(1).unwrap().as_str().to_string(),
-                        product_family: captures.get(4).map(|v| v.as_str().to_string()),
-                        make_target: captures.get(2).unwrap().as_str().to_string(),
-                        make_directory: captures.get(3).unwrap().as_str().to_string(),
-                    });
-                }
-                buf.clear()
-            }
-        }
-        _ => {
-            let rel_num: usize = RE_RELNUM
-                .captures(svninfo.branch_name())
-                .context("Failed to capture release num")?
-                .get(1)
-                .unwrap()
-                .as_str()
-                .parse()?;
-            match rel_num {
-                6 => {
-                    let re_makeinfo_old =
-                        Regex::new(r#"^[[:blank:]]*([[:word:]]+)[[:blank:]]*([-[:word:]]+)"#)
-                            .context("Failed to build regex for makeinfo")?;
-                    while makeinfo_reader.read_line(&mut buf)? != 0 {
-                        if let Some(captures) = re_makeinfo_old.captures(&buf) {
-                            mkinfos.push(MakeInfo {
-                                platform_model: captures.get(1).unwrap().as_str().to_string(),
-                                make_target: captures.get(2).unwrap().as_str().to_string(),
-                                product_family: None,
-                                make_directory: ".".to_string(),
-                            });
-                        }
-                        buf.clear()
-                    }
-                }
-                x if x >= 8 => {
-                    let re_makeinfo_new = Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
-        .context("Failed to build regex for makeinfo")?;
-                    while makeinfo_reader.read_line(&mut buf)? != 0 {
-                        if let Some(captures) = re_makeinfo_new.captures(&buf) {
-                            mkinfos.push(MakeInfo {
-                                platform_model: captures.get(1).unwrap().as_str().to_string(),
-                                product_family: captures.get(4).map(|v| v.as_str().to_string()),
-                                make_target: captures.get(2).unwrap().as_str().to_string(),
-                                make_directory: captures.get(3).unwrap().as_str().to_string(),
-                            });
-                        }
-                        buf.clear()
-                    }
-                }
-                _ => bail!("Unsupported release"),
-            }
-        }
-    };
-    let re_makeinfo_new = Regex::new(r#"^[[:blank:]]*([[:word:]]+),([-[:word:]]+),[^,]*,[[:blank:]]*"[[:blank:]]*(?:cd[[:blank:]]+)?([-[:word:]/]+)",[[:space:]]*[[:digit:]]+(?:[[:space:]]*,[[:space:]]*([[:word:]]+))?.*"#)
-        .context("Failed to build regex for makeinfo")?;
+    let regex_makeinfo_1 = Regex::new(r#"^\s*([\w\-/]+)\s+([\w\-]+)\s*$"#).unwrap();
+    let regex_makeinfo_2 = Regex::new(
+        r#"^\s*([\w\-/]+)\s*,\s*([\w\-]+)\s*(?:,\s*([^,]*)\s*(?:,\s*"\s*cd\s+([^"]+?)\s*"\s*(?:,\s*(\d*)\s*(?:,\s*"(\s*[^"]*?\s*)"\s*)?)?)?)?$"#,
+    )
+    .unwrap();
+    let regex_makeinfo_3 = Regex::new(
+        r#"^\s*([\w\-/]+)\s*,\s*([\w\-]+)\s*(?:,\s*([^,]*)\s*(?:,\s*"\s*cd\s+([^"]+?)\s*"\s*(?:,\s*(\d*)\s*(?:,\s*(\w+)\s*(?:,\s*"\s*([^"]*?)\s*"\s*)?)?)?)?)?$"#,
+    )
+    .unwrap();
     while makeinfo_reader.read_line(&mut buf)? != 0 {
-        if let Some(captures) = re_makeinfo_new.captures(&buf) {
+        if let Some(captures) = regex_makeinfo_3.captures(&buf) {
             mkinfos.push(MakeInfo {
                 platform_model: captures.get(1).unwrap().as_str().to_string(),
-                product_family: captures.get(4).map(|v| v.as_str().to_string()),
+                product_family: captures.get(6).map(|v| v.as_str().to_string()),
                 make_target: captures.get(2).unwrap().as_str().to_string(),
-                make_directory: captures.get(3).unwrap().as_str().to_string(),
+                make_directory: captures
+                    .get(4)
+                    .map(|x| x.as_str().to_string())
+                    .unwrap_or(String::new()),
+            });
+        } else if let Some(captures) = regex_makeinfo_2.captures(&buf) {
+            mkinfos.push(MakeInfo {
+                platform_model: captures.get(1).unwrap().as_str().to_string(),
+                product_family: None,
+                make_target: captures.get(2).unwrap().as_str().to_string(),
+                make_directory: captures
+                    .get(4)
+                    .map(|x| x.as_str().to_string())
+                    .unwrap_or(String::new()),
+            });
+        } else if let Some(captures) = regex_makeinfo_1.captures(&buf) {
+            mkinfos.push(MakeInfo {
+                platform_model: captures.get(1).unwrap().as_str().to_string(),
+                product_family: None,
+                make_target: captures.get(2).unwrap().as_str().to_string(),
+                make_directory: ".".to_string(),
             });
         }
         buf.clear()
     }
-
     mkinfos.shrink_to_fit();
 
     Ok(mkinfos)
@@ -443,12 +409,6 @@ fn compose_compileinfo(
     })
 }
 
-// Get release number
-static RE_RELNUM: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^HAWAII_(?:REL_)?R([[:digit:]]+)|^MX_MAIN")
-        .expect("Failed to build regex for release num")
-});
-
 pub(crate) fn gen_mkinfo_by_nickname(
     nickname: &str,
     makeopts: MakeOpts,
@@ -473,6 +433,7 @@ pub(crate) fn gen_mkinfo_by_nickname(
 
     // Read and hash makeinfos, allow duplicates
     let mkinfo_list = read_mkinfo_registry(&svninfo)?;
+    println!("{:?}", mkinfo_list);
     let mut mkinfo_map = HashMap::with_capacity(256);
     for item in mkinfo_list {
         mkinfo_map
