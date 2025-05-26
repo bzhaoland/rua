@@ -141,7 +141,7 @@ pub(crate) fn gen_compdb_by_builtin(
     let mut changed_files: Vec<ChangedFile> = Vec::new();
 
     // Hacking for c files
-    let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+(\$\(CFLAGS\w*\)\s+\$\(CFLAGS\w*\)\s+-MMD(\s+-MP\s+-MT\s+\$@)?\s+-c\s+-o\s+\$@\s+\$<)\s*$"#)
+    let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+(\$\(CFLAGS\w*\)\s+\$\(CFLAGS\w*\)\s+-MMD(?:\s+-MP\s+-MT\s+\$@)?\s+-c\s+-o\s+\$@\s+\$<)\s*$"#)
         .context("Failed to build regex for C compilation")?;
     let lastrules_text = fs::read_to_string(lastrules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, lastrules_path.display()))?;
