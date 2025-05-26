@@ -129,27 +129,10 @@ pub(crate) fn gen_compdb_by_builtin(
     }
 
     let mut step: usize = 1;
-    let modified_files = if at_proj_root {
-        format!(
-            "{} & {} & {}",
-            lastrules_path.file_name().unwrap().to_string_lossy(),
-            rules_path.file_name().unwrap().to_string_lossy(),
-            top_makefile.file_name().unwrap().to_string_lossy(),
-        )
-    } else {
-        format!(
-            "{} & {}",
-            lastrules_path.file_name().unwrap().to_string_lossy(),
-            rules_path.file_name().unwrap().to_string_lossy()
-        )
-    };
+
     let pb1 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
-            format!(
-                "[{}/{}] Injecting mkfiles ({}) {{spinner:.green}}",
-                step, NSTEPS, modified_files
-            )
-            .as_str(),
+            format!("[{}/{}] Injecting mkfiles {{spinner:.green}}", step, NSTEPS).as_str(),
         )?
         .tick_chars(TICK_CHARS),
     );
@@ -158,7 +141,7 @@ pub(crate) fn gen_compdb_by_builtin(
     let mut changed_files: Vec<ChangedFile> = Vec::new();
 
     // Hacking for c files
-    let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+(\$\(CFLAGS\w*\)\s+\$\(CFLAGS\w*\)\s+-MMD\s+-MP\s+-MT\$@\s+-c\s+-o\s+\$@\s+\$<)\s*$"#)
+    let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+(\$\(CFLAGS\w*\)\s+\$\(CFLAGS\w*\)\s+-MMD(\s+-MP\s+-MT\s+\$@)?\s+-c\s+-o\s+\$@\s+\$<)\s*$"#)
         .context("Failed to build regex for C compilation")?;
     let lastrules_text = fs::read_to_string(lastrules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, lastrules_path.display()))?;
@@ -237,7 +220,13 @@ pub(crate) fn gen_compdb_by_builtin(
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Injecting makefiles ({} modified)...{{msg}}",
-        step, NSTEPS, modified_files
+        step,
+        NSTEPS,
+        changed_files
+            .iter()
+            .map(|x| x.file.display().to_string())
+            .collect::<Vec<String>>()
+            .join(" & ")
     ))?);
     pb1.finish_with_message("ok");
 
@@ -340,19 +329,25 @@ pub(crate) fn gen_compdb_by_builtin(
     step += 1;
     let pb3 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(&format!(
-            "[{}/{}] Restoring makefiles ({}) {{spinner:.green}}",
-            step, NSTEPS, modified_files
+            "[{}/{}] Restoring makefiles {{spinner:.green}}",
+            step, NSTEPS,
         ))?
         .tick_chars(TICK_CHARS),
     );
     pb3.enable_steady_tick(TICK_INTERVAL);
-    for item in changed_files {
-        fs::write(item.file, item.orig)
+    for item in changed_files.iter() {
+        fs::write(item.file, &item.orig)
             .context(format!("Failed to restore {}", item.file.display()))?;
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
         "[{}/{}] Restoring makefiles ({} restored)...{{msg}}",
-        step, NSTEPS, modified_files
+        step,
+        NSTEPS,
+        changed_files
+            .iter()
+            .map(|x| x.file.display().to_string())
+            .collect::<Vec<String>>()
+            .join(" & ")
     ))?);
     pb3.finish_with_message("ok");
 
