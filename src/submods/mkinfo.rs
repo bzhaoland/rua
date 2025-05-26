@@ -433,7 +433,6 @@ pub(crate) fn gen_mkinfo_by_nickname(
 
     // Read and hash makeinfos, allow duplicates
     let mkinfo_list = read_mkinfo_registry(&svninfo)?;
-    println!("{:?}", mkinfo_list);
     let mut mkinfo_map = HashMap::with_capacity(256);
     for item in mkinfo_list {
         mkinfo_map
