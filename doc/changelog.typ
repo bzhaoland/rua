@@ -59,7 +59,7 @@ rm -f rua  # 从当前目录删除
 
 == 功能变更
 
-+ `rua compdb gen`: 适配最新的MX_MAIN分支改动
++ `rua compdb gen`: 适配MX_MAIN分支的Makefile改动\@revision 312960
 
 
 #pagebreak()
