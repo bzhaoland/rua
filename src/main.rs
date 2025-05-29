@@ -1,4 +1,5 @@
 mod app;
+mod cli;
 mod config;
 mod submods;
 mod utils;
