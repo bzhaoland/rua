@@ -1,7 +1,7 @@
 use anstyle::{Ansi256Color, Color, Style};
 use clap::{ArgGroup, Subcommand};
 
-use crate::submods::compdb::CompdbEngine;
+use crate::core::compdb::CompdbEngine;
 
 const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 const STYLE_YELLOW_BOLD: Style = Style::new()
@@ -22,9 +22,9 @@ pub(crate) enum CompdbCmd {
     /// database under submod dir.
     ///
     /// Note:
-    /// 1. Compilation database generated under submod dir only covers
+    /// 1. Compilation database generated under submod dir only includes
     ///    files in this module.
-    /// 2. R4+ releases are supported by compdb.
+    /// 2. R4+ releases are also supported by compdb.
     #[command(visible_aliases = ["generate"],
         after_help = format!(
         r#"{0}Examples:{0:#}

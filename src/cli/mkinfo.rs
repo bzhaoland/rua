@@ -1,6 +1,6 @@
 use clap::Args;
 
-use crate::submods::mkinfo;
+use crate::core::mkinfo;
 
 #[derive(Args, Clone, Debug)]
 pub(crate) struct MkinfoArgs {

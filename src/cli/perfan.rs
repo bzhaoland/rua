@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 
-use crate::submods::perfan;
+use crate::core::perfan;
 
 #[derive(Args, Clone, Debug)]
 pub(crate) struct PerfanArgs {
