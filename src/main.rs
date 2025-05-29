@@ -1,7 +1,7 @@
 mod app;
 mod cli;
 mod config;
-mod submods;
+mod core;
 mod utils;
 
 use clap::Parser;
