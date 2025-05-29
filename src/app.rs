@@ -19,6 +19,7 @@ use crate::cli::mkinfo::MkinfoArgs;
 use crate::cli::perfan::PerfanArgs;
 use crate::cli::review::ReviewArgs;
 use crate::cli::showcc::ShowccArgs;
+use crate::cli::update::UpdateArgs;
 use crate::config::{CLANGD_CACHE, COMPDB_FILE, COMPDB_STORE, PROJ_RUA_DIR, RuaConf};
 use crate::core::clean;
 use crate::core::compdb::{self, CompdbEngine};
@@ -28,6 +29,7 @@ use crate::core::review;
 use crate::core::shinit;
 use crate::core::showcc;
 use crate::core::silist;
+use crate::core::update;
 use crate::utils;
 use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
 
@@ -90,13 +92,16 @@ pub(crate) enum Comm {
         #[arg(value_name = "SHELL", help = "Shell type", value_enum)]
         shell: Shell,
     },
+
+    /// Update self
+    Update(UpdateArgs),
 }
 
 #[derive(Clone, Debug, Parser)]
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "1.3.1",
+    version = "1.4.0",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs"#
@@ -580,5 +585,6 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             shinit::gen_completion(&mut Cli::command(), shell);
             Ok(())
         }
+        Comm::Update(UpdateArgs { pin }) => update::update(pin),
     }
 }
