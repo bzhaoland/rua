@@ -56,7 +56,6 @@ pub(crate) enum Comm {
     },
 
     /// Get all matched makeinfos for product
-    ///
     /// Note: R6+ releases are supported by mkinfo.
     #[command(
         after_help = format!(r#"{0}Examples:{0:#}
@@ -67,10 +66,11 @@ pub(crate) enum Comm {
     )]
     Mkinfo(MkinfoArgs),
 
-    /// Extensively map instructions to file locations (inline expanded)
+    /// Annotate instructions with precise locations which consist of function name, file and line
+    /// number (inline expanded)
     Perfan(PerfanArgs),
 
-    /// Start a new review request or refresh the existing one if review-id provided
+    /// Launch a new review request or refresh the existing one if given
     Review(ReviewArgs),
 
     /// Show all possible compile commands for filename (based on compilation database)
