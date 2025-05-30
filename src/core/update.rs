@@ -17,6 +17,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
     ftp_stream.cwd("bzhao")?;
 
     let target_version = version.unwrap_or_else(|| {
+        println!("Checking for updates...");
         let data = ftp_stream
             .retr_as_buffer("rua/releases.json")
             .unwrap()
@@ -42,6 +43,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
     let mut perm = fs::metadata(dest.as_path())?.permissions();
     perm.set_mode(0o755);
     fs::set_permissions(dest, perm)?;
+    println!("Updated to version {}", target_version);
 
     ftp_stream.quit()?;
 
