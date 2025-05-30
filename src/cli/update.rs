@@ -3,7 +3,7 @@ use clap::Args;
 #[derive(Args, Clone, Debug)]
 pub(crate) struct UpdateArgs {
     #[arg(
-        long = "--pin",
+        long = "pin",
         value_name = "VERSION",
         help = "Pin to a specified rua version"
     )]

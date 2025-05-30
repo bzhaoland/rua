@@ -7,7 +7,6 @@ use anstyle::{Ansi256Color, Color, Style};
 use anyhow::{Result, bail};
 use clap::builder::styling;
 use clap::{CommandFactory, Parser, Subcommand};
-use clap_complete::Shell;
 use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
@@ -18,7 +17,9 @@ use crate::cli::compdb::CompdbCmd;
 use crate::cli::mkinfo::MkinfoArgs;
 use crate::cli::perfan::PerfanArgs;
 use crate::cli::review::ReviewArgs;
+use crate::cli::shinit::ShinitArgs;
 use crate::cli::showcc::ShowccArgs;
+use crate::cli::silist::SilistArgs;
 use crate::cli::update::UpdateArgs;
 use crate::config::{CLANGD_CACHE, COMPDB_FILE, COMPDB_STORE, PROJ_RUA_DIR, RuaConf};
 use crate::core::clean;
@@ -75,25 +76,16 @@ pub(crate) enum Comm {
     /// Show all possible compile commands for filename (based on compilation database)
     Showcc(ShowccArgs),
 
-    /// Generate a filelist for Source Insight
-    Silist {
-        #[arg(
-            value_name = "PREFIX",
-            help = "Path prefix for source files, such as '/home/user/repos/MX_MAIN' (for Linux) or 'F:/repos/MX_MAIN' (for Windows), etc."
-        )]
-        prefix: String,
-    },
+    /// Generate a filelist for Source Insight (deprecated)
+    Silist(SilistArgs),
 
     /// Generate completion for the given shell
     #[command(after_help = format!(r#"{0}Note:{0:#}
   eval "$(rua init bash)"  # Append this line to ~/.bashrc
   eval "$(rua init zsh)"   # Append this line to ~/.zshrc"#, STYLE_YELLOW_BOLD))]
-    Init {
-        #[arg(value_name = "SHELL", help = "Shell type", value_enum)]
-        shell: Shell,
-    },
+    Init(ShinitArgs),
 
-    /// Update self
+    /// Update rua
     Update(UpdateArgs),
 }
 
@@ -454,7 +446,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             };
             showcc::show_compile_command(comp_unit.as_str(), compilation_db.as_path())
         }
-        Comm::Silist { prefix } => silist::gen_silist(&prefix),
+        Comm::Silist(SilistArgs { prefix }) => silist::gen_silist(&prefix),
         Comm::Mkinfo(MkinfoArgs {
             ipv6,
             coverage,
@@ -581,7 +573,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             };
             tokio::runtime::Runtime::new()?.block_on(review::review(&options))
         }
-        Comm::Init { shell } => {
+        Comm::Init(ShinitArgs { shell }) => {
             shinit::gen_completion(&mut Cli::command(), shell);
             Ok(())
         }
