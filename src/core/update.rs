@@ -23,13 +23,12 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
             .into_inner();
         let release_info: Vec<ReleaseInfo> =
             serde_json::from_str(str::from_utf8(&data).unwrap()).unwrap();
-        let latest_version = release_info
+        release_info
             .iter()
             .fold(Version::parse("0.0.0").unwrap(), |o, i| {
                 o.max(Version::parse(&i.version).unwrap())
-            });
-
-        latest_version.to_string()
+            })
+            .to_string()
     });
 
     let data = ftp_stream

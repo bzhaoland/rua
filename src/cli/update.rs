@@ -5,7 +5,7 @@ pub(crate) struct UpdateArgs {
     #[arg(
         long = "--pin",
         value_name = "VERSION",
-        help = "Pin a specified version"
+        help = "Pin to a specified rua version"
     )]
     pub(crate) pin: Option<String>,
 }
