@@ -21,9 +21,8 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         v
     } else {
         // Checking for the latest release
-        let pbar = ProgressBar::no_length().with_style(ProgressStyle::with_template(
-            "Checking for updates...{msg}",
-        )?);
+        let pbar = ProgressBar::no_length()
+            .with_style(ProgressStyle::with_template("Checking for updates...")?);
         pbar.tick();
         let data = ftp_stream
             .retr_as_buffer("rua/releases.json")
@@ -36,13 +35,12 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
                 o.max(Version::parse(&i.version).unwrap())
             })
             .to_string();
-        pbar.set_style(ProgressStyle::with_template("Found version {msg}")?);
-        pbar.finish_with_message(latest_version.clone());
+        pbar.finish_and_clear();
         latest_version
     };
 
     let pbar = ProgressBar::no_length().with_style(ProgressStyle::with_template(
-        format!("Installing rua {}...", target_version).as_str(),
+        format!("Updating rua {}...", target_version).as_str(),
     )?);
     pbar.tick();
     let home = home_dir().context("Failed to get current user's home dir")?;
