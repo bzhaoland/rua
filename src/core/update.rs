@@ -21,6 +21,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
     let target_version = if let Some(v) = version {
         v
     } else {
+        // Checking for the latest release
         let pbar = ProgressBar::no_length().with_style(ProgressStyle::with_template(
             "Checking for updates...{msg}",
         )?);
@@ -36,7 +37,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
                 o.max(Version::parse(&i.version).unwrap())
             })
             .to_string();
-        pbar.finish_and_clear();
+        pbar.finish_with_message("found version ".to_string() + latest_version.as_str());
         latest_version
     };
 
@@ -71,8 +72,10 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         temp.path().display(),
         dest.display()
     ))?;
-    pbar.finish_and_clear();
-    println!("Updated rua to version {}", target_version);
+    pbar.set_style(ProgressStyle::with_template(
+        "Updated rua to version {msg}",
+    )?);
+    pbar.finish_with_message(target_version);
 
     ftp_stream.quit().context("Failed to quit ftp stream")?;
     Ok(())
