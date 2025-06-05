@@ -29,6 +29,54 @@
 #let ftp_server_bj = "10.100.6.10"
 #let ftp_server_sz = "10.200.6.10"
 
+= rua v1.4.0
+
+#let rua_ver = "1.4.0"
+#let rua_path = [bzhao/rua/#rua_ver/rua]
+
+== 存放位置
+
+- 北京: #ftp_server_bj/#rua_path
+- 苏州: #ftp_server_sz/#rua_path
+
+== 下载安装
+
+北京，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.100.6.10/bzhao/rua/1.4.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+苏州，SSH登录到 *buildserver* 上，执行命令：
+
+```bash
+curl -LO ftp://10.200.6.10/bzhao/rua/1.4.0/rua  # 下载到本地
+install -D rua ~/.local/bin/rua  # 安装到指定位置
+rm -f rua  # 从当前目录删除
+```
+
+== 功能变更
+
++ `rua update`: 本版本新增了update命令，后续可通过在命令命令行执行 `rua update` 来将 rua 更新到最新版，简化操作步骤
++ `rua update --pin <VERSION>`: 可指定更新到特定版本
+
+== 使用示例
+
++ `rua update`: 自动下载和安装最新版本的 rua\
+  #figure(
+    image("assets/changelog.1_4_0.update.png"),
+    numbering: none,
+  )
++ `rua update --pin 1.3.1`: 自动下载和安装指定版本的 rua (注意，\<1.4.0的版本不具备升级功能)\
+  #figure(
+    image("assets/changelog.1_4_0.update_pin.png"),
+    numbering: none,
+  )
+
+#pagebreak()
+
 = rua v1.3.1
 
 #let rua_ver = "1.3.1"
