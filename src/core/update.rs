@@ -43,7 +43,10 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
                 .to_string();
             pbar.finish_and_clear();
             if current_version == semver::Version::parse(&latest_version)? {
-                println!("You are already on the latest version of rua");
+                println!(
+                    "You are already on the latest version ({}) of rua",
+                    latest_version
+                );
                 return Ok(());
             }
 
