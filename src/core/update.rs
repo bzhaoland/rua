@@ -40,7 +40,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         if let Some(v) = version {
             if current_version == semver::Version::parse(&v)? {
                 println!(
-                    "You are already on the specified version ({1}{0}{1:#}) of rua",
+                    "You are already on the target version ({1}{0}{1:#}) of rua",
                     v, STYLE_GREEN
                 );
                 return Ok(());
