@@ -259,8 +259,8 @@ pub(crate) fn read_mkinfo_registry(svninfo: &SvnInfo) -> anyhow::Result<Vec<Make
     Ok(mkinfos)
 }
 
-const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
-const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
+const STYLE_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
+const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 
 fn abbreviate_branch(branch: &str) -> anyhow::Result<String> {
     let pattern_branch_part =
@@ -595,8 +595,8 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     }
 
     // Decorations
-    let outerline = format!("{0}{1}{0:#}", COLOR_GREEN, "═".repeat(term_cols as usize));
-    let innerline = format!("{0}{1}{0:#}", COLOR_GREEN, "─".repeat(term_cols as usize));
+    let outerline = format!("{0}{1}{0:#}", STYLE_GREEN, "═".repeat(term_cols as usize));
+    let innerline = format!("{0}{1}{0:#}", STYLE_GREEN, "─".repeat(term_cols as usize));
 
     println!(
         "{} matched info{}:",
@@ -643,7 +643,7 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
 
     println!(
         r#"{0}Run make command under the project root, i.e. "{1}"{0:#}"#,
-        COLOR_YELLOW,
+        STYLE_YELLOW,
         utils::SvnInfo::new()?.working_copy_root_path().display(),
     );
 
