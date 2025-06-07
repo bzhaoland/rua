@@ -87,7 +87,8 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         .context(format!("Failed to create dir {}", bin_dir.display()))?;
     let dest = bin_dir.join("rua");
     let data = ftp_stream
-        .retr_as_buffer(&format!("{}/rua", target_version))?
+        .retr_as_buffer(&format!("{}/rua", target_version))
+        .context(format!("Failed to retrieve rua v{}", target_version))?
         .into_inner();
     fs::write(dest.as_path(), data.as_slice()).context("Failed to write the binary")?;
     let mut perm = fs::metadata(dest.as_path())
