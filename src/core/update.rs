@@ -41,7 +41,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         if let Some(v) = version {
             if current_version == semver::Version::parse(&v)? {
                 println!(
-                    "You're already on the target version of rua ({1}v{0}{1:#})",
+                    "You are already on the target version of rua ({1}v{0}{1:#})",
                     v, STYLE_BLUE_BOLD
                 );
                 return Ok(());
@@ -66,7 +66,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
             pbar.finish();
             if current_version == semver::Version::parse(&latest_version)? {
                 println!(
-                    "You're already on the latest version of rua ({1}v{0}{1:#})",
+                    "You are already on the latest version of rua ({1}v{0}{1:#})",
                     latest_version, STYLE_BLUE_BOLD
                 );
                 return Ok(());
@@ -97,7 +97,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
     fs::set_permissions(dest.as_path(), perm)?;
     pbar.set_style(ProgressStyle::with_template(
         format!(
-            "{0} rua from {3}{1}{3:#} to {3}{2}{3:#}",
+            "{0} rua from {3}v{1}{3:#} to {3}v{2}{3:#}",
             if current_version < target_version {
                 "Upgraded"
             } else {
