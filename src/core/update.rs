@@ -4,6 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 use anyhow::Context;
 use home::home_dir;
 use indicatif::{ProgressBar, ProgressStyle};
+use rustix::system::uname;
 use semver::Version;
 use suppaftp::FtpStream;
 
@@ -12,11 +13,24 @@ struct ReleaseInfo {
     version: String,
 }
 
+const FTP_SERVER_BJ: &str = "10.100.6.10";
+const FTP_SERVER_SZ: &str = "10.200.6.10";
+const FTP_LOGIN_USER: &str = "anonymous";
+const FTP_LOGIN_PASSWORD: &str = "";
+const FTP_RUA_DIR: &str = "bzhao/rua";
+
 pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
     let current_version = semver::Version::parse(env!("CARGO_PKG_VERSION"))?;
-    let mut ftp_stream = FtpStream::connect("10.100.6.10:21")?;
-    ftp_stream.login("anonymous", "")?;
-    ftp_stream.cwd("bzhao")?;
+    let mut ftp_stream = FtpStream::connect(format!(
+        "{}:21",
+        if uname().nodename().to_string_lossy().ends_with("-sz") {
+            FTP_SERVER_SZ
+        } else {
+            FTP_SERVER_BJ
+        }
+    ))?;
+    ftp_stream.login(FTP_LOGIN_USER, FTP_LOGIN_PASSWORD)?;
+    ftp_stream.cwd(FTP_RUA_DIR)?;
 
     let target_version = semver::Version::parse(
         if let Some(v) = version {
@@ -31,7 +45,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
                 .with_style(ProgressStyle::with_template("Checking for updates...")?);
             pbar.tick();
             let data = ftp_stream
-                .retr_as_buffer("rua/releases.json")
+                .retr_as_buffer("releases.json")
                 .unwrap()
                 .into_inner();
             let release_info: Vec<ReleaseInfo> = serde_json::from_str(str::from_utf8(&data)?)?;
@@ -65,7 +79,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         .context(format!("Failed to create dir {}", bin_dir.display()))?;
     let dest = bin_dir.join("rua");
     let data = ftp_stream
-        .retr_as_buffer(&format!("rua/{}/rua", target_version))?
+        .retr_as_buffer(&format!("{}/rua", target_version))?
         .into_inner();
     fs::write(dest.as_path(), data.as_slice()).context("Failed to write the binary")?;
     let mut perm = fs::metadata(dest.as_path())
