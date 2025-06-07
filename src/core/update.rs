@@ -14,8 +14,9 @@ struct ReleaseInfo {
     version: String,
 }
 
-const STYLE_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
-const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
+const STYLE_BLUE_BOLD: Style = Style::new()
+    .fg_color(Some(Color::Ansi256(Ansi256Color(4))))
+    .bold();
 
 const FTP_SERVER_BJ: &str = "10.100.6.10";
 const FTP_SERVER_SZ: &str = "10.200.6.10";
@@ -40,8 +41,8 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         if let Some(v) = version {
             if current_version == semver::Version::parse(&v)? {
                 println!(
-                    "You are already on the target version ({1}{0}{1:#}) of rua",
-                    v, STYLE_GREEN
+                    "You're already on the target version of rua ({1}v{0}{1:#})",
+                    v, STYLE_BLUE_BOLD
                 );
                 return Ok(());
             }
@@ -62,11 +63,11 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
                     o.max(Version::parse(&i.version).unwrap())
                 })
                 .to_string();
-            pbar.finish_and_clear();
+            pbar.finish();
             if current_version == semver::Version::parse(&latest_version)? {
                 println!(
-                    "You are already on the latest version ({1}{0}{1:#}) of rua",
-                    latest_version, STYLE_GREEN
+                    "You're already on the latest version of rua ({1}v{0}{1:#})",
+                    latest_version, STYLE_BLUE_BOLD
                 );
                 return Ok(());
             }
@@ -96,7 +97,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
     fs::set_permissions(dest.as_path(), perm)?;
     pbar.set_style(ProgressStyle::with_template(
         format!(
-            "{0} rua from {3}{1}{3:#} to {4}{2}{4:#}",
+            "{0} rua from {3}{1}{3:#} to {3}{2}{3:#}",
             if current_version < target_version {
                 "Upgraded"
             } else {
@@ -104,13 +105,11 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
             },
             current_version,
             target_version,
-            STYLE_YELLOW,
-            STYLE_GREEN
+            STYLE_BLUE_BOLD
         )
         .as_str(),
     )?);
     pbar.finish();
 
-    ftp_stream.quit().context("Failed to quit ftp stream")?;
-    Ok(())
+    ftp_stream.quit().context("Failed to quit ftp stream")
 }
