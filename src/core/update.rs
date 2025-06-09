@@ -18,24 +18,18 @@ const STYLE_BLUE_BOLD: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(4))))
     .bold();
 
-const FTP_SERVER_BJ: &str = "10.100.6.10";
-const FTP_SERVER_SZ: &str = "10.200.6.10";
-const FTP_LOGIN_USER: &str = "anonymous";
-const FTP_LOGIN_PASSWORD: &str = "";
-const FTP_RUA_DIR: &str = "bzhao/rua";
-
 pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
     let current_version = semver::Version::parse(env!("CARGO_PKG_VERSION"))?;
     let mut ftp_stream = FtpStream::connect(format!(
         "{}:21",
         if uname().nodename().to_string_lossy().ends_with("-sz") {
-            FTP_SERVER_SZ
+            "10.200.6.10"
         } else {
-            FTP_SERVER_BJ
+            "10.100.6.10"
         }
     ))?;
-    ftp_stream.login(FTP_LOGIN_USER, FTP_LOGIN_PASSWORD)?;
-    ftp_stream.cwd(FTP_RUA_DIR)?;
+    ftp_stream.login("anonymous", "")?;
+    ftp_stream.cwd("bzhao/rua")?;
 
     let target_version = semver::Version::parse(
         if let Some(v) = version {
