@@ -35,7 +35,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         if let Some(v) = version {
             if current_version == semver::Version::parse(&v)? {
                 println!(
-                    "You are already on the target version of rua ({1}v{0}{1:#})",
+                    "You're already on the target version of rua ({1}v{0}{1:#})",
                     v, STYLE_BLUE_BOLD
                 );
                 return Ok(());
@@ -60,7 +60,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
             pbar.finish();
             if current_version == semver::Version::parse(&latest_version)? {
                 println!(
-                    "You are already on the latest version of rua ({1}v{0}{1:#})",
+                    "You're already on the latest version of rua ({1}v{0}{1:#})",
                     latest_version, STYLE_BLUE_BOLD
                 );
                 return Ok(());
