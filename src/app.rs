@@ -64,14 +64,13 @@ pub(crate) enum Comm {
     )]
     Mkinfo(MkinfoArgs),
 
-    /// Annotate instructions with precise locations which consist of function name, file and line
-    /// number (inline expanded)
+    /// Annotate instructions with precise locations
     Perfan(PerfanArgs),
 
-    /// Launch a new review request or refresh the existing one if given
+    /// Launch a new review request or refresh the existing one
     Review(ReviewArgs),
 
-    /// Show all possible compile commands for filename (based on compilation database)
+    /// Show compile commands for filename (based on compilation database)
     Showcc(ShowccArgs),
 
     /// Generate completion for the given shell
