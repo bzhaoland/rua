@@ -54,7 +54,7 @@ eval "$(rua init bash)"
 
 You can update this utility via executing `rua update`
 
-== WIP
+## WIP
 
 - [ ] Trash utility (a riskless clean implementation)
 - [x] Self upgrade (simplify tool upgrading)
