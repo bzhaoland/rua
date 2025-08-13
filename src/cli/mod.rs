@@ -5,5 +5,4 @@ pub(crate) mod perfan;
 pub(crate) mod review;
 pub(crate) mod shinit;
 pub(crate) mod showcc;
-pub(crate) mod silist;
 pub(crate) mod update;

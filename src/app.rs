@@ -19,7 +19,6 @@ use crate::cli::perfan::PerfanArgs;
 use crate::cli::review::ReviewArgs;
 use crate::cli::shinit::ShinitArgs;
 use crate::cli::showcc::ShowccArgs;
-use crate::cli::silist::SilistArgs;
 use crate::cli::update::UpdateArgs;
 use crate::config::{CLANGD_CACHE, COMPDB_FILE, COMPDB_STORE, PROJ_RUA_DIR, RuaConf};
 use crate::core::clean;
@@ -29,7 +28,6 @@ use crate::core::perfan;
 use crate::core::review;
 use crate::core::shinit;
 use crate::core::showcc;
-use crate::core::silist;
 use crate::core::update;
 use crate::utils;
 use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
@@ -75,9 +73,6 @@ pub(crate) enum Comm {
 
     /// Show all possible compile commands for filename (based on compilation database)
     Showcc(ShowccArgs),
-
-    /// Generate a filelist for Source Insight (deprecated)
-    Silist(SilistArgs),
 
     /// Generate completion for the given shell
     #[command(after_help = format!(r#"{0}Note:{0:#}
@@ -446,7 +441,6 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             };
             showcc::show_compile_command(comp_unit.as_str(), compilation_db.as_path())
         }
-        Comm::Silist(SilistArgs { prefix }) => silist::gen_silist(&prefix),
         Comm::Mkinfo(MkinfoArgs {
             ipv6,
             coverage,

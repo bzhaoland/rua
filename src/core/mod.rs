@@ -5,5 +5,4 @@ pub mod perfan;
 pub mod review;
 pub mod shinit;
 pub mod showcc;
-pub mod silist;
 pub mod update;
