@@ -147,10 +147,10 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(data_file: P, elfs: Vec<P>) -> anyho
             .context("Failed to extract the file stem")?
             .to_string_lossy()
             .to_string();
-        let module = profile
-            .mods
-            .get_mut(&elf_name)
-            .context(format!("Can not find {}", elf_name))?;
+        let module = profile.mods.get_mut(&elf_name).context(format!(
+            "Can not find {} module from profiling text",
+            elf_name
+        ))?;
         for func in module.funcs.iter_mut() {
             for line in func.lines.iter_mut() {
                 let addr = u64::from_str_radix(&line.address, 16)
