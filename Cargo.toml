@@ -6,7 +6,7 @@ authors = ["bzhao"]
 description = "A toolbox for developers of StoneOS and its derivatives"
 keywords = ["StoneOS"]
 categories = ["command-line-utilities", "terminal", "cli"]
-rust-version = "1.87.0"
+rust-version = "1.89.0"
 license = "GPL"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -34,6 +34,7 @@ semver = "1.0.26"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 suppaftp = "6.2.1"
+tempfile = "3.21.0"
 tokio = { version = "1.0", features = ["full"] }
 toml = "0.8.19"
 walkdir = "2.5.0"
