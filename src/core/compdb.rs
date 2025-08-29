@@ -624,7 +624,7 @@ impl Table {
                 series: Vec::new(),
             },
             col_target: TableColumn {
-                header: "Generation".to_string(),
+                header: "Target".to_string(),
                 series: Vec::new(),
             },
             col_date: TableColumn {
