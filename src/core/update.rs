@@ -1,5 +1,5 @@
-use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use std::{fs, io::Write};
 
 use anstyle::{Ansi256Color, Color, Style};
 use anyhow::Context;
@@ -8,6 +8,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rustix::system::uname;
 use semver::Version;
 use suppaftp::FtpStream;
+use tempfile::NamedTempFile;
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 struct ReleaseInfo {
@@ -82,9 +83,17 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
     let dest = bin_dir.join("rua");
     let data = ftp_stream
         .retr_as_buffer(&format!("{}/rua", target_version))
-        .context(format!("Failed to retrieve rua v{}", target_version))?
+        .context(format!(
+            "Failed to retrieve rua v{} from ftp server",
+            target_version
+        ))?
         .into_inner();
-    fs::write(dest.as_path(), data.as_slice()).context("Failed to write the binary")?;
+    let mut tmpfile = NamedTempFile::with_prefix_in("rua.", dest.parent().unwrap())?;
+    tmpfile
+        .write_all(data.as_slice())
+        .context("Failed to save the binary data")?;
+    tmpfile.flush().context("Failed to flush to temp file")?;
+    fs::rename(tmpfile.path(), dest.as_path()).context("Failed to rename the binary")?;
     let mut perm = fs::metadata(dest.as_path())
         .context(format!("Failed to stat {}", dest.display()))?
         .permissions();
