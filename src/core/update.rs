@@ -45,7 +45,7 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         } else {
             // Checking for the latest release
             let pbar = ProgressBar::no_length()
-                .with_style(ProgressStyle::with_template("Checking for updates...")?);
+                .with_style(ProgressStyle::with_template("Checking for update...")?);
             pbar.tick();
             let data = ftp_stream
                 .retr_as_buffer("releases.json")
