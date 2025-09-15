@@ -42,6 +42,10 @@ Users can use this command to fetch the compile command for a specific filename.
 > generate it using `compdb` command firstly. Besides, the output is
 > specific to the product used to generate the JSON compilation database.
 
+## perfan
+
+使用改命令来将 perf annoate 工具所生成的 profiling 文本进行处理，根据地址将指令映射到代码行。
+
 ## init
 
 Use this command to generate completion scripts for a specific shell. With auto-completion scripts, rua is easier to use.

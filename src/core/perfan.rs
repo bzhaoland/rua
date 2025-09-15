@@ -77,9 +77,6 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(data_file: P, elfs: Vec<P>) -> anyho
         r#"Samples[[:blank:]]*\|[[:blank:]]*.*?of (.*?) for.*?\(([[:digit:]]+)[[:blank:]]*samples"#,
     )
     .context("Failed to build regex for headline")?;
-    let regex_funcline =
-        Regex::new(r#"[[:blank:]]+:[[:blank:]]+[[:xdigit:]]+[[:blank:]]+<([[:word:]]+)>:"#)
-            .context("Faild to build regex for funcline")?;
     let regex_dataline = Regex::new(r#"([[:digit:]]+)[[:blank:]]*:[[:blank:]]*([[:xdigit:]]+)[[:blank:]]*:[[:blank:]]*(.*?)[[:blank:]]*$"#).context("Failed to build regex for dataline")?;
 
     let mut profile = Profile {
@@ -124,9 +121,6 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(data_file: P, elfs: Vec<P>) -> anyho
 
             // Function reference
             profile_func_curr = profile_mod_curr.funcs.last_mut().unwrap();
-        } else if let Some(captures) = regex_funcline.captures(line) {
-            let funcname = captures.get(1).unwrap().as_str();
-            profile_func_curr.name.push_str(funcname);
         } else if let Some(captures) = regex_dataline.captures(line) {
             profile.counter_l += 1;
             profile_mod_curr.counter_l += 1;
@@ -189,6 +183,13 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(data_file: P, elfs: Vec<P>) -> anyho
                         function: function_str,
                         location: location_str,
                     });
+                }
+            }
+            if !func.lines.is_empty() {
+                let frames = &func.lines.get(0).unwrap().frames;
+                if !frames.is_empty() {
+                    let funcname = &frames.get(0).unwrap().function.as_str();
+                    func.name.push_str(funcname);
                 }
             }
         }
