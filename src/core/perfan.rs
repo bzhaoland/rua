@@ -243,7 +243,7 @@ pub(crate) fn tablize_perfdata(data: &Profile) -> Result<String> {
     for (modk, modv) in data.mods.iter() {
         // Module-level title
         let modinfo = format!(
-            "{0}{1}{0}percentage:{2:.4}%{0}#samples:{3}/{4}{0}#funcs:{5}/{6}{0}#lines:{7}/{8}{0}",
+            "{0}{1}{0}percent:{2:.4}%{0}#samples:{3}/{4}{0}#funcs:{5}/{6}{0}#lines:{7}/{8}{0}",
             LINE_V,
             modk,
             modv.counter_s as f64 / data.counter_s as f64 * 100f64,
@@ -269,14 +269,14 @@ pub(crate) fn tablize_perfdata(data: &Profile) -> Result<String> {
         for func in modv.funcs.iter() {
             output.push_str(
                 format!(
-                    "\n{1:>10}{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35}{0}Location\n{5}\n",
-                    spacer_2, "Percentage", "Count", "Address", "Instruction", table_line,
+                    "\n{1:>9}{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35}{0}Location\n{5}\n",
+                    spacer_2, "Percent", "Count", "Address", "Instruction", table_line,
                 )
                 .as_str(),
             );
             output.push_str(
                 format!(
-                    "{1:>9.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35}{0}{5}\n",
+                    "{1:>8.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35}{0}{5}\n",
                     spacer_2,
                     func.counter_s as f64 / data.counter_s as f64 * 100f64,
                     format!("{}/{}", func.counter_s, data.counter_s),
@@ -298,7 +298,7 @@ pub(crate) fn tablize_perfdata(data: &Profile) -> Result<String> {
                 }
                 output.push_str(
                     format!(
-                        "{1:>9.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35.35}{0}{5}\n",
+                        "{1:>8.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35.35}{0}{5}\n",
                         spacer_2,
                         line.counter_s as f64 / data.counter_s as f64 * 100f64,
                         format!("{}/{}", line.counter_s, data.counter_s),
