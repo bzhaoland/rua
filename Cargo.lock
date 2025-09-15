@@ -1497,7 +1497,7 @@ dependencies = [
 
 [[package]]
 name = "rua"
-version = "1.4.2"
+version = "1.4.3"
 dependencies = [
  "addr2line",
  "anstyle",
