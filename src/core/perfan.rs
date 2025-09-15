@@ -77,8 +77,9 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(data_file: P, elfs: Vec<P>) -> anyho
         r#"Samples[[:blank:]]*\|[[:blank:]]*.*?of (.*?) for.*?\(([[:digit:]]+)[[:blank:]]*samples"#,
     )
     .context("Failed to build regex for headline")?;
-    let regex_funcline = Regex::new(r#"[[:blank:]]+:[[:blank:]]+[[:xdigit:]]+(<[[:word:]]+>):"#)
-        .context("Faild to build regex for funcline")?;
+    let regex_funcline =
+        Regex::new(r#"[[:blank:]]+:[[:blank:]]+[[:xdigit:]]+[[:blank:]]+<([[:word:]]+)>:"#)
+            .context("Faild to build regex for funcline")?;
     let regex_dataline = Regex::new(r#"([[:digit:]]+)[[:blank:]]*:[[:blank:]]*([[:xdigit:]]+)[[:blank:]]*:[[:blank:]]*(.*?)[[:blank:]]*$"#).context("Failed to build regex for dataline")?;
 
     let mut profile = Profile {
@@ -275,12 +276,12 @@ pub(crate) fn tablize_perfdata(data: &Profile) -> Result<String> {
             );
             output.push_str(
                 format!(
-                    "{1:>9.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}[{4:35}]{0}{5}\n",
+                    "{1:>9.4}%{0}{2:>col_width_count$}{0}{3:>col_width_addr$.col_width_addr$}{0}{4:35}{0}{5}\n",
                     spacer_2,
                     func.counter_s as f64 / data.counter_s as f64 * 100f64,
                     format!("{}/{}", func.counter_s, data.counter_s),
                     "",
-                    modk,
+                    format!("[{}]", modk),
                     func.name
                 )
                 .as_str(),
