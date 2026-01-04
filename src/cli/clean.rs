@@ -1,5 +1,5 @@
 use anstyle::{Ansi256Color, Color, Style};
-use clap::{Args, command};
+use clap::Args;
 
 const STYLE_YELLOW_BOLD: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(3))))

@@ -5,6 +5,8 @@ use std::sync::LazyLock;
 use std::{ffi::OsString, fmt::Display};
 
 use anyhow::{Context, anyhow, bail};
+use quick_xml::events::Event;
+use quick_xml::reader::Reader;
 use regex::Regex;
 
 pub(crate) mod progress_bar {
@@ -59,6 +61,7 @@ pub struct SvnInfo {
     repo_root: String,
     repo_uuid: String,
     revision: i64,
+    path: String,
     node_kind: String,
     schedule: String,
     last_changed_author: String,
@@ -77,6 +80,7 @@ relative_url: {},
 repo_root: {},
 repo_uuid: {},
 revision: {},
+path: {}
 node_kind: {},
 schedule: {},
 last_changed_author: {},
@@ -89,6 +93,7 @@ last_changed_date: {}
             self.repo_root,
             self.repo_uuid,
             self.revision,
+            self.path,
             self.node_kind,
             self.schedule,
             self.last_changed_author,
@@ -102,6 +107,7 @@ impl SvnInfo {
     pub fn new() -> anyhow::Result<Self> {
         let result = Command::new("svn")
             .arg("info")
+            .arg("--xml")
             .output()
             .context(r#"Command `svn info` failed"#)?;
         if !result.status.success() {
@@ -110,51 +116,110 @@ impl SvnInfo {
                     .context(r#"Command `svn info` failed."#)
             );
         }
-
         let output = String::from_utf8_lossy(&result.stdout).to_string();
-        let pattern = Regex::new(
-            r#"Working Copy Root Path: ([^\n]+)
-URL: ([^\n]+)
-Relative URL: ([^\n]+)
-Repository Root: ([^\n]+)
-Repository UUID: ([^\n]+)
-Revision: ([^\n]+)
-Node Kind: ([^\n]+)
-Schedule: ([^\n]+)
-Last Changed Author: ([^\n]+)
-Last Changed Rev: ([[:digit:]]+)
-Last Changed Date: ([^\n]+)"#,
-        )
-        .context("Failed to construct regex for svn info")?;
-
-        let captures = pattern
-            .captures(&output)
-            .context("Capture svn info failed")?;
+        let mut reader = Reader::from_str(output.as_str());
+        reader.config_mut().trim_text(true);
+        let mut kind = None;
+        let mut path = None;
+        let mut revision = None;
+        let mut url = None;
+        let mut rel_url = None;
+        let mut repo_root = None;
+        let mut repo_uuid = None;
+        let mut workcopy_root = None;
+        let mut workcopy_schedule = None;
+        let mut workcopy_depth = None;
+        let mut commit_revision = None;
+        let mut commit_author = None;
+        let mut commit_date = None;
+        let mut level: Vec<u8> = Vec::with_capacity(1024);
+        loop {
+            match reader.read_event() {
+                Err(_) => {
+                    bail!(anyhow!("Error at position {}", reader.error_position()));
+                }
+                Ok(Event::Start(elem)) => {
+                    let tagname = elem.name().as_ref().to_vec();
+                    level.push(b'/');
+                    level.extend_from_slice(tagname.as_slice());
+                    match tagname.as_slice() {
+                        b"entry" => {
+                            kind = Some(String::from_utf8(
+                                elem.try_get_attribute("kind")?.unwrap().value.to_vec(),
+                            )?);
+                            path = Some(String::from_utf8(
+                                elem.try_get_attribute("path")?.unwrap().value.to_vec(),
+                            )?);
+                            revision = Some(String::from_utf8(
+                                elem.try_get_attribute("revision")?.unwrap().value.to_vec(),
+                            )?);
+                        }
+                        b"commit" => {
+                            commit_revision = Some(String::from_utf8(
+                                elem.try_get_attribute("revision")?.unwrap().value.to_vec(),
+                            )?);
+                        }
+                        _ => {}
+                    }
+                }
+                Ok(Event::End(elem)) => {
+                    if level.ends_with(elem.name().as_ref()) {
+                        level.truncate(level.len() - elem.name().as_ref().len() - 1);
+                    }
+                }
+                Ok(Event::Text(elem)) => {
+                    let s = elem.decode()?.to_string();
+                    match level.as_slice() {
+                        b"/info/entry/url" => {
+                            url = Some(s);
+                        }
+                        b"/info/entry/relative-url" => {
+                            rel_url = Some(s);
+                        }
+                        b"/info/entry/repository/root" => {
+                            repo_root = Some(s);
+                        }
+                        b"/info/entry/repository/uuid" => {
+                            repo_uuid = Some(s);
+                        }
+                        b"/info/entry/wc-info/wcroot-abspath" => {
+                            workcopy_root = Some(s);
+                        }
+                        b"/info/entry/wc-info/schedule" => {
+                            workcopy_schedule = Some(s);
+                        }
+                        b"/info/entry/wc-info/depth" => {
+                            workcopy_depth = Some(s);
+                        }
+                        b"/info/entry/commit/author" => {
+                            commit_author = Some(s);
+                        }
+                        b"/info/entry/commit/date" => {
+                            commit_date = Some(s);
+                        }
+                        _ => {}
+                    }
+                }
+                Ok(Event::Eof) => break,
+                _ => {}
+            }
+        }
 
         Ok(SvnInfo {
-            working_copy_root_path: captures.get(1).unwrap().as_str().to_string(),
-            url: captures.get(2).unwrap().as_str().to_string(),
-            relative_url: captures.get(3).unwrap().as_str().to_string(),
-            repo_root: captures.get(4).unwrap().as_str().to_string(),
-            repo_uuid: captures.get(5).unwrap().as_str().to_string(),
-            revision: captures
-                .get(6)
-                .unwrap()
-                .as_str()
-                .to_string()
-                .parse()
-                .context("Parse revision failed")?,
-            node_kind: captures.get(7).unwrap().as_str().to_string(),
-            schedule: captures.get(8).unwrap().as_str().to_string(),
-            last_changed_author: captures.get(9).unwrap().as_str().to_string(),
-            last_changed_revision: captures
-                .get(10)
-                .unwrap()
-                .as_str()
-                .to_string()
-                .parse()
-                .context("Parse last changed revision failed")?,
-            last_changed_date: captures.get(11).unwrap().as_str().to_string(),
+            working_copy_root_path: workcopy_root.expect("Working copy root path not found"),
+            url: url.expect("Url not found"),
+            relative_url: rel_url.expect("Relative url not found"),
+            repo_root: repo_root.expect("Repository root not found"),
+            repo_uuid: repo_uuid.expect("Repository UUID not found"),
+            revision: revision.expect("Revision not found").parse()?,
+            path: path.expect("Path not found"),
+            node_kind: kind.expect("Node kind not found"),
+            schedule: workcopy_schedule.expect("Schedule not found"),
+            last_changed_author: commit_author.expect("Last changed author not found"),
+            last_changed_revision: commit_revision
+                .expect("Last changed rev not found")
+                .parse()?,
+            last_changed_date: commit_date.expect("Last changed date not found"),
         })
     }
 

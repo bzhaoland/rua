@@ -187,10 +187,9 @@ pub(crate) fn proc_perfanno<P: AsRef<Path>>(data_file: P, elfs: Vec<P>) -> anyho
             }
             // Retrieve the function name from the line info
             if !func.lines.is_empty() {
-                let frames = &func.lines.get(0).unwrap().frames;
+                let frames = &func.lines.first().unwrap().frames;
                 if !frames.is_empty() {
-                    let funcname = &frames.get(0).unwrap().function.as_str();
-                    func.name.push_str(funcname);
+                    func.name.push_str(&frames.first().unwrap().function);
                 }
             }
         }

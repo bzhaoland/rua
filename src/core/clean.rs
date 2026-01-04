@@ -47,10 +47,10 @@ pub fn clean_build(dirs: Option<&Vec<String>>, ignore_set: &Vec<Regex>) -> anyho
         }
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Removing target objs...{{msg}}",
+        "[{}/{}] Removed target objs.",
         step, num_steps
     ))?);
-    pb1.finish_with_message("ok");
+    pb1.finish();
 
     // Clean UI files
     step += 1;
@@ -74,10 +74,10 @@ pub fn clean_build(dirs: Option<&Vec<String>>, ignore_set: &Vec<Regex>) -> anyho
         }
     }
     pb2.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Removing WebUI objs...{{msg}}",
+        "[{}/{}] Removed WebUI objs.",
         step, num_steps
     ))?);
-    pb2.finish_with_message("ok");
+    pb2.finish();
 
     // Clean unversioned entries
     step += 1;
@@ -132,10 +132,10 @@ pub fn clean_build(dirs: Option<&Vec<String>>, ignore_set: &Vec<Regex>) -> anyho
         }
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Removing unversioneds...{{msg}}",
+        "[{}/{}] Removed unversioned files.",
         step, num_steps
     ))?);
-    pb3.finish_with_message("ok");
+    pb3.finish();
 
     Ok(())
 }

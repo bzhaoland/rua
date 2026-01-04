@@ -87,7 +87,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "1.4.4",
+    version = "1.5.0",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = r#"Contact bzhao@hillstonenet.com if encountered bugs"#
@@ -114,11 +114,11 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     ignore_set.push(Regex::new(format!("^{}$", item).as_str()).unwrap());
                 }
             }
-            if let Some(v) = conf.clean {
-                if let Some(x) = v.ignores {
-                    for item in x {
-                        ignore_set.push(Regex::new(format!("^{}$", item).as_str()).unwrap());
-                    }
+            if let Some(v) = conf.clean
+                && let Some(x) = v.ignores
+            {
+                for item in x {
+                    ignore_set.push(Regex::new(format!("^{}$", item).as_str()).unwrap());
                 }
             }
 
@@ -158,50 +158,52 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
 
                     // Get bear path from config or argument
                     let mut final_bear_path = None;
-                    if let Some(v) = compdb_conf.as_ref() {
-                        if let Some(x) = v.bear_path.as_ref() {
-                            final_bear_path = Some(Path::new(x))
-                        }
-                    }
                     if let Some(v) = bear_path.as_ref() {
                         final_bear_path = Some(Path::new(v));
+                    } else if let Some(v) = compdb_conf.as_ref()
+                        && let Some(x) = v.bear_path.as_ref()
+                    {
+                        final_bear_path = Some(Path::new(x))
                     }
 
                     // Get intercept-build path from config or argument
-                    let mut final_intercept_build_path = None;
-                    if let Some(v) = compdb_conf.as_ref() {
-                        if let Some(x) = v.intercept_build_path.as_ref() {
-                            final_intercept_build_path = Some(Path::new(x));
-                        }
-                    }
-                    if let Some(v) = intercept_build_path.as_ref() {
-                        final_intercept_build_path = Some(Path::new(v));
-                    }
+                    let final_intercept_build_path = if let Some(v) = intercept_build_path.as_ref()
+                    {
+                        Some(Path::new(v))
+                    } else if let Some(v) = compdb_conf.as_ref()
+                        && let Some(x) = v.intercept_build_path.as_ref()
+                    {
+                        Some(Path::new(x))
+                    } else {
+                        None
+                    };
 
-                    let mut final_engine = None;
-                    if let Some(v) = compdb_conf.as_ref() {
-                        if let Some(x) = v.engine.as_ref() {
-                            final_engine = match x.as_str() {
-                                "built-in" => Some(CompdbEngine::BuiltIn),
-                                "bear" => Some(CompdbEngine::Bear),
-                                "intercept-build" => Some(CompdbEngine::InterceptBuild),
-                                y => bail!("Invalid engine specified in config: {}", y),
-                            };
+                    let final_engine = if let Some(v) = engine {
+                        Some(v)
+                    } else if let Some(v) = compdb_conf.as_ref()
+                        && let Some(x) = v.engine.as_ref()
+                    {
+                        match x.as_str() {
+                            "built-in" => Some(CompdbEngine::BuiltIn),
+                            "bear" => Some(CompdbEngine::Bear),
+                            "intercept-build" => Some(CompdbEngine::InterceptBuild),
+                            y => bail!("Invalid engine specified in config: {}", y),
                         }
-                    }
-                    if let Some(v) = engine {
-                        final_engine = Some(v);
-                    }
+                    } else {
+                        None
+                    };
 
                     let svninfo = utils::SvnInfo::new()?;
 
                     // Add defines from config and cli
-                    let mut defines_map: IndexMap<String, String> = IndexMap::new();
-                    if let Some(c) = compdb_conf.as_ref() {
-                        if let Some(x) = c.defines.as_ref() {
-                            defines_map.extend(x.clone());
-                        }
-                    }
+                    let mut defines_map: IndexMap<String, String> = if let Some(c) =
+                        compdb_conf.as_ref()
+                        && let Some(x) = c.defines.as_ref()
+                    {
+                        x.clone()
+                    } else {
+                        IndexMap::new()
+                    };
                     for item in defines.iter() {
                         if let Some((k, v)) = item.split_once("=") {
                             defines_map.insert(k.to_string(), v.to_string());
@@ -210,14 +212,13 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         }
                     }
 
-                    let mut merge_list: Vec<PathBuf> = Vec::new();
-                    if let Some(c) = compdb_conf.as_ref() {
-                        if let Some(list) = c.merge.as_ref() {
-                            for item in list.iter().map(PathBuf::from) {
-                                merge_list.push(item);
-                            }
-                        }
-                    }
+                    let mut merge_list = if let Some(c) = compdb_conf.as_ref()
+                        && let Some(list) = c.merge.as_ref()
+                    {
+                        list.iter().map(PathBuf::from).collect()
+                    } else {
+                        Vec::new()
+                    };
                     if let Some(list) = to_merge {
                         for item in list.iter().map(PathBuf::from) {
                             merge_list.push(item);
@@ -235,7 +236,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
 
                     // Archive the newly generated compilation database
                     let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
-                        "Archiving the newly generated compilation database...{msg}",
+                        "Archiving the newly generated compilation database...",
                     )?);
                     pb.tick();
                     let rows = compdb::archive_compdb(
@@ -251,6 +252,9 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             "\rFailed to archive the newly generated compilation database to store"
                         );
                     }
+                    pb.set_style(ProgressStyle::with_template(
+                        "Archived the newly generated compilation database.",
+                    )?);
                     pb.finish_with_message("ok");
 
                     // Get the generation id and insert it into the history table
@@ -271,8 +275,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     all,
                 } => {
                     let mut stderr_ = io::stderr();
-                    if some.is_some() {
-                        let generations = some.unwrap();
+                    if let Some(generations) = some {
                         let generations_string = generations
                             .iter()
                             .map(|x| x.to_string())
@@ -291,8 +294,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             if many { "s" } else { "" },
                             generations_string
                         );
-                    } else if old.is_some() {
-                        let n = old.unwrap();
+                    } else if let Some(n) = old {
                         eprint!(
                             "Removing {} oldest generation{}...",
                             n,
@@ -305,8 +307,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             n,
                             if n > 1 { "s" } else { "" }
                         );
-                    } else if new.is_some() {
-                        let n = new.unwrap();
+                    } else if let Some(n) = new {
                         eprint!(
                             "Removing {} newest generation{}...",
                             n,
@@ -456,34 +457,31 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             let conf = RuaConf::new()?;
             let mkinfo_conf = conf.mkinfo;
 
-            let mut final_image_server = None;
-            if let Some(ref v) = mkinfo_conf {
-                if let Some(x) = v.image_server.as_deref() {
-                    final_image_server = match x {
-                        "beijing" | "bj" | "b" => Some(mkinfo::ImageServer::B),
-                        "suzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
-                        other => {
-                            eprintln!(
-                                r#"WARNING: Invalid config item: image_server = {:?}! Falling back to "Suzhou" as image server"#,
-                                other
-                            );
-                            Some(mkinfo::ImageServer::S)
-                        }
-                    };
-                }
-            }
-            if let Some(v) = image_server {
-                final_image_server = Some(v);
-            }
-
-            let mut define_map = IndexMap::new();
-            if let Some(ref v) = mkinfo_conf {
-                if let Some(x) = v.defines.as_ref() {
-                    for (key, val) in x.clone() {
-                        define_map.insert(key, val);
+            let final_image_server = if let Some(v) = mkinfo_conf.as_ref()
+                && let Some(x) = v.image_server.as_deref()
+            {
+                match x {
+                    "beijing" | "bj" | "b" => Some(mkinfo::ImageServer::B),
+                    "suzhou" | "sz" | "s" => Some(mkinfo::ImageServer::S),
+                    other => {
+                        eprintln!(
+                            r#"WARNING: Invalid config item: image_server = {:?}! Falling back to "Suzhou" as image server"#,
+                            other
+                        );
+                        Some(mkinfo::ImageServer::S)
                     }
                 }
-            }
+            } else {
+                image_server
+            };
+
+            let define_map = if let Some(v) = mkinfo_conf.as_ref()
+                && let Some(x) = v.defines.as_ref()
+            {
+                x.clone()
+            } else {
+                IndexMap::new()
+            };
 
             let mut makeflag = mkinfo::MakeFlag::empty();
             if !debug {
@@ -543,15 +541,14 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             template_file,
         }) => {
             let conf = RuaConf::new()?;
-            let mut final_template_file = None;
-            if let Some(review_conf) = conf.review.as_ref() {
-                if let Some(v) = review_conf.template_file.as_ref() {
-                    final_template_file = Some(v.to_owned());
-                }
-            }
-            if let Some(v) = template_file.as_deref() {
-                final_template_file = Some(v.to_string());
-            }
+
+            let final_template_file = if let Some(review_conf) = conf.review.as_ref()
+                && let Some(v) = review_conf.template_file.as_ref()
+            {
+                Some(v.to_owned())
+            } else {
+                template_file
+            };
 
             let options = review::ReviewOptions {
                 bug_id,

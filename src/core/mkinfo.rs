@@ -522,12 +522,11 @@ pub(crate) fn gen_mkinfo_by_target(
             .iter()
             .filter(|x| x.platform_model == mkinfo.platform_model)
         {
-            if let Some(family1) = item.family.as_ref() {
-                if let Some(family2) = mkinfo.product_family.as_ref() {
-                    if family2 != family1 {
-                        continue;
-                    }
-                }
+            if let Some(family1) = item.family.as_ref()
+                && let Some(family2) = mkinfo.product_family.as_ref()
+                && family2 != family1
+            {
+                continue;
             }
 
             compile_infos.push(compose_compileinfo(

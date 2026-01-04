@@ -200,7 +200,7 @@ pub(crate) fn gen_compdb_by_builtin(
             .context(format!("Failed to read {}", top_makefile.display()))?;
         let captures = regex_core_rule
             .captures(&top_makefile_text)
-            .context(format!("Failed to match {}", regex_core_rule.as_str(),))?;
+            .context(format!("Pattern not found: {}", regex_core_rule.as_str(),))?;
         let targets_renamed = Regex::new(r#"\S+"#)
             .context("Construct regex for target failed")?
             .replace_all(captures.get(1).unwrap().as_str(), "$0-orig");
@@ -211,7 +211,7 @@ pub(crate) fn gen_compdb_by_builtin(
             )
             .to_string();
         fs::write(top_makefile.as_path(), &top_makefile_text_hacked)
-            .context(format!("Failed to write {}", top_makefile.display()))?;
+            .context(format!("Failed to inject {}", top_makefile.display()))?;
         changed_files.push(ChangedFile {
             file: &top_makefile,
             orig: top_makefile_text,
@@ -219,16 +219,16 @@ pub(crate) fn gen_compdb_by_builtin(
         });
     }
     pb1.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Injecting makefiles ({} modified)...{{msg}}",
+        "[{}/{}] Injected makefiles ({} modified).",
         step,
         NSTEPS,
         changed_files
             .iter()
-            .map(|x| x.file.display().to_string())
+            .map(|x| x.file.file_name().unwrap().display().to_string())
             .collect::<Vec<String>>()
             .join(" & ")
     ))?);
-    pb1.finish_with_message("ok");
+    pb1.finish();
 
     // Build the target (pseudoly)
     step += 1;
@@ -340,16 +340,21 @@ pub(crate) fn gen_compdb_by_builtin(
             .context(format!("Failed to restore {}", item.file.display()))?;
     }
     pb3.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Restoring makefiles ({} restored)...{{msg}}",
+        "[{}/{}] Restored makefiles ({}).",
         step,
         NSTEPS,
         changed_files
             .iter()
-            .map(|x| x.file.display().to_string())
+            .map(|x| x
+                .file
+                .file_name()
+                .expect("Get filename failed")
+                .display()
+                .to_string())
             .collect::<Vec<String>>()
             .join(" & ")
     ))?);
-    pb3.finish_with_message("ok");
+    pb3.finish();
 
     // Parse the build log
     step += 1;
@@ -378,10 +383,10 @@ pub(crate) fn gen_compdb_by_builtin(
         });
     }
     pb4.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Parsing buildlog...{{msg}}",
+        "[{}/{}] Parsed buildlog.",
         step, NSTEPS
     ))?);
-    pb4.finish_with_message("ok");
+    pb4.finish();
 
     // Generate JCDB
     step += 1;
@@ -403,10 +408,10 @@ pub(crate) fn gen_compdb_by_builtin(
     }
     fs::write(COMPDB_FILE, serde_json::to_string_pretty(&jcdb)?)?;
     pb5.set_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Generating compilation database..{{msg}}",
+        "[{}/{}] Generated compilation database.",
         step, NSTEPS
     ))?);
-    pb5.finish_with_message("ok");
+    pb5.finish();
 
     Ok(())
 }
@@ -802,8 +807,8 @@ pub(crate) fn list_generations(conn: &Connection) -> anyhow::Result<()> {
 #[derive(Clone, Debug)]
 pub(crate) enum DelOpt {
     Generations(Vec<i64>),
-    Oldest(usize),
-    Newest(usize),
+    Oldest(i64),
+    Newest(i64),
     All,
 }
 

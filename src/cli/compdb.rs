@@ -146,7 +146,7 @@ pub(crate) enum CompdbCmd {
             value_name = "N",
             help = format!("Remove {}N{:#} newest generations", STYLE_ITALIC, STYLE_ITALIC)
         )]
-        new: Option<usize>,
+        new: Option<i64>,
 
         #[arg(
             short = 'o',
@@ -154,7 +154,7 @@ pub(crate) enum CompdbCmd {
             value_name = "N",
             help = format!("Remove {}N{:#} oldest generations", STYLE_ITALIC, STYLE_ITALIC)
         )]
-        old: Option<usize>,
+        old: Option<i64>,
     },
 
     /// List all compilation database generations in store

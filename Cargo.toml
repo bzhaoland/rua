@@ -1,12 +1,12 @@
 [package]
 name = "rua"
-version = "1.4.4"
+version = "1.5.0"
 edition = "2024"
 authors = ["bzhao"]
 description = "A toolbox for developers of StoneOS and its derivatives"
 keywords = ["StoneOS"]
 categories = ["command-line-utilities", "terminal", "cli"]
-rust-version = "1.92.0"
+rust-version = "1.91.0"
 license = "GPL"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -26,6 +26,7 @@ home = "0.5.9"
 indexmap = { version = "2.7.0", features = ["serde"] }
 indicatif = "0.18.0"
 libc = "0.2.0"
+quick-xml = "0.38.4"
 regex = "1.10.0"
 reqwest = { version = "0.13.0", default-features = false, features = ["rustls"] }
 rusqlite = { version = "0.38.0", features = ["bundled"] }
