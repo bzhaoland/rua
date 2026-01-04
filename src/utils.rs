@@ -104,16 +104,16 @@ impl SvnInfo {
             .arg("info")
             .arg("--xml")
             .output()
-            .context(r#"Command `svn info` failed"#)?;
+            .context("Command `svn info` failed")?;
         if !result.status.success() {
             bail!(
                 anyhow!(String::from_utf8_lossy(&result.stderr).to_string())
-                    .context(r#"Command `svn info` failed."#)
+                    .context("Command `svn info` failed")
             );
         }
-        let output = String::from_utf8_lossy(&result.stdout).to_string();
-        let mut reader = Reader::from_str(output.as_str());
-        reader.config_mut().trim_text(true);
+        let output = str::from_utf8(result.stdout.as_slice())
+            .context("Not valid UTF-8 string")?;
+        let mut reader = Reader::from_str(output);
         let mut kind = None;
         let mut path = None;
         let mut revision = None;
@@ -131,7 +131,10 @@ impl SvnInfo {
         loop {
             match reader.read_event() {
                 Err(_) => {
-                    bail!(anyhow!("Error at position {}", reader.error_position()));
+                    bail!(anyhow!(
+                        "Error at position {}",
+                        reader.error_position()
+                    ));
                 }
                 Ok(Event::Start(elem)) => {
                     let tagname = elem.name().as_ref().to_vec();
@@ -173,11 +176,13 @@ impl SvnInfo {
                 }
                 Ok(Event::End(elem)) => {
                     if level.ends_with(elem.name().as_ref()) {
-                        level.truncate(level.len() - elem.name().as_ref().len() - 1);
+                        level.truncate(
+                            level.len() - elem.name().as_ref().len() - 1,
+                        );
                     }
                 }
                 Ok(Event::Text(elem)) => {
-                    let s = elem.decode()?.to_string();
+                    let s = elem.decode()?.trim().to_owned();
                     match level.as_slice() {
                         b"/info/entry/url" => {
                             url = Some(s);
@@ -215,20 +220,27 @@ impl SvnInfo {
         }
 
         Ok(SvnInfo {
-            working_copy_root_path: workcopy_root.expect("Working copy root path not found"),
+            working_copy_root_path: workcopy_root
+                .expect("Working copy root path not found"),
             url: url.expect("Url not found"),
             relative_url: rel_url.expect("Relative url not found"),
             repo_root: repo_root.expect("Repository root not found"),
             repo_uuid: repo_uuid.expect("Repository UUID not found"),
-            revision: revision.expect("Revision not found").parse()?,
+            revision: revision
+                .expect("Revision not found")
+                .parse()
+                .context("Revision parse failed")?,
             path: path.expect("Path not found"),
             node_kind: kind.expect("Node kind not found"),
             schedule: workcopy_schedule.expect("Schedule not found"),
-            last_changed_author: commit_author.expect("Last changed author not found"),
+            last_changed_author: commit_author
+                .expect("Last changed author not found"),
             last_changed_revision: commit_revision
                 .expect("Last changed rev not found")
-                .parse()?,
-            last_changed_date: commit_date.expect("Last changed date not found"),
+                .parse()
+                .context("Last changed rev parse failed")?,
+            last_changed_date: commit_date
+                .expect("Last changed date not found"),
         })
     }
 
