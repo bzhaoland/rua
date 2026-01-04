@@ -28,29 +28,24 @@ pub(crate) mod symbols {
 }
 
 /// Get current username by `id -un`. Unfortunately, neither `whoami` or `users` work correctly
-/// under company's dev environment. Besides, methods by wrapping `libc::getuid` or `libc::getpwid`
+/// inside company's dev env. Besides, methods by wrapping `libc::getuid` or `libc::getpwid`
 /// or `libc::getlogin` does not work too on the CentOS7 server in company. Maybe there is no
 /// `passwd` table available.
 #[allow(dead_code)]
-pub fn get_current_username() -> Option<String> {
-    let output = Command::new("id").arg("-un").output();
-
-    if output.is_err() {
-        return None;
+pub fn get_username() -> Option<String> {
+    if let Ok(output) = Command::new("id").arg("-un").output()
+        && output.status.success()
+    {
+        Some(
+            OsString::from_vec(output.stdout)
+                .into_string()
+                .unwrap()
+                .trim()
+                .to_string(),
+        )
+    } else {
+        None
     }
-
-    let output = output.unwrap();
-    if !output.status.success() {
-        return None;
-    }
-
-    Some(
-        OsString::from_vec(output.stdout)
-            .into_string()
-            .unwrap()
-            .trim()
-            .to_string(),
-    )
 }
 
 #[derive(Clone, Debug)]
@@ -128,7 +123,7 @@ impl SvnInfo {
         let mut repo_uuid = None;
         let mut workcopy_root = None;
         let mut workcopy_schedule = None;
-        let mut workcopy_depth = None;
+        let mut _workcopy_depth = None;
         let mut commit_revision = None;
         let mut commit_author = None;
         let mut commit_date = None;
@@ -145,18 +140,32 @@ impl SvnInfo {
                     match level.as_slice() {
                         b"/info/entry" => {
                             kind = Some(String::from_utf8(
-                                elem.try_get_attribute("kind")?.unwrap().value.to_vec(),
+                                elem.try_get_attribute("kind")?
+                                    .expect("Failed to get kind attribute of /info/entry node")
+                                    .value
+                                    .to_vec(),
                             )?);
                             path = Some(String::from_utf8(
-                                elem.try_get_attribute("path")?.unwrap().value.to_vec(),
+                                elem.try_get_attribute("path")?
+                                    .expect("Failed to get path attribute of /info/entry node")
+                                    .value
+                                    .to_vec(),
                             )?);
                             revision = Some(String::from_utf8(
-                                elem.try_get_attribute("revision")?.unwrap().value.to_vec(),
+                                elem.try_get_attribute("revision")?
+                                    .expect("Failed to get revision attribute of /info/entry node")
+                                    .value
+                                    .to_vec(),
                             )?);
                         }
                         b"/info/entry/commit" => {
                             commit_revision = Some(String::from_utf8(
-                                elem.try_get_attribute("revision")?.unwrap().value.to_vec(),
+                                elem.try_get_attribute("revision")?
+                                    .expect(
+                                        "Failed to get revision attribute of /info/entry/commit node",
+                                    )
+                                    .value
+                                    .to_vec(),
                             )?);
                         }
                         _ => {}
@@ -189,7 +198,7 @@ impl SvnInfo {
                             workcopy_schedule = Some(s);
                         }
                         b"/info/entry/wc-info/depth" => {
-                            workcopy_depth = Some(s);
+                            _workcopy_depth = Some(s);
                         }
                         b"/info/entry/commit/author" => {
                             commit_author = Some(s);

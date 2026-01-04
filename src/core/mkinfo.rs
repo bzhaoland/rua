@@ -375,7 +375,7 @@ fn compose_compileinfo(
         'd'
     });
     imagename_suffix.push_str(chrono::Local::now().format("%m%d").to_string().as_str());
-    if let Some(username) = utils::get_current_username() {
+    if let Some(username) = utils::get_username() {
         imagename_suffix.push_str(format!("-{}", username).as_str())
     }
     let imagename = format!(
