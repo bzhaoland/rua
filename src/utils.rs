@@ -142,8 +142,8 @@ impl SvnInfo {
                     let tagname = elem.name().as_ref().to_vec();
                     level.push(b'/');
                     level.extend_from_slice(tagname.as_slice());
-                    match tagname.as_slice() {
-                        b"entry" => {
+                    match level.as_slice() {
+                        b"/info/entry" => {
                             kind = Some(String::from_utf8(
                                 elem.try_get_attribute("kind")?.unwrap().value.to_vec(),
                             )?);
@@ -154,7 +154,7 @@ impl SvnInfo {
                                 elem.try_get_attribute("revision")?.unwrap().value.to_vec(),
                             )?);
                         }
-                        b"commit" => {
+                        b"/info/entry/commit" => {
                             commit_revision = Some(String::from_utf8(
                                 elem.try_get_attribute("revision")?.unwrap().value.to_vec(),
                             )?);
