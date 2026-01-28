@@ -66,11 +66,20 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
     // If review id is not given, then start a new one
     match options.review_id {
         Some(v) => comm.args(["-r", &v.to_string()]),
-        None => comm.arg(format!(r#"--description-file={}"#, review_template_file)),
+        None => {
+            comm.arg(format!(r#"--description-file={}"#, review_template_file))
+        }
     };
 
     if options.files.is_some() {
         comm.args(options.files.as_ref().unwrap());
+    }
+
+    if options.diff_file.is_some() {
+        comm.arg(format!(
+            "--diff-filename={}",
+            options.diff_file.as_ref().unwrap()
+        ));
     }
 
     let status = comm.status()?;
