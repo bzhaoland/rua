@@ -7,15 +7,18 @@ use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
 use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
-use crate::utils::{SvnInfo, normalize_path};
+use crate::utils::{RepoInfo, normalize_path};
 
-pub fn clean_build(dirs: Option<&Vec<String>>, ignore_set: &Vec<Regex>) -> anyhow::Result<()> {
+pub fn clean_build(
+    dirs: Option<&Vec<String>>,
+    ignore_set: &Vec<Regex>,
+) -> anyhow::Result<()> {
     // Check directory
-    let svninfo = SvnInfo::new()?;
-    if env::current_dir()?.as_path() != svninfo.working_copy_root_path() {
+    let repo_info = RepoInfo::new()?;
+    if env::current_dir()?.as_path() != repo_info.work_dir() {
         bail!(
             r#"Location error! Please run this command under the project root, i.e. "{}"."#,
-            svninfo.working_copy_root_path().display()
+            repo_info.work_dir()
         );
     }
 
@@ -24,10 +27,10 @@ pub fn clean_build(dirs: Option<&Vec<String>>, ignore_set: &Vec<Regex>) -> anyho
 
     // Cleaning the objects generated in building process
     step += 1;
-    let pb1 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Removing target objs: {{msg}}",
-        step, num_steps
-    ))?);
+    let pb1 =
+        ProgressBar::no_length().with_style(ProgressStyle::with_template(
+            &format!("[{}/{}] Removing target objs: {{msg}}", step, num_steps),
+        )?);
     let target_dir = normalize_path("target");
     if target_dir.exists() && target_dir.symlink_metadata()?.is_dir() {
         for entry in walkdir::WalkDir::new(&target_dir)
@@ -38,11 +41,15 @@ pub fn clean_build(dirs: Option<&Vec<String>>, ignore_set: &Vec<Regex>) -> anyho
 
             pb1.set_message(entry.path().to_string_lossy().to_string());
             if entry.file_type().is_dir() {
-                fs::remove_dir(entry.path())
-                    .context(format!("Remove {} failed", entry.path().display()))?;
+                fs::remove_dir(entry.path()).context(format!(
+                    "Remove {} failed",
+                    entry.path().display()
+                ))?;
             } else {
-                fs::remove_file(entry.path())
-                    .context(format!("Remove {} failed", entry.path().display()))?;
+                fs::remove_file(entry.path()).context(format!(
+                    "Remove {} failed",
+                    entry.path().display()
+                ))?;
             }
         }
     }
@@ -54,22 +61,26 @@ pub fn clean_build(dirs: Option<&Vec<String>>, ignore_set: &Vec<Regex>) -> anyho
 
     // Clean UI files
     step += 1;
-    let pb2 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
-        "[{}/{}] Removing WebUI objs: {{msg}}",
-        step, num_steps
-    ))?);
-    let webui_dir = normalize_path(svninfo.branch_name()); // UI directory name is the same as the branch name
+    let pb2 =
+        ProgressBar::no_length().with_style(ProgressStyle::with_template(
+            &format!("[{}/{}] Removing WebUI objs: {{msg}}", step, num_steps),
+        )?);
+    let webui_dir = normalize_path(repo_info.branch()); // UI directory name is the same as the branch name
     if webui_dir.exists() && webui_dir.symlink_metadata()?.is_dir() {
         for entry in walkdir::WalkDir::new(&webui_dir).contents_first(true) {
             let entry = entry?;
 
             pb2.set_message(entry.path().to_string_lossy().to_string());
             if entry.file_type().is_dir() {
-                fs::remove_dir(entry.path())
-                    .context(format!("Failed to remove {}", entry.path().display()))?;
+                fs::remove_dir(entry.path()).context(format!(
+                    "Failed to remove {}",
+                    entry.path().display()
+                ))?;
             } else {
-                fs::remove_file(entry.path())
-                    .context(format!("Failed to remove {}", entry.path().display()))?;
+                fs::remove_file(entry.path()).context(format!(
+                    "Failed to remove {}",
+                    entry.path().display()
+                ))?;
             }
         }
     }
@@ -127,7 +138,8 @@ pub fn clean_build(dirs: Option<&Vec<String>>, ignore_set: &Vec<Regex>) -> anyho
                 fs::remove_dir_all(&entry)
                     .context(format!("Failed to remove {}", entry.display()))?;
             } else {
-                fs::remove_file(&entry).context(format!("Failed to remove {}", entry.display()))?;
+                fs::remove_file(&entry)
+                    .context(format!("Failed to remove {}", entry.display()))?;
             }
         }
     }

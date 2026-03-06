@@ -3,7 +3,7 @@ use std::{path::Path, process::Command};
 use anyhow::{Context, bail};
 use reqwest::Client;
 
-use crate::utils::SvnInfo;
+use crate::utils::RepoInfo;
 
 #[allow(dead_code)]
 pub struct ReviewOptions {
@@ -50,7 +50,7 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
     // Get branch name from the output of svn info
     let branch_name = match options.branch_name.as_ref() {
         Some(v) => v.to_owned(),
-        None => SvnInfo::new()?.branch_name().to_string(),
+        None => RepoInfo::new()?.branch().to_string(),
     };
 
     let mut comm = Command::new("python2");

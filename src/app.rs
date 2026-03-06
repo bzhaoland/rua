@@ -107,7 +107,8 @@ pub(crate) struct Cli {
 pub(crate) fn run_app(args: &Cli) -> Result<()> {
     match args.command.clone() {
         Comm::Clean(CleanArgs { dirs, ignores }) => {
-            let conf = RuaConf::new()?;
+            let repo_info = utils::RepoInfo::new()?;
+            let conf = RuaConf::new(&repo_info)?;
             let mut ignore_set: Vec<Regex> = Vec::new();
             ignore_set.push(
                 Regex::new(format!("^{}$", COMPDB_FILE).as_str()).unwrap(),
@@ -140,7 +141,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             clean::clean_build(dirs.as_ref(), &ignore_set)
         }
         Comm::Compdb { compdb_comm } => {
-            let conf = RuaConf::new()?;
+            let repo_info = utils::RepoInfo::new()?;
+            let conf = RuaConf::new(&repo_info)?;
             let rua_cache = Path::new(COMPDB_STORE);
             if !rua_cache.is_file() {
                 print!(
@@ -215,8 +217,6 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         None
                     };
 
-                    let svninfo = utils::SvnInfo::new()?;
-
                     // Add defines from config and cli
                     let mut defines_map: IndexMap<String, String> =
                         if let Some(c) = compdb_conf.as_ref()
@@ -256,7 +256,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         to_merge: merge_list,
                     };
                     compdb::gen_compdb(
-                        &svninfo,
+                        &repo_info,
                         &product_dir,
                         &make_target,
                         compdb_options,
@@ -269,8 +269,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     pb.tick();
                     let rows = compdb::archive_compdb(
                         &conn,
-                        svninfo.branch_name(),
-                        svninfo.revision(),
+                        repo_info.branch(),
+                        repo_info.commit_id(),
                         make_target.as_str(),
                         "compile_commands.json",
                     )?;
@@ -369,21 +369,21 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
                 CompdbCmd::Add {
                     target,
-                    revision,
+                    commit_id,
                     compdb_path,
                 } => {
-                    let svninfo = utils::SvnInfo::new()?;
                     let compdb_path = compdb_path
                         .as_ref()
                         .map_or_else(|| COMPDB_FILE, |x| x.as_str());
                     eprint!("Archiving compilation database for {}...", target);
                     io::stderr().flush()?;
-                    let revision =
-                        revision.unwrap_or_else(|| svninfo.revision());
+                    let commit_id = commit_id
+                        .as_deref()
+                        .unwrap_or_else(|| repo_info.commit_id());
                     compdb::archive_compdb(
                         &conn,
-                        svninfo.branch_name(),
-                        revision,
+                        repo_info.branch(),
+                        commit_id,
                         target.as_str(),
                         compdb_path,
                     )?;
@@ -406,7 +406,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
                 CompdbCmd::Merge {
                     target,
-                    revision,
+                    revision: commit_id,
                     files,
                 } => {
                     let pbar = ProgressBar::no_length().with_style(
@@ -418,16 +418,16 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     pbar.enable_steady_tick(TICK_INTERVAL);
                     compdb::merge_compdb(files)?;
                     pbar.finish_with_message("ok");
-                    let svninfo = utils::SvnInfo::new()?;
-                    let revision =
-                        revision.unwrap_or_else(|| svninfo.revision());
+                    let revision = commit_id
+                        .as_deref()
+                        .unwrap_or_else(|| repo_info.commit_id());
                     pbar.set_style(ProgressStyle::with_template(
                         "Archiving the newly generated compilation database...{msg}",
                     )?);
                     pbar.enable_steady_tick(TICK_INTERVAL);
                     compdb::archive_compdb(
                         &conn,
-                        svninfo.branch_name(),
+                        repo_info.branch(),
                         revision,
                         target.as_str(),
                         COMPDB_FILE,
@@ -512,7 +512,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             by_target,
             name: product_name_or_compile_target,
         }) => {
-            let conf = RuaConf::new()?;
+            let repo_info = utils::RepoInfo::new()?;
+            let conf = RuaConf::new(&repo_info)?;
             let mkinfo_conf = conf.mkinfo;
 
             let final_image_server = if let Some(v) = mkinfo_conf.as_ref()
@@ -575,9 +576,10 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     GenBy::Nickname(product_name_or_compile_target)
                 },
                 makeopts,
+                &repo_info,
             )?;
 
-            mkinfo::dump_mkinfo(&mkinfos, output_format)
+            mkinfo::dump_mkinfo(&mkinfos, output_format, &repo_info)
         }
         Comm::Perfan(PerfanArgs {
             file,
@@ -601,7 +603,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             revisions,
             template_file,
         }) => {
-            let conf = RuaConf::new()?;
+            let repo_info = utils::RepoInfo::new()?;
+            let conf = RuaConf::new(&repo_info)?;
 
             let final_template_file = if let Some(review_conf) =
                 conf.review.as_ref()

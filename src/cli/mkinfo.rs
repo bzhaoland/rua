@@ -4,7 +4,7 @@ use crate::core::mkinfo;
 
 #[derive(Args, Clone, Debug)]
 pub(crate) struct MkinfoArgs {
-    /// Build with IPv6 enabled
+    /// Enable IPv6
     #[arg(short = '6', long = "ipv6", default_value_t = false)]
     pub(crate) ipv6: bool,
 
@@ -24,11 +24,11 @@ pub(crate) struct MkinfoArgs {
     #[arg(long = "format", default_value = "list", value_name = "FORMAT")]
     pub(crate) output_format: mkinfo::DumpFormat,
 
-    /// Build with shell password enabled
+    /// Enable shell password
     #[arg(short = 'p', long = "password", default_value_t = false)]
     pub(crate) password: bool,
 
-    /// Build with WebUI enabled
+    /// Enable WebUI
     #[arg(short = 'w', long = "webui")]
     pub(crate) webui: bool,
 

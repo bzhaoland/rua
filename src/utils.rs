@@ -1,3 +1,4 @@
+use std::env::current_dir;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -5,6 +6,7 @@ use std::sync::LazyLock;
 use std::{ffi::OsString, fmt::Display};
 
 use anyhow::{Context, anyhow, bail};
+use gix;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use regex::Regex;
@@ -45,6 +47,159 @@ pub fn get_username() -> Option<String> {
         )
     } else {
         None
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct RepoInfo {
+    work_dir: String,
+    commit_id: String,
+    committer: String,
+    commit_time: String,
+    branch: String,
+}
+
+enum RepoType {
+    Git,
+    Svn,
+}
+
+impl RepoInfo {
+    pub fn new() -> anyhow::Result<Self> {
+        let repo_type =
+            Self::detect_repo_type()?.expect("Failed to get repo type");
+        let work_dir;
+        let commit_id;
+        let commit_time;
+        let committer;
+        let branch;
+        match repo_type {
+            RepoType::Git => {
+                let repo = GitInfo::new()?;
+                work_dir = repo.work_dir().to_string();
+                commit_id = repo.commit_id().to_string();
+                commit_time = repo.commit_time().to_string();
+                committer = repo.committer().to_string();
+                branch = repo.branch().to_string();
+            }
+            RepoType::Svn => {
+                let repo = SvnInfo::new()?;
+                work_dir =
+                    repo.working_copy_root_path().to_string_lossy().to_string();
+                commit_id = repo.revision().to_string();
+                commit_time = repo.last_changed_date().to_string();
+                committer = repo.last_changed_author().to_string();
+                branch = repo.branch_name().to_string();
+            }
+        }
+
+        Ok(RepoInfo {
+            work_dir,
+            commit_id,
+            committer,
+            commit_time,
+            branch,
+        })
+    }
+
+    fn detect_repo_type() -> anyhow::Result<Option<RepoType>> {
+        let mut current = current_dir().context("Failed to get current dir")?;
+        loop {
+            if current.join(".git").is_dir() {
+                return Ok(Some(RepoType::Git));
+            }
+            if current.join(".svn").is_dir() {
+                return Ok(Some(RepoType::Svn));
+            }
+            if !current.pop() {
+                break;
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn work_dir(&self) -> &str {
+        &self.work_dir
+    }
+
+    pub fn commit_id(&self) -> &str {
+        &self.commit_id
+    }
+
+    pub fn commit_time(&self) -> &str {
+        &self.commit_time
+    }
+
+    pub fn committer(&self) -> &str {
+        &self.committer
+    }
+
+    pub fn branch(&self) -> &str {
+        &self.branch
+    }
+}
+
+#[derive(Clone, Debug)]
+struct GitInfo {
+    work_dir: String,
+    commit_id: String,
+    committer: String,
+    commit_time: String,
+    branch: String,
+}
+
+impl GitInfo {
+    pub(self) fn new() -> anyhow::Result<Self> {
+        let repo = gix::discover(".")?;
+        let work_dir = repo
+            .workdir()
+            .expect("Can not find work dir for this git repo");
+        let commit = repo
+            .head()
+            .context("Failed to get head")?
+            .id()
+            .expect("Failed to get HEAD commit object")
+            .object()
+            .context("Failed to get the object associated with HEAD")?;
+        let commit_id = commit.id;
+        let commit = commit.to_commit_ref();
+        let committer = commit.committer()?;
+        let commit_time = commit.committer()?.time()?;
+        let branch = repo
+            .head()?
+            .referent_name()
+            .expect("Failed to get branch name")
+            .to_string();
+        Ok(GitInfo {
+            work_dir: std::fs::canonicalize(work_dir)
+                .context("Failed to canonicalize work dir")?
+                .to_string_lossy()
+                .to_string(),
+            commit_id: commit_id.to_string(),
+            committer: committer.name.to_string(),
+            commit_time: commit_time.to_string(),
+            branch: branch,
+        })
+    }
+
+    pub(self) fn work_dir(&self) -> &str {
+        &self.work_dir
+    }
+
+    pub(self) fn commit_id(&self) -> &str {
+        &self.commit_id
+    }
+
+    pub(self) fn committer(&self) -> &str {
+        &self.committer
+    }
+
+    pub(self) fn commit_time(&self) -> &str {
+        &self.commit_time
+    }
+
+    pub(self) fn branch(&self) -> &str {
+        &self.branch
     }
 }
 
@@ -251,12 +406,12 @@ impl SvnInfo {
 
     #[allow(dead_code)]
     pub fn url(&self) -> &str {
-        self.url.as_str()
+        &self.url
     }
 
     #[allow(dead_code)]
     pub fn relative_url(&self) -> &str {
-        self.relative_url.as_str()
+        &self.relative_url
     }
 
     #[allow(dead_code)]

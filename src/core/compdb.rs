@@ -22,7 +22,7 @@ use serde_json::{self, json};
 use zstd::{decode_all, encode_all};
 
 use crate::config::{COMPDB_FILE, DEFAULT_BEAR, DEFAULT_INTERCEPT_BUILD};
-use crate::utils::SvnInfo;
+use crate::utils::RepoInfo;
 use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum)]
@@ -89,7 +89,7 @@ impl fmt::Display for CompdbRecord {
 const BUILDLOG_PATH: &str = ".rua.compdb.tmp";
 
 pub(crate) fn gen_compdb_by_builtin(
-    svninfo: &SvnInfo,
+    repoinfo: &RepoInfo,
     make_directory: &str,
     make_target: &str,
     macros: &IndexMap<String, String>,
@@ -104,16 +104,13 @@ pub(crate) fn gen_compdb_by_builtin(
     const NSTEPS: usize = 5;
 
     // Invoke svn firstly to check whether we are in a working copy
-    let at_proj_root = env::current_dir()? == svninfo.working_copy_root_path();
+    let repo_root = PathBuf::from(repoinfo.work_dir());
+    let at_proj_root = env::current_dir()? == repo_root;
 
-    let lastrules_path = svninfo
-        .working_copy_root_path()
-        .join("scripts/last-rules.mk");
-    let rules_path = svninfo.working_copy_root_path().join("scripts/rules.mk");
-    let common_rules_path = svninfo
-        .working_copy_root_path()
-        .join("scripts/common-rules.mk");
-    let top_makefile = svninfo.working_copy_root_path().join("Makefile");
+    let lastrules_path = repo_root.join("scripts/last-rules.mk");
+    let rules_path = repo_root.join("scripts/rules.mk");
+    let common_rules_path = repo_root.join("scripts/common-rules.mk");
+    let top_makefile = repo_root.join("Makefile");
 
     if !lastrules_path.is_file() {
         bail!(r#"File not found: "{}""#, lastrules_path.display());
@@ -132,7 +129,11 @@ pub(crate) fn gen_compdb_by_builtin(
 
     let pb1 = ProgressBar::no_length().with_style(
         ProgressStyle::with_template(
-            format!("[{}/{}] Injecting mkfiles {{spinner:.green}}", step, NSTEPS).as_str(),
+            format!(
+                "[{}/{}] Injecting mkfiles {{spinner:.green}}",
+                step, NSTEPS
+            )
+            .as_str(),
         )?
         .tick_chars(TICK_CHARS),
     );
@@ -143,17 +144,17 @@ pub(crate) fn gen_compdb_by_builtin(
     // Hacking for c files
     let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+(\$\(CFLAGS\w*\)\s+\$\(CFLAGS\w*\)\s+-MMD(?:\s+-MP\s+-MT\s+\$@)?\s+-c\s+-o\s+\$@\s+\$<)\s*$"#)
         .context("Failed to build regex for C compilation")?;
-    let lastrules_text = fs::read_to_string(lastrules_path.as_path())
-        .context(format!(r#"Can't read file "{}""#, lastrules_path.display()))?;
+    let lastrules_text = fs::read_to_string(lastrules_path.as_path()).context(
+        format!(r#"Can't read file "{}""#, lastrules_path.display()),
+    )?;
     let captures = pattern_c
         .captures(&lastrules_text)
         .context(format!("Failed to capture pattern {}", pattern_c.as_str()))?;
     let comp_args_c = captures.get(1).unwrap().as_str();
     let lastrules_text_hacked = pattern_c.replace_all(&lastrules_text, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(CC) {} >>:file:>> $<", comp_args_c)).to_string();
-    fs::write(lastrules_path.as_path(), &lastrules_text_hacked).context(format!(
-        r#"Writing to file "{}" failed"#,
-        lastrules_path.display()
-    ))?;
+    fs::write(lastrules_path.as_path(), &lastrules_text_hacked).context(
+        format!(r#"Writing to file "{}" failed"#, lastrules_path.display()),
+    )?;
     changed_files.push(ChangedFile {
         file: &lastrules_path,
         orig: lastrules_text,
@@ -161,16 +162,16 @@ pub(crate) fn gen_compdb_by_builtin(
     });
 
     // Hacking for cxx files
-    let pattern_cxx = Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
-        .context("Building regex pattern for C++ compilation")?;
+    let pattern_cxx =
+        Regex::new(r#"(?m)^\t[[:blank:]]*\$\(COMPILE_CXX_CP_E\)[[:blank:]]*$"#)
+            .context("Building regex pattern for C++ compilation")?;
     let rules_text = fs::read_to_string(rules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, rules_path.display()))?;
     if pattern_cxx.is_match(&rules_text) {
         let rules_text_hacked = pattern_cxx.replace_all(&rules_text, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
-        fs::write(rules_path.as_path(), &rules_text_hacked).context(format!(
-            r#"Writing to file "{}" failed"#,
-            rules_path.display()
-        ))?;
+        fs::write(rules_path.as_path(), &rules_text_hacked).context(
+            format!(r#"Writing to file "{}" failed"#, rules_path.display()),
+        )?;
         changed_files.push(ChangedFile {
             file: &rules_path,
             orig: rules_text,
@@ -180,10 +181,11 @@ pub(crate) fn gen_compdb_by_builtin(
     let common_rules_text = fs::read_to_string(common_rules_path.as_path())?;
     if pattern_cxx.is_match(&common_rules_text) {
         let common_rules_text_hacked = pattern_cxx.replace_all(&common_rules_text, "\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(COMPILE_CXX_CP) >>:file:>> $<").to_string();
-        fs::write(common_rules_path.as_path(), &common_rules_text_hacked).context(format!(
-            r#"Writing to file "{}" failed"#,
-            common_rules_path.display()
-        ))?;
+        fs::write(common_rules_path.as_path(), &common_rules_text_hacked)
+            .context(format!(
+                r#"Writing to file "{}" failed"#,
+                common_rules_path.display()
+            ))?;
         changed_files.push(ChangedFile {
             file: &common_rules_path,
             orig: common_rules_text,
@@ -193,14 +195,19 @@ pub(crate) fn gen_compdb_by_builtin(
 
     // Hacking for make target when running at project root
     if at_proj_root {
-        let regex_core_rule =
-            Regex::new(r#"(?m)^((?:\s*[^:\s]*\s+)*stoneos-image(?:\s+[^:\s]*)*):(.*)$"#)
-                .context("Construct regex for core rule failed")?;
+        let regex_core_rule = Regex::new(
+            r#"(?m)^((?:\s*[^:\s]*\s+)*stoneos-image(?:\s+[^:\s]*)*):(.*)$"#,
+        )
+        .context("Construct regex for core rule failed")?;
         let top_makefile_text = fs::read_to_string(top_makefile.as_path())
             .context(format!("Failed to read {}", top_makefile.display()))?;
-        let captures = regex_core_rule
-            .captures(&top_makefile_text)
-            .context(format!("Pattern not found: {}", regex_core_rule.as_str(),))?;
+        let captures =
+            regex_core_rule
+                .captures(&top_makefile_text)
+                .context(format!(
+                    "Pattern not found: {}",
+                    regex_core_rule.as_str(),
+                ))?;
         let targets_renamed = Regex::new(r#"\S+"#)
             .context("Construct regex for target failed")?
             .replace_all(captures.get(1).unwrap().as_str(), "$0-orig");
@@ -275,7 +282,8 @@ pub(crate) fn gen_compdb_by_builtin(
                 // stdin continues to use master_fd, stdout and stderr use slave_fd
                 libc::dup2(slave_fd, libc::STDOUT_FILENO);
                 libc::dup2(slave_fd, libc::STDERR_FILENO);
-                let mut child = cmd.spawn().context("Failed to execute hsdocker7")?;
+                let mut child =
+                    cmd.spawn().context("Failed to execute hsdocker7")?;
                 let status = loop {
                     if let Some(status) = child
                         .try_wait()
@@ -417,7 +425,7 @@ pub(crate) fn gen_compdb_by_builtin(
 }
 
 pub(crate) fn gen_compdb_by_intercept_build<T: AsRef<Path>>(
-    _svninfo: &SvnInfo,
+    _svninfo: &RepoInfo,
     intercept_build_path: T,
     make_directory: &str,
     make_target: &str,
@@ -459,7 +467,7 @@ pub(crate) fn gen_compdb_by_intercept_build<T: AsRef<Path>>(
 }
 
 pub(crate) fn gen_compdb_by_bear<T: AsRef<Path>>(
-    _svninfo: &SvnInfo,
+    _repo_info: &RepoInfo,
     bear_path: T,
     make_directory: &str,
     make_target: &str,
@@ -501,7 +509,7 @@ pub(crate) fn gen_compdb_by_bear<T: AsRef<Path>>(
 }
 
 pub(crate) fn gen_compdb(
-    svninfo: &SvnInfo,
+    repo_info: &RepoInfo,
     make_directory: &str,
     make_target: &str,
     options: CompdbOptions,
@@ -509,16 +517,19 @@ pub(crate) fn gen_compdb(
     let engine = options.engine.unwrap_or(CompdbEngine::BuiltIn);
 
     match engine {
-        CompdbEngine::BuiltIn => {
-            gen_compdb_by_builtin(svninfo, make_directory, make_target, &options.defines)
-        }
+        CompdbEngine::BuiltIn => gen_compdb_by_builtin(
+            repo_info,
+            make_directory,
+            make_target,
+            &options.defines,
+        ),
         CompdbEngine::InterceptBuild => {
             let intercept_build_path = options
                 .intercept_build_path
                 .as_deref()
                 .unwrap_or(Path::new(DEFAULT_INTERCEPT_BUILD));
             gen_compdb_by_intercept_build(
-                svninfo,
+                repo_info,
                 intercept_build_path,
                 make_directory,
                 make_target,
@@ -529,7 +540,12 @@ pub(crate) fn gen_compdb(
                 .bear_path
                 .as_deref()
                 .unwrap_or(Path::new(DEFAULT_BEAR));
-            gen_compdb_by_bear(svninfo, bear_path, make_directory, make_target)
+            gen_compdb_by_bear(
+                repo_info,
+                bear_path,
+                make_directory,
+                make_target,
+            )
         }
     }?;
 
@@ -562,19 +578,20 @@ pub(crate) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
 fn add_compdb(
     conn: &Connection,
     branch: &str,
-    revision: i64,
+    commit_id: &str,
     target: &str,
     compdb: &[u8],
 ) -> anyhow::Result<usize> {
     let timestamp = chrono::Utc::now().timestamp();
     let rows = conn.execute("INSERT INTO compdbs (branch, revision, target, timestamp, compdb) VALUES (?1, ?2, ?3, ?4, ?5)", params![
-        branch, revision, target, timestamp, compdb
+        branch, commit_id, target, timestamp, compdb
     ])?;
     Ok(rows)
 }
 
 const STYLE_BOLD: Style = Style::new().bold();
-const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
+const STYLE_YELLOW: Style =
+    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 
 pub(crate) struct TableColumn<T>
 where
@@ -697,7 +714,10 @@ impl Table {
 
     /// Get a row from the table, with the following fields:
     /// (generation, branch, revision, target, date, name and remark)
-    pub(crate) fn get_row(&self, i: usize) -> (i64, &str, i64, &str, &str, &str, &str) {
+    pub(crate) fn get_row(
+        &self,
+        i: usize,
+    ) -> (i64, &str, i64, &str, &str, &str, &str) {
         (
             self.col_generation.series[i],
             self.col_branch.series[i].as_str(),
@@ -773,8 +793,10 @@ pub(crate) fn list_generations(conn: &Connection) -> anyhow::Result<()> {
         table.col_name.header,
         table.col_remark.header,
     );
-    let generation_pad_cols =
-        generation_cols - generation_id_cols - table.indicator.chars().count() - 1;
+    let generation_pad_cols = generation_cols
+        - generation_id_cols
+        - table.indicator.chars().count()
+        - 1;
     let current = get_current_generation(conn)?;
     for i in 0..table.num_rows {
         let (g, b, r, t, d, n, m) = table.get_row(i);
@@ -813,7 +835,10 @@ pub(crate) enum DelOpt {
 }
 
 /// Delete a compilation database generation from the store
-pub(crate) fn remove_generation(conn: &Connection, opt: DelOpt) -> anyhow::Result<usize> {
+pub(crate) fn remove_generation(
+    conn: &Connection,
+    opt: DelOpt,
+) -> anyhow::Result<usize> {
     let rows = match opt {
         DelOpt::Generations(v) => conn.execute(
             format!(
@@ -834,7 +859,10 @@ pub(crate) fn remove_generation(conn: &Connection, opt: DelOpt) -> anyhow::Resul
     Ok(rows)
 }
 
-pub(crate) fn use_generation(conn: &Connection, generation: i64) -> anyhow::Result<()> {
+pub(crate) fn use_generation(
+    conn: &Connection,
+    generation: i64,
+) -> anyhow::Result<()> {
     let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
         format!("Switching to generation {}...{{msg}}", generation).as_str(),
     )?);
@@ -859,7 +887,7 @@ pub(crate) fn use_generation(conn: &Connection, generation: i64) -> anyhow::Resu
 pub(crate) fn archive_compdb<P>(
     conn: &Connection,
     branch: &str,
-    revision: i64,
+    commit_id: &str,
     target: &str,
     compdb: P,
 ) -> anyhow::Result<usize>
@@ -869,11 +897,13 @@ where
     let compdb = compdb.as_ref();
     let content = fs::read_to_string(compdb)?;
     let compressed = encode_all(content.as_bytes(), 0)?;
-    let rows = add_compdb(conn, branch, revision, target, &compressed)?;
+    let rows = add_compdb(conn, branch, commit_id, target, &compressed)?;
     Ok(rows)
 }
 
-pub(crate) fn merge_compdb<T: AsRef<Path>>(files: Vec<T>) -> anyhow::Result<()> {
+pub(crate) fn merge_compdb<T: AsRef<Path>>(
+    files: Vec<T>,
+) -> anyhow::Result<()> {
     let mut merged: serde_json::Value = json!([]);
     let compdb = Path::new(COMPDB_FILE);
     if compdb.is_file() {
@@ -934,7 +964,9 @@ pub(crate) fn remark_generation(
 }
 
 /// Get the most recent compilation database which equips with the biggest generation id
-pub(crate) fn get_biggest_generation(conn: &Connection) -> anyhow::Result<Option<i64>> {
+pub(crate) fn get_biggest_generation(
+    conn: &Connection,
+) -> anyhow::Result<Option<i64>> {
     let generation = conn.query_row(
         "SELECT generation FROM compdbs ORDER BY generation DESC LIMIT 1",
         (),
@@ -946,7 +978,10 @@ pub(crate) fn get_biggest_generation(conn: &Connection) -> anyhow::Result<Option
 
 /// Set the currently used compdb to the specified generation id
 /// Please note this only takes effect on compdbs managed by store
-pub(crate) fn set_current_generation(conn: &Connection, generation: i64) -> anyhow::Result<usize> {
+pub(crate) fn set_current_generation(
+    conn: &Connection,
+    generation: i64,
+) -> anyhow::Result<usize> {
     let rows = conn.execute(
         "INSERT INTO history (generation) VALUES (?1)",
         params![generation],
@@ -955,7 +990,9 @@ pub(crate) fn set_current_generation(conn: &Connection, generation: i64) -> anyh
 }
 
 /// Get the generation id of the currently used compdb
-pub(crate) fn get_current_generation(conn: &Connection) -> anyhow::Result<Option<i64>> {
+pub(crate) fn get_current_generation(
+    conn: &Connection,
+) -> anyhow::Result<Option<i64>> {
     let generation: Option<i64> = conn
         .query_row(
             "SELECT generation FROM history ORDER BY id DESC LIMIT 1",

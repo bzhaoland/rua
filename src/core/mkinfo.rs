@@ -3,6 +3,7 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use anstyle::{Ansi256Color, Color, Style};
@@ -16,7 +17,7 @@ use rustix::system::uname;
 use serde_json::{Value, json};
 
 use crate::utils;
-use crate::utils::SvnInfo;
+use crate::utils::RepoInfo;
 
 bitflags! {
     #[repr(transparent)]
@@ -122,7 +123,10 @@ impl fmt::Display for MakeInfo {
   make_target: "{}",
   make_directory: "{}",
 }}"#,
-            self.platform_model, self.product_family, self.make_target, self.make_directory,
+            self.platform_model,
+            self.product_family,
+            self.make_target,
+            self.make_directory,
         )
     }
 }
@@ -163,8 +167,10 @@ impl fmt::Display for CompileInfo {
     }
 }
 
-pub(crate) fn read_product_registry(svninfo: &SvnInfo) -> Result<Vec<ProductInfo>> {
-    let proj_root = svninfo.working_copy_root_path();
+pub(crate) fn read_product_registry(
+    svninfo: &RepoInfo,
+) -> Result<Vec<ProductInfo>> {
+    let proj_root = PathBuf::from(svninfo.work_dir());
     let product_info_path = proj_root.join("src/libplatform/hs_platform.c");
     if !product_info_path.is_file() {
         bail!(r#"File "{}" not available"#, product_info_path.display());
@@ -173,7 +179,8 @@ pub(crate) fn read_product_registry(svninfo: &SvnInfo) -> Result<Vec<ProductInfo
     // Find out all matched records in src/libplatform/hs_platform.c
     let product_info_file = fs::File::open(&product_info_path)
         .context(format!("Can't open file {}", product_info_path.display()))?;
-    let mut product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
+    let mut product_info_reader =
+        BufReader::with_capacity(1024 * 512, product_info_file);
     let pattern_prodinfo = Regex::new(r#"(?i)^[[:blank:]]*\{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,(?:[[:blank:]]*([[:word:]]+)[[:blank:]]*,)?[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}"#).context("Failed to build regex for product info")?;
     let mut product_info_list: Vec<ProductInfo> = Vec::with_capacity(128);
     let mut line = String::with_capacity(512);
@@ -200,58 +207,63 @@ pub(crate) fn read_product_registry(svninfo: &SvnInfo) -> Result<Vec<ProductInfo
 }
 
 /// Load makeinfos from the registry into a list
-pub(crate) fn read_mkinfo_registry(svninfo: &SvnInfo) -> anyhow::Result<Vec<MakeInfo>> {
-    let makeinfo_path = svninfo
-        .working_copy_root_path()
-        .join("scripts/platform_table");
+pub(crate) fn read_mkinfo_registry(
+    repo_info: &RepoInfo,
+) -> anyhow::Result<Vec<MakeInfo>> {
+    let makeinfo_path =
+        PathBuf::from(repo_info.work_dir()).join("scripts/platform_table");
     if !makeinfo_path.is_file() {
         bail!(r#"File "{}" not available"#, makeinfo_path.display());
     }
 
     let makeinfo_file = fs::File::open(&makeinfo_path)
         .context(format!(r#"Can't open file "{}""#, makeinfo_path.display()))?;
-    let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
+    let mut makeinfo_reader =
+        BufReader::with_capacity(1024 * 512, &makeinfo_file);
     let mut buf = String::with_capacity(256);
     let mut mkinfos: Vec<MakeInfo> = Vec::with_capacity(256);
 
-    let regex_makeinfo_1 = Regex::new(r#"^\s*([\w\-/]+)\s+([\w\-]+)\s*$"#).unwrap();
-    let regex_makeinfo_2 = Regex::new(
-        r#"^\s*([\w\-/]+)\s*,\s*([\w\-]+)\s*(?:,\s*([^,]*)\s*(?:,\s*"\s*cd\s+([^"]+?)\s*"\s*(?:,\s*(\d*)\s*(?:,\s*"(\s*[^"]*?\s*)"\s*)?)?)?)?$"#,
-    )
-    .unwrap();
-    let regex_makeinfo_3 = Regex::new(
-        r#"^\s*([\w\-/]+)\s*,\s*([\w\-]+)\s*(?:,\s*([^,]*)\s*(?:,\s*"\s*cd\s+([^"]+?)\s*"\s*(?:,\s*(\d*)\s*(?:,\s*(\w+)\s*(?:,\s*"\s*([^"]*?)\s*"\s*)?)?)?)?)?$"#,
-    )
-    .unwrap();
+    let regex_model_target = Regex::new(r#"^\s*(\w+)\s*,\s*([\w-]+)\s*,"#)?;
+    let regex_prod_family = Regex::new(r#"\b(HS_PRODUCT_FAMILY_\w+)"#)?;
+    let regex_make_dir = Regex::new(r#""\s*cd\s+([^"]+?)\s*""#)?;
+    let regex_model_target_old = Regex::new(r#"^\s*(\w+)\s+([\w-]+)\s*$"#)?;
     while makeinfo_reader.read_line(&mut buf)? != 0 {
-        if let Some(captures) = regex_makeinfo_3.captures(&buf) {
-            mkinfos.push(MakeInfo {
-                platform_model: captures.get(1).unwrap().as_str().to_string(),
-                product_family: captures.get(6).map(|v| v.as_str().to_string()),
-                make_target: captures.get(2).unwrap().as_str().to_string(),
-                make_directory: captures
-                    .get(4)
-                    .map(|x| x.as_str().to_string())
-                    .unwrap_or(String::new()),
-            });
-        } else if let Some(captures) = regex_makeinfo_2.captures(&buf) {
-            mkinfos.push(MakeInfo {
-                platform_model: captures.get(1).unwrap().as_str().to_string(),
-                product_family: None,
-                make_target: captures.get(2).unwrap().as_str().to_string(),
-                make_directory: captures
-                    .get(4)
-                    .map(|x| x.as_str().to_string())
-                    .unwrap_or(String::new()),
-            });
-        } else if let Some(captures) = regex_makeinfo_1.captures(&buf) {
-            mkinfos.push(MakeInfo {
-                platform_model: captures.get(1).unwrap().as_str().to_string(),
-                product_family: None,
-                make_target: captures.get(2).unwrap().as_str().to_string(),
-                make_directory: ".".to_string(),
-            });
+        let prod_model;
+        let make_target;
+        let prod_family;
+        let make_dir;
+        if let Some(caps) = regex_model_target.captures(&buf) {
+            prod_model = caps.get(1).unwrap().as_str();
+            make_target = caps.get(2).unwrap().as_str();
+            prod_family = if let Some(caps) = regex_prod_family.captures(&buf)
+                && let Some(v) = caps.get(1)
+            {
+                Some(v.as_str())
+            } else {
+                None
+            };
+            make_dir = if let Some(caps) = regex_make_dir.captures(&buf)
+                && let Some(v) = caps.get(1)
+            {
+                v.as_str()
+            } else {
+                "Unknown"
+            };
+        } else if let Some(caps) = regex_model_target_old.captures(&buf) {
+            prod_model = caps.get(1).unwrap().as_str();
+            make_target = caps.get(2).unwrap().as_str();
+            prod_family = None;
+            make_dir = ".";
+        } else {
+            buf.clear();
+            continue;
         }
+        mkinfos.push(MakeInfo {
+            platform_model: prod_model.to_string(),
+            product_family: prod_family.map(String::from),
+            make_target: make_target.to_string(),
+            make_directory: make_dir.to_string(),
+        });
         buf.clear()
     }
     mkinfos.shrink_to_fit();
@@ -259,14 +271,16 @@ pub(crate) fn read_mkinfo_registry(svninfo: &SvnInfo) -> anyhow::Result<Vec<Make
     Ok(mkinfos)
 }
 
-const STYLE_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
-const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
+const STYLE_GREEN: Style =
+    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
+const STYLE_YELLOW: Style =
+    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 
 fn abbreviate_branch(branch: &str) -> anyhow::Result<String> {
-    let pattern_branch_part =
-        Regex::new(r"HAWAII_([-[:word:]]+)").context("Build regex for nickname failed")?;
-    let pattern_nonalnum =
-        Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
+    let pattern_branch_part = Regex::new(r"HAWAII_([-[:word:]]+)")
+        .context("Build regex for nickname failed")?;
+    let pattern_nonalnum = Regex::new(r#"[^[:alnum:]]+"#)
+        .context("Build regex for nonalnum failed")?;
     let captures = pattern_branch_part.captures(branch);
     let nickname = pattern_nonalnum
         .replace_all(
@@ -282,8 +296,9 @@ fn abbreviate_branch(branch: &str) -> anyhow::Result<String> {
     Ok(nickname)
 }
 
-static RE_NONALNUM: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"[^[:alnum:]]+"#).expect("Failed to build regex for non-alnum"));
+static RE_NONALNUM: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"[^[:alnum:]]+"#).expect("Failed to build regex for non-alnum")
+});
 
 fn compose_compileinfo(
     product: &ProductInfo,
@@ -295,7 +310,8 @@ fn compose_compileinfo(
     if makeopts.flag.contains(MakeFlag::IPV6) {
         make_target.push_str("-ipv6");
     }
-    let mut make_comm = format!("make -C {} -j8 {}", mkinfo.make_directory, make_target);
+    let mut make_comm =
+        format!("make -C {} -j8 {}", mkinfo.make_directory, make_target);
 
     make_comm.push_str(if makeopts.flag.contains(MakeFlag::RELEASE) {
         " ISBUILDRELEASE=1"
@@ -374,7 +390,8 @@ fn compose_compileinfo(
     } else {
         'd'
     });
-    imagename_suffix.push_str(chrono::Local::now().format("%m%d").to_string().as_str());
+    imagename_suffix
+        .push_str(chrono::Local::now().format("%m%d").to_string().as_str());
     if let Some(username) = utils::get_username() {
         imagename_suffix.push_str(format!("-{}", username).as_str())
     }
@@ -401,7 +418,7 @@ fn compose_compileinfo(
         product_name: product.long_name.clone(),
         product_model: product.product_model.clone(),
         product_oem_id: product.oem_id.clone(),
-        product_family: product.family.clone(),
+        product_family: mkinfo.product_family.clone(),
         platform_model: mkinfo.platform_model.clone(),
         make_target,
         make_directory: mkinfo.make_directory.clone(),
@@ -412,11 +429,10 @@ fn compose_compileinfo(
 pub(crate) fn gen_mkinfo_by_nickname(
     nickname: &str,
     makeopts: MakeOpts,
+    repoinfo: &RepoInfo,
 ) -> anyhow::Result<Vec<CompileInfo>> {
-    let svninfo = utils::SvnInfo::new()?;
-
     // Check location
-    let proj_root = svninfo.working_copy_root_path();
+    let proj_root = PathBuf::from(repoinfo.work_dir());
     if env::current_dir()?.as_path() != proj_root {
         bail!(
             r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
@@ -426,13 +442,13 @@ pub(crate) fn gen_mkinfo_by_nickname(
 
     // Read and filter products
     let re_nickname = Regex::new(format!(r#"(?i){}$"#, nickname).as_str())?;
-    let product_infos = read_product_registry(&svninfo)?
+    let product_infos = read_product_registry(&repoinfo)?
         .into_iter()
         .filter(|x| re_nickname.is_match(x.long_name.as_str()))
         .collect::<Vec<ProductInfo>>();
 
     // Read and hash makeinfos, allow duplicates
-    let mkinfo_list = read_mkinfo_registry(&svninfo)?;
+    let mkinfo_list = read_mkinfo_registry(&repoinfo)?;
     let mut mkinfo_map = HashMap::with_capacity(256);
     for item in mkinfo_list {
         mkinfo_map
@@ -443,46 +459,26 @@ pub(crate) fn gen_mkinfo_by_nickname(
     }
     mkinfo_map.shrink_to_fit();
 
-    // Product family field check
-    let has_product_family_in_mkinfo = match svninfo
-        .branch_name()
-        .chars()
-        .take(7)
-        .collect::<String>()
-        .as_str()
-    {
-        "MX_MAIN" if svninfo.revision() >= 293968 => true,
-        "HAWAII_" => {
-            let hawaii_release_ver = Regex::new(r#"HAWAII_(?:REL_)?R([[:digit:]]+)"#)
-                .context("Failed to build regex for release version")?
-                .captures(svninfo.branch_name())
-                .context("Failed to capture release version")?
-                .get(1)
-                .unwrap()
-                .as_str()
-                .parse::<usize>()
-                .context("Can't convert release version string to number")?;
-            (hawaii_release_ver == 11 && svninfo.revision() >= 295630) || hawaii_release_ver > 11
-        }
-        _ => false,
-    };
-
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for product in product_infos.iter() {
         let mkinfo_arr = match mkinfo_map.get(&product.platform_model) {
             None => continue,
             Some(v) => v,
         };
-
-        for mkinfo in mkinfo_arr.iter().filter(|x| {
-            product.family.is_none()
-                || !has_product_family_in_mkinfo
-                || (x.product_family.is_some()
-                    && x.product_family.as_ref().unwrap() == product.family.as_ref().unwrap())
-        }) {
-            let compile_info =
-                compose_compileinfo(product, svninfo.branch_name(), mkinfo, &makeopts)?;
-            compile_infos.push(compile_info);
+        for mkinfo in mkinfo_arr.iter() {
+            println!("{:?}", mkinfo.product_family.as_deref());
+            if let Some(v1) = product.family.as_deref()
+                && let Some(v2) = mkinfo.product_family.as_deref()
+                && v1 != v2
+            {
+                continue;
+            }
+            compile_infos.push(compose_compileinfo(
+                product,
+                repoinfo.branch(),
+                mkinfo,
+                &makeopts,
+            )?);
         }
     }
 
@@ -492,22 +488,23 @@ pub(crate) fn gen_mkinfo_by_nickname(
 pub(crate) fn gen_mkinfo_by_target(
     target: &str,
     makeopts: MakeOpts,
+    repoinfo: &RepoInfo,
 ) -> anyhow::Result<Vec<CompileInfo>> {
-    let svninfo = utils::SvnInfo::new()?;
-
     // Check location
-    let proj_root = svninfo.working_copy_root_path();
-    if env::current_dir()?.as_path() != proj_root {
+    let repo_root = PathBuf::from(repoinfo.work_dir());
+    if env::current_dir()?.as_path() != repo_root {
         bail!(
             r#"Wrong location! Please run this command under the project root, i.e. "{}"."#,
-            proj_root.display()
+            repo_root.display()
         );
     }
 
-    let product_list = read_product_registry(&svninfo)?;
-    let mkinfo_list = read_mkinfo_registry(&svninfo)?;
-    let re_target =
-        Regex::new(format!("(?i)^{}$", target.strip_suffix("-ipv6").unwrap_or(target)).as_str())?;
+    let product_list = read_product_registry(&repoinfo)?;
+    let mkinfo_list = read_mkinfo_registry(&repoinfo)?;
+    let re_target = Regex::new(
+        format!("(?i)^{}$", target.strip_suffix("-ipv6").unwrap_or(target))
+            .as_str(),
+    )?;
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for mkinfo in mkinfo_list
         .iter()
@@ -531,7 +528,7 @@ pub(crate) fn gen_mkinfo_by_target(
 
             compile_infos.push(compose_compileinfo(
                 item,
-                svninfo.branch_name(),
+                repoinfo.branch(),
                 mkinfo,
                 &makeopts_new,
             )?);
@@ -547,10 +544,18 @@ pub(crate) enum GenBy {
     Target(String),
 }
 
-pub(crate) fn gen_mkinfo(by_what: GenBy, makeopts: MakeOpts) -> anyhow::Result<Vec<CompileInfo>> {
+pub(crate) fn gen_mkinfo(
+    by_what: GenBy,
+    makeopts: MakeOpts,
+    repo_info: &RepoInfo,
+) -> anyhow::Result<Vec<CompileInfo>> {
     match by_what {
-        GenBy::Nickname(nickname) => gen_mkinfo_by_nickname(nickname.as_str(), makeopts),
-        GenBy::Target(target) => gen_mkinfo_by_target(target.as_str(), makeopts),
+        GenBy::Nickname(nickname) => {
+            gen_mkinfo_by_nickname(nickname.as_str(), makeopts, repo_info)
+        }
+        GenBy::Target(target) => {
+            gen_mkinfo_by_target(target.as_str(), makeopts, repo_info)
+        }
     }
 }
 
@@ -584,7 +589,10 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
-fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
+fn dump_list(
+    compile_infos: &[CompileInfo],
+    repo_info: &RepoInfo,
+) -> anyhow::Result<()> {
     // Style control
     let term_cols = Term::stdout().size().1;
 
@@ -594,8 +602,10 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     }
 
     // Decorations
-    let outerline = format!("{0}{1}{0:#}", STYLE_GREEN, "═".repeat(term_cols as usize));
-    let innerline = format!("{0}{1}{0:#}", STYLE_GREEN, "─".repeat(term_cols as usize));
+    let outerline =
+        format!("{0}{1}{0:#}", STYLE_GREEN, "═".repeat(term_cols as usize));
+    let innerline =
+        format!("{0}{1}{0:#}", STYLE_GREEN, "─".repeat(term_cols as usize));
 
     println!(
         "{} matched info{}:",
@@ -643,7 +653,7 @@ fn dump_list(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     println!(
         r#"{0}Run make command under the project root, i.e. "{1}"{0:#}"#,
         STYLE_YELLOW,
-        utils::SvnInfo::new()?.working_copy_root_path().display(),
+        repo_info.work_dir()
     );
 
     anyhow::Ok(())
@@ -674,11 +684,15 @@ fn dump_csv(infos: &[CompileInfo], delimiter: u8) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
-pub(crate) fn dump_mkinfo(infos: &[CompileInfo], format: DumpFormat) -> anyhow::Result<()> {
+pub(crate) fn dump_mkinfo(
+    infos: &[CompileInfo],
+    format: DumpFormat,
+    repo_info: &RepoInfo,
+) -> anyhow::Result<()> {
     match format {
         DumpFormat::Csv => dump_csv(infos, b','),
         DumpFormat::Json => dump_json(infos),
-        DumpFormat::List => dump_list(infos),
+        DumpFormat::List => dump_list(infos, repo_info),
         DumpFormat::Tsv => dump_csv(infos, b'\t'),
     }
 }

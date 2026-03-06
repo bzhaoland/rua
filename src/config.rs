@@ -1,16 +1,19 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
 use config::Config;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::SvnInfo;
+use crate::utils::RepoInfo;
 
 pub(crate) const PROJ_RUA_DIR: &str = ".rua";
 pub(crate) static CLANGD_CACHE: &str = ".cache";
 pub(crate) static COMPDB_FILE: &str = "compile_commands.json";
 pub(crate) static COMPDB_STORE: &str = ".rua/compdbs.db3";
 pub(crate) static DEFAULT_BEAR: &str = "/devel/sw/bear/bin/bear";
-pub(crate) static DEFAULT_INTERCEPT_BUILD: &str = "/devel/sw/llvm/bin/intercept-build";
+pub(crate) static DEFAULT_INTERCEPT_BUILD: &str =
+    "/devel/sw/llvm/bin/intercept-build";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CleanConf {
@@ -86,8 +89,7 @@ pub(crate) struct RuaConf {
 
 impl RuaConf {
     #[allow(dead_code)]
-    pub(crate) fn new() -> anyhow::Result<RuaConf> {
-        let svninfo = SvnInfo::new()?;
+    pub(crate) fn new(repo_info: &RepoInfo) -> anyhow::Result<RuaConf> {
         let s = Config::builder()
             .add_source(
                 config::File::with_name(
@@ -111,8 +113,7 @@ impl RuaConf {
             )
             .add_source(
                 config::File::with_name(
-                    svninfo
-                        .working_copy_root_path()
+                    PathBuf::from(repo_info.work_dir())
                         .join(".rua/config.toml")
                         .as_path()
                         .to_str()
