@@ -556,9 +556,8 @@ pub(crate) fn gen_compdb(
 #[derive(Clone, Debug)]
 pub(crate) struct CompdbStoreItem {
     generation: i64,
-    name: Option<String>,
     branch: String,
-    revision: i64,
+    commit: String,
     target: String,
     timestamp: i64,
     compdb: Vec<u8>,
@@ -567,7 +566,7 @@ pub(crate) struct CompdbStoreItem {
 
 pub(crate) fn create_tables(conn: &Connection) -> anyhow::Result<()> {
     // Note that the two generation fields should update independently
-    conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision INTEGER NOT NULL, target TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, name TEXT UNIQUE, remark TEXT)", ())?;
+    conn.execute("CREATE TABLE IF NOT EXISTS compdbs (generation INTEGER PRIMARY KEY AUTOINCREMENT, branch TEXT NOT NULL, revision TEXT NOT NULL, target TEXT NOT NULL, timestamp INTEGER NOT NULL, compdb BLOB NOT NULL, remark TEXT)", ())?;
     conn.execute(
         "CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY, generation INTEGER)",
         (),
@@ -620,10 +619,9 @@ impl<T: ToString> TableColumn<T> {
 pub(crate) struct Table {
     col_generation: TableColumn<i64>,
     col_branch: TableColumn<String>,
-    col_revision: TableColumn<i64>,
+    col_commit: TableColumn<String>,
     col_target: TableColumn<String>,
     col_date: TableColumn<String>,
-    col_name: TableColumn<String>,
     col_remark: TableColumn<String>,
     indicator: String,
     num_rows: usize,
@@ -641,8 +639,8 @@ impl Table {
                 header: "Branch".to_string(),
                 series: Vec::new(),
             },
-            col_revision: TableColumn {
-                header: "Revision".to_string(),
+            col_commit: TableColumn {
+                header: "Commit".to_string(),
                 series: Vec::new(),
             },
             col_target: TableColumn {
@@ -651,10 +649,6 @@ impl Table {
             },
             col_date: TableColumn {
                 header: "Date".to_string(),
-                series: Vec::new(),
-            },
-            col_name: TableColumn {
-                header: "Name".to_string(),
                 series: Vec::new(),
             },
             col_remark: TableColumn {
@@ -681,14 +675,12 @@ impl Table {
             .unwrap()
             .format("%Y-%m-%dT%H:%M:%S")
             .to_string();
-        let name = item.name.unwrap_or_default();
         let remark = item.remark.unwrap_or_default();
         self.col_generation.series.push(item.generation);
         self.col_branch.series.push(item.branch);
-        self.col_revision.series.push(item.revision);
+        self.col_commit.series.push(item.commit);
         self.col_target.series.push(item.target);
         self.col_date.series.push(date);
-        self.col_name.series.push(name);
         self.col_remark.series.push(remark);
         self.num_rows += 1;
     }
@@ -700,32 +692,29 @@ impl Table {
             .unwrap()
             .format("%Y-%m-%dT%H:%M:%S")
             .to_string();
-        let name = item.name.unwrap_or_default();
         let remark = item.remark.unwrap_or_default();
         self.col_generation.series.insert(i, item.generation);
         self.col_branch.series.insert(i, item.branch);
-        self.col_revision.series.insert(i, item.revision);
+        self.col_commit.series.insert(i, item.commit);
         self.col_target.series.insert(i, item.target);
         self.col_date.series.insert(i, date);
-        self.col_name.series.insert(i, name);
         self.col_remark.series.insert(i, remark);
         self.num_rows += 1;
     }
 
     /// Get a row from the table, with the following fields:
-    /// (generation, branch, revision, target, date, name and remark)
+    /// (generation, branch, revision, target, date and remark)
     pub(crate) fn get_row(
         &self,
         i: usize,
-    ) -> (i64, &str, i64, &str, &str, &str, &str) {
+    ) -> (i64, &str, &str, &str, &str, &str) {
         (
             self.col_generation.series[i],
-            self.col_branch.series[i].as_str(),
-            self.col_revision.series[i],
-            self.col_target.series[i].as_str(),
-            self.col_date.series[i].as_str(),
-            self.col_name.series[i].as_str(),
-            self.col_remark.series[i].as_str(),
+            &self.col_branch.series[i],
+            &self.col_commit.series[i],
+            &self.col_target.series[i],
+            &self.col_date.series[i],
+            &self.col_remark.series[i],
         )
     }
 
@@ -735,9 +724,8 @@ impl Table {
         if i < self.num_rows {
             self.col_generation.series.remove(i);
             self.col_branch.series.remove(i);
-            self.col_revision.series.remove(i);
+            self.col_commit.series.remove(i);
             self.col_date.series.remove(i);
-            self.col_name.series.remove(i);
             self.col_remark.series.remove(i);
         }
     }
@@ -745,17 +733,16 @@ impl Table {
 
 pub(crate) fn list_generations(conn: &Connection) -> anyhow::Result<()> {
     // Database querying
-    let mut stmt = conn.prepare("SELECT generation, branch, revision, target, timestamp, name, remark FROM compdbs ORDER BY generation DESC")?;
+    let mut stmt = conn.prepare("SELECT generation, branch, revision, target, timestamp, remark FROM compdbs ORDER BY generation DESC")?;
     let data_iter = stmt.query_map([], |row| {
         Ok(CompdbStoreItem {
             generation: row.get(0)?,
             branch: row.get(1)?,
-            revision: row.get(2)?,
+            commit: row.get(2)?,
             target: row.get(3)?,
             timestamp: row.get(4)?,
             compdb: Vec::new(), // Fake content as the content in this field is huge
-            name: row.get(5)?,
-            remark: row.get(6)?,
+            remark: row.get(5)?,
         })
     })?;
 
@@ -777,20 +764,18 @@ pub(crate) fn list_generations(conn: &Connection) -> anyhow::Result<()> {
         generation_id_cols + indicator_cols + 1,
     );
     let branch_cols = table.col_branch.display_width();
-    let revision_cols = table.col_revision.display_width();
+    let commit_cols = table.col_commit.display_width();
     let target_cols = table.col_target.display_width();
     let date_cols = table.col_date.display_width();
-    let name_cols = table.col_name.display_width();
     let remark_cols = table.col_remark.display_width();
     println!(
-        "{0}{1:<generation_cols$}   {2:<branch_cols$}   {3:<revision_cols$}   {4:<target_cols$}   {5:<date_cols$}   {6:name_cols$}   {7:<remark_cols$}{0:#}",
+        "{0}{1:<generation_cols$}   {2:<branch_cols$}   {3:<commit_cols$}   {4:<target_cols$}   {5:<date_cols$}   {6:<remark_cols$}{0:#}",
         STYLE_BOLD,
         table.col_generation.header,
         table.col_branch.header,
-        table.col_revision.header,
+        table.col_commit.header,
         table.col_target.header,
         table.col_date.header,
-        table.col_name.header,
         table.col_remark.header,
     );
     let generation_pad_cols = generation_cols
@@ -799,9 +784,9 @@ pub(crate) fn list_generations(conn: &Connection) -> anyhow::Result<()> {
         - 1;
     let current = get_current_generation(conn)?;
     for i in 0..table.num_rows {
-        let (g, b, r, t, d, n, m) = table.get_row(i);
+        let (g, b, r, t, d, m) = table.get_row(i);
         println!(
-            "{1:<generation_id_cols$}{2:generation_pad_cols$} {0}{9:indicator_cols$}{0:#}   {3:branch_cols$}   {4:<revision_cols$}   {5:target_cols$}   {6:<date_cols$}   {7:<name_cols$}   {8:<remark_cols$}",
+            "{1:<generation_id_cols$}{2:generation_pad_cols$} {0}{8:indicator_cols$}{0:#}   {3:branch_cols$}   {4:<commit_cols$}   {5:target_cols$}   {6:<date_cols$}   {7:<remark_cols$}",
             STYLE_YELLOW,
             g,
             "",
@@ -809,7 +794,6 @@ pub(crate) fn list_generations(conn: &Connection) -> anyhow::Result<()> {
             r,
             t,
             d,
-            n,
             m,
             if let Some(current) = current {
                 if current == g {
@@ -931,21 +915,6 @@ pub(crate) fn merge_compdb<T: AsRef<Path>>(
 
     fs::write(compdb, serde_json::to_string_pretty(&merged)?)?;
     Ok(())
-}
-
-/// Name a compilation database generation in the store
-///
-/// Returns the number of rows that were changed, 1 on success, 0 on failure.
-pub(crate) fn name_generation(
-    conn: &Connection,
-    generation: i64,
-    name: &str,
-) -> anyhow::Result<usize> {
-    let rows = conn.execute(
-        "UPDATE compdbs SET name = ?1 WHERE generation = ?2",
-        params![name, generation],
-    )?;
-    Ok(rows)
 }
 
 /// Remark a compilation database generation

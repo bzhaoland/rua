@@ -4,7 +4,8 @@ use clap::Args;
 const STYLE_YELLOW_BOLD: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
-const STYLE_RED: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(1))));
+const STYLE_RED: Style =
+    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(1))));
 const STYLE_RED_BOLD: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(1))))
     .bold();

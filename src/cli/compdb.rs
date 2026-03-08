@@ -108,7 +108,7 @@ pub(crate) enum CompdbCmd {
     #[command(visible_aliases = ["ark", "archive"], after_help = format!(
         r#"{0}Examples:{0:#}
     rua compdb add hygon-ipv6 # Archive compilation database for hygon-ipv6
-    rua compdb add --revision 307164 hygon # Archive compilation database for hygon with a revision provided"#,
+    rua compdb add --commit 307164 hygon # Archive compilation database for hygon with a svn revision provided"#,
     STYLE_YELLOW_BOLD
     ))]
     Add {
@@ -119,12 +119,12 @@ pub(crate) enum CompdbCmd {
         target: String,
 
         #[arg(
-            short = 'r',
-            long = "revision",
-            value_name = "REVISION",
-            help = "Revision for compilation database (defaults to current repo revision)"
+            short = 'c',
+            long = "commit",
+            value_name = "COMMIT",
+            help = "Commit for compilation database (defaults to current repo revision/commit)"
         )]
-        commit_id: Option<String>,
+        commit: Option<String>,
 
         #[arg(
             short = 'f',
@@ -132,7 +132,7 @@ pub(crate) enum CompdbCmd {
             value_name = "COMPILATION-DATABASE",
             help = "Use this compilation database other than the default (compile_commands.json)"
         )]
-        compdb_path: Option<String>,
+        compdb: Option<String>,
     },
 
     /// Delete compilation database generation(s) from store
@@ -177,11 +177,11 @@ pub(crate) enum CompdbCmd {
 
         #[arg(
             short = 'r',
-            long = "revision",
-            value_name = "REVISION",
-            help = "Revision for the new compilation database (defaults to current svn revision)"
+            long = "commit",
+            value_name = "COMMIT",
+            help = "Commit ID for the new compilation database (defaults to current svn/git commit ID)"
         )]
-        revision: Option<String>,
+        commit: Option<String>,
 
         #[arg(value_name = "FILE", help = "Compilation database to be joined")]
         files: Vec<String>,
@@ -194,18 +194,6 @@ pub(crate) enum CompdbCmd {
             help = "Compilation database generation id"
         )]
         generation: i64,
-    },
-
-    /// Name a compilation database generation
-    Name {
-        #[arg(
-            value_name = "GENERATION",
-            help = "The compilation database generation"
-        )]
-        generation: i64,
-
-        #[arg(value_name = "NAME", help = "Name for the compilation database")]
-        name: String,
     },
 
     /// Remark a compilation database generation

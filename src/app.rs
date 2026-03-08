@@ -91,7 +91,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "1.5.1",
+    version = "2.0.0-alpha",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = "Contact bzhao@hillstonenet.com if encountered bugs."
@@ -138,7 +138,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
             }
 
-            clean::clean_build(dirs.as_ref(), &ignore_set)
+            clean::clean_build(&repo_info, dirs.as_ref(), &ignore_set)
         }
         Comm::Compdb { compdb_comm } => {
             let repo_info = utils::RepoInfo::new()?;
@@ -369,8 +369,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
                 CompdbCmd::Add {
                     target,
-                    commit_id,
-                    compdb_path,
+                    commit: commit_id,
+                    compdb: compdb_path,
                 } => {
                     let compdb_path = compdb_path
                         .as_ref()
@@ -406,7 +406,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 }
                 CompdbCmd::Merge {
                     target,
-                    revision: commit_id,
+                    commit: commit_id,
                     files,
                 } => {
                     let pbar = ProgressBar::no_length().with_style(
@@ -437,30 +437,6 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         compdb::get_biggest_generation(&conn)?.unwrap(),
                     )?;
                     pbar.finish_with_message("ok");
-                    Ok(())
-                }
-                CompdbCmd::Name { generation, name } => {
-                    eprint!(
-                        "Naming compilation database generation {} {}...",
-                        generation, name
-                    );
-                    io::stderr().flush()?;
-                    let rows = compdb::name_generation(
-                        &conn,
-                        generation,
-                        name.as_str(),
-                    )?;
-                    if rows == 0 {
-                        eprintln!(
-                            "\rNaming compilation database generation {} {}...err",
-                            generation, name
-                        );
-                        bail!("No such generation");
-                    }
-                    eprintln!(
-                        "\rNaming compilation database generation {} {}...ok",
-                        generation, name
-                    );
                     Ok(())
                 }
                 CompdbCmd::Remark { generation, remark } => {

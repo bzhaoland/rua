@@ -52,6 +52,7 @@ pub fn get_username() -> Option<String> {
 
 #[derive(Clone, Debug)]
 pub struct RepoInfo {
+    repo_type: RepoType,
     work_dir: String,
     commit_id: String,
     committer: String,
@@ -59,7 +60,8 @@ pub struct RepoInfo {
     branch: String,
 }
 
-enum RepoType {
+#[derive(Clone, Copy, Debug)]
+pub enum RepoType {
     Git,
     Svn,
 }
@@ -94,6 +96,7 @@ impl RepoInfo {
         }
 
         Ok(RepoInfo {
+            repo_type,
             work_dir,
             commit_id,
             committer,
@@ -116,6 +119,10 @@ impl RepoInfo {
             }
         }
         Ok(None)
+    }
+
+    pub fn repo_type(&self) -> RepoType {
+        self.repo_type
     }
 
     pub fn work_dir(&self) -> &str {
