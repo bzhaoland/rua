@@ -41,39 +41,31 @@
 
 == 下载安装
 
-北京，SSH登录到 *buildserver* 上，执行命令：
+若已安装 rua 版本大于等于 1.4.0，则可使用更新命令更新到最新版本：
 
 ```bash
-curl -LO ftp://10.100.6.10/bzhao/rua/2.0.0-alpha/rua  # 下载到本地
-install -D rua ~/.local/bin/rua  # 安装到指定位置
-rm -f rua  # 从当前目录删除
+rua update
 ```
 
-苏州，SSH登录到 *buildserver* 上，执行命令：
+否则，对于北京和苏州同学，分别执行以下步骤：
 
-```bash
-curl -LO ftp://10.200.6.10/bzhao/rua/2.0.0/rua  # 下载到本地
-install -D rua ~/.local/bin/rua  # 安装到指定位置
-rm -f rua  # 从当前目录删除
-```
++ 北京，SSH登录到 *buildserver* 上，执行命令：
+  ```bash
+  curl -LO ftp://10.100.6.10/bzhao/rua/2.0.0/rua  # 下载到本地
+  install -D rua ~/.local/bin/rua  # 安装到指定位置
+  rm -f rua  # 从当前目录删除
+  ```
++ 苏州，SSH登录到 *buildserver* 上，执行命令：
+  ```bash
+  curl -LO ftp://10.200.6.10/bzhao/rua/2.0.0/rua  # 下载到本地
+  install -D rua ~/.local/bin/rua  # 安装到指定位置
+  rm -f rua  # 从当前目录删除
+  ```
 
 == 功能变更
 
-+ 对 git 仓库进行了适配；
++ 对 git 仓库进行了适配，几乎所有用法和之前相同；
 + [破坏性改动] compdb store schema 变动，移除了冗余的 Name 字段，现只有 Remark 字段可供添加注释。使用时会使用新的数据库文件存储生成过的 compile_commands.json
-
-== 使用示例
-
-+ `rua update`: 自动下载和安装最新版本的 rua\
-  #figure(
-    image("assets/changelog.1_4_0.update.png"),
-    numbering: none,
-  )
-+ `rua update --pin 1.3.1`: 自动下载和安装指定版本的 rua (注意，\<1.4.0的版本不具备升级功能)\
-  #figure(
-    image("assets/changelog.1_4_0.update_pin.png"),
-    numbering: none,
-  )
 
 #pagebreak()
 
