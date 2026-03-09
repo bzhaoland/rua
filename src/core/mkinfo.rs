@@ -466,7 +466,6 @@ pub(crate) fn gen_mkinfo_by_nickname(
             Some(v) => v,
         };
         for mkinfo in mkinfo_arr.iter() {
-            println!("{:?}", mkinfo.product_family.as_deref());
             if let Some(v1) = product.family.as_deref()
                 && let Some(v2) = mkinfo.product_family.as_deref()
                 && v1 != v2
