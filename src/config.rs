@@ -10,7 +10,7 @@ use crate::utils::RepoInfo;
 pub(crate) const PROJ_RUA_DIR: &str = ".rua";
 pub(crate) static CLANGD_CACHE: &str = ".cache";
 pub(crate) static COMPDB_FILE: &str = "compile_commands.json";
-pub(crate) static COMPDB_STORE: &str = ".rua/compdbs.db3";
+pub(crate) static COMPDB_STORE: &str = ".rua/compdb.store";
 pub(crate) static DEFAULT_BEAR: &str = "/devel/sw/bear/bin/bear";
 pub(crate) static DEFAULT_INTERCEPT_BUILD: &str =
     "/devel/sw/llvm/bin/intercept-build";

@@ -91,7 +91,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "2.0.0-alpha",
+    version = "2.0.0",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = "Contact bzhao@hillstonenet.com if encountered bugs."

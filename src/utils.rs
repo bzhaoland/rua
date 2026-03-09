@@ -133,10 +133,12 @@ impl RepoInfo {
         &self.commit_id
     }
 
+    #[allow(dead_code)]
     pub fn commit_time(&self) -> &str {
         &self.commit_time
     }
 
+    #[allow(dead_code)]
     pub fn committer(&self) -> &str {
         &self.committer
     }
@@ -161,28 +163,30 @@ impl GitInfo {
         let work_dir = repo
             .workdir()
             .expect("Can not find work dir for this git repo");
-        let commit = repo
-            .head()
-            .context("Failed to get head")?
-            .id()
-            .expect("Failed to get HEAD commit object")
+        let head = repo.head().context("Can not find HEAD")?;
+        let id = head.id().expect("Failed to get HEAD commit object");
+        let short_id = id
+            .shorten()
+            .context("Shorten commit ID failed")?
+            .to_string();
+        let object = id
             .object()
             .context("Failed to get the object associated with HEAD")?;
-        let commit_id = commit.id;
-        let commit = commit.to_commit_ref();
+        let commit = object.to_commit_ref();
         let committer = commit.committer()?;
         let commit_time = commit.committer()?.time()?;
         let branch = repo
             .head()?
             .referent_name()
             .expect("Failed to get branch name")
+            .shorten()
             .to_string();
         Ok(GitInfo {
             work_dir: std::fs::canonicalize(work_dir)
                 .context("Failed to canonicalize work dir")?
                 .to_string_lossy()
                 .to_string(),
-            commit_id: commit_id.to_string(),
+            commit_id: short_id.to_string(),
             committer: committer.name.to_string(),
             commit_time: commit_time.to_string(),
             branch: branch,
