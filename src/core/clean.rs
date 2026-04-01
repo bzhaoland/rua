@@ -47,14 +47,11 @@ fn git_untracked_files(dirs: Vec<&str>) -> anyhow::Result<Vec<PathBuf>> {
         );
     }
 
-    println!("{:?}", String::from_utf8(output.stdout.clone())?);
     let files = String::from_utf8(output.stdout)?
         .split('\0')
         .filter(|&x| !x.is_empty())
         .map(normalize_path)
         .collect::<Vec<PathBuf>>();
-
-    println!("{:?}", files);
 
     Ok(files)
 }
