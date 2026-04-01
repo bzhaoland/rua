@@ -3,10 +3,10 @@
   height: auto,
   numbering: "1"
 )
-#set text(font: ("Monaspace Neon", "Noto Sans CJK SC"), lang: "zh")
+#set text(font: ("Monaspace Neon", "Source Han Sans SC"), lang: "zh")
 #set heading(numbering: "1.1", offset: 0)
 #show heading: set block(below: 1em)
-#show raw: set text(font: ("Monaspace Neon", "Noto Sans CJK SC"))
+#show raw: set text(font: ("Monaspace Neon", "Source Han Sans SC"))
 #show raw: set block(
   fill: luma(240),
   width: 100%,
