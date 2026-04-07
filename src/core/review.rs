@@ -61,15 +61,6 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
         None => RepoInfo::new()?.branch().to_string(),
     };
 
-    // let mut comm = Command::new("python2");
-    // comm.args([
-    //     "/usr/lib/python2.7/site-packages/RBTools-0.4.1-py2.7.egg/rbtools/postreview-cops.py",
-    //     &format!("--summary=Code review for bug {}", options.bug_id),
-    //     &format!("--bugs-closed={}", options.bug_id),
-    //     &format!("--branch={}", branch_name),
-    //     "--server=http://cops-server.hillstonedev.com:8181",
-    //     "-p", // Publish it immediately
-    // ]);
     let mut comm = Command::new("python3");
     comm.args([
         "/devel/sw/buildserver_gitcops/RBTools-0.4.1/postreview-cops.py",
