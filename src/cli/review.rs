@@ -62,7 +62,7 @@ pub(crate) struct ReviewArgs {
         short = 't',
         long = "template-file",
         value_name = "TEMPLATE-FILE",
-        help = "Use customized template file (please ensure it can run through commit hooks)"
+        help = "Use customized template file (ensure it can pass through the commit hooks)"
     )]
     pub(crate) template_file: Option<String>,
 

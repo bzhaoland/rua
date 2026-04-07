@@ -53,6 +53,26 @@ rua update
   )
 ]
 
+= rua v2.1.0
+
+#let rua_ver = "2.1.0"
+#let rua_path = [bzhao/rua/#rua_ver/rua]
+
+== 存放位置
+
+- 北京: #ftp_server_bj/#rua_path
+- 苏州: #ftp_server_sz/#rua_path
+
+== 下载安装
+
+#install_guide(rua_ver)
+
+== 功能变更
+
++ `rua review` 现已适配 git 仓库
+
+#pagebreak()
+
 = rua v2.0.1
 
 #let rua_ver = "2.0.1"
