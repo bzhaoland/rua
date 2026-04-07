@@ -3,10 +3,11 @@ use std::{path::Path, process::Command};
 use anyhow::{Context, bail};
 use reqwest::Client;
 
-use crate::utils::RepoInfo;
+use crate::utils::{RepoInfo, RepoType};
 
 #[allow(dead_code)]
 pub struct ReviewOptions {
+    pub repo_type: RepoType,
     pub bug_id: u32,
     pub review_id: Option<u32>,
     pub files: Option<Vec<String>>,
@@ -19,12 +20,19 @@ pub struct ReviewOptions {
 }
 
 pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
-    const DEFAULT_REVIEW_TEMPLATE_FILE: &str = "/devel/sw/bin/review_template";
+    const DEFAULT_REVIEW_TEMPLATE_4SVN: &str = "/devel/sw/bin/review_template";
+    const DEFAULT_REVIEW_TEMPLATE_4GIT: &str =
+        "/devel/sw/buildserver_gitcops/review_template";
+
+    let default_review_template = match options.repo_type {
+        RepoType::Svn => DEFAULT_REVIEW_TEMPLATE_4SVN,
+        RepoType::Git => DEFAULT_REVIEW_TEMPLATE_4GIT,
+    };
 
     let review_template_file = options
         .template_file
         .as_deref()
-        .unwrap_or(DEFAULT_REVIEW_TEMPLATE_FILE);
+        .unwrap_or(default_review_template);
 
     // Check for file existence
     if !Path::new(review_template_file).is_file() {
@@ -53,36 +61,89 @@ pub async fn review(options: &ReviewOptions) -> anyhow::Result<()> {
         None => RepoInfo::new()?.branch().to_string(),
     };
 
-    let mut comm = Command::new("python2");
+    // let mut comm = Command::new("python2");
+    // comm.args([
+    //     "/usr/lib/python2.7/site-packages/RBTools-0.4.1-py2.7.egg/rbtools/postreview-cops.py",
+    //     &format!("--summary=Code review for bug {}", options.bug_id),
+    //     &format!("--bugs-closed={}", options.bug_id),
+    //     &format!("--branch={}", branch_name),
+    //     "--server=http://cops-server.hillstonedev.com:8181",
+    //     "-p", // Publish it immediately
+    // ]);
+    let mut comm = Command::new("python3");
     comm.args([
-        "/usr/lib/python2.7/site-packages/RBTools-0.4.1-py2.7.egg/rbtools/postreview-cops.py",
+        "/devel/sw/buildserver_gitcops/RBTools-0.4.1/postreview-cops.py",
         &format!("--summary=Code review for bug {}", options.bug_id),
         &format!("--bugs-closed={}", options.bug_id),
         &format!("--branch={}", branch_name),
         "--server=http://cops-server.hillstonedev.com:8181",
         "-p", // Publish it immediately
+        "--username=newreview",
+        "--password=hillstone",
     ]);
 
-    // If review id is not given, then start a new one
-    match options.review_id {
-        Some(v) => comm.args(["-r", &v.to_string()]),
-        None => {
-            comm.arg(format!(r#"--description-file={}"#, review_template_file))
+    // If review id is not given, launch a new one
+    if let Some(id) = options.review_id {
+        comm.args(["-r", &id.to_string()]);
+    } else {
+        comm.args(["--description-file", review_template_file]);
+    }
+
+    let status = if let Some(diff_file) = options.diff_file.as_ref() {
+        comm.args(["--diff-filename", diff_file]).status()?
+    } else {
+        let diff = match options.repo_type {
+            RepoType::Git => {
+                let mut diff_comm = Command::new("git");
+                diff_comm.args(["diff", "--staged"]);
+                if options.files.is_some() {
+                    diff_comm.args(options.files.as_ref().unwrap());
+                }
+                let output = diff_comm
+                    .output()
+                    .context("Failed to get staged changes from git")?;
+                if !output.status.success() {
+                    bail!(
+                        "Command `git diff --staged {:?}` failed",
+                        options.files.as_ref().unwrap().join(" ")
+                    );
+                }
+                output.stdout
+            }
+            RepoType::Svn => {
+                let mut diff_comm = Command::new("svn");
+                diff_comm.args(["diff"]);
+                if options.files.is_some() {
+                    diff_comm.args(options.files.as_ref().unwrap());
+                }
+                let output = diff_comm
+                    .output()
+                    .context("Failed to get staged changes from git")?;
+                if !output.status.success() {
+                    bail!(
+                        "Command `git diff --staged {:?}` failed",
+                        options.files.as_ref().unwrap().join(" ")
+                    );
+                }
+                output.stdout
+            }
+        };
+
+        let mut child = comm
+            .args(["--diff-filename", "-"])
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .context("Failed to spawn postreview-cops.py")?;
+        {
+            use std::io::Write;
+            child
+                .stdin
+                .as_mut()
+                .context("Failed to open stdin")?
+                .write_all(&diff)?;
         }
+        child.wait()?
     };
-
-    if options.files.is_some() {
-        comm.args(options.files.as_ref().unwrap());
-    }
-
-    if options.diff_file.is_some() {
-        comm.arg(format!(
-            "--diff-filename={}",
-            options.diff_file.as_ref().unwrap()
-        ));
-    }
-
-    let status = comm.status()?;
     if !status.success() {
         bail!(
             "Run postreview-cops.py failed: {}",

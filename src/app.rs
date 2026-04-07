@@ -592,6 +592,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             };
 
             let options = review::ReviewOptions {
+                repo_type: repo_info.repo_type(),
                 bug_id,
                 review_id,
                 files,

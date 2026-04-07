@@ -1,8 +1,8 @@
 #set page(width: 210mm, height: auto)
-#set text(font: ("Monaspace Neon", "Noto Sans CJK SC"), lang: "zh")
+#set text(font: ("Monaspace Neon", "Source Han Sans SC"), lang: "zh")
 #set heading(numbering: "1.1", offset: 0)
 #show heading: set block(below: 1em)
-#show raw: set text(font: ("Monaspace Neon", "Noto Sans CJK SC"))
+#show raw: set text(font: ("Monaspace Neon", "Source Han Sans SC"))
 #show raw: set block(
   fill: luma(240),
   width: 100%,
@@ -26,8 +26,52 @@
 #outline(indent: 2em)
 #pagebreak()
 
+
 #let ftp_server_bj = "10.100.6.10"
 #let ftp_server_sz = "10.200.6.10"
+
+#let install_guide(version) = [
+若已安装 rua 版本大于等于 #version，则可使用更新命令更新到最新版本：
+
+```bash
+rua update
+```
+
+否则，对于北京和苏州同学，分别执行以下步骤：
+
++ 北京，SSH登录到 *buildserver* 上，执行命令：\
+  #raw(lang: "bash", block: true,
+  "curl -LO ftp://10.100.6.10/bzhao/rua/" + version + "/rua  # 下载到本地\n"
+  + "install -D rua ~/.local/bin/rua  # 安装到指定位置\n"
+  + "rm -f rua  # 从当前目录删除"
+  )
++ 苏州，SSH登录到 *buildserver* 上，执行命令：\
+  #raw(lang: "bash", block: true,
+  "curl -LO ftp://10.200.6.10/bzhao/rua/" + version + "/rua  # 下载到本地\n"
+  + "install -D rua ~/.local/bin/rua  # 安装到指定位置\n"
+  + "rm -f rua  # 从当前目录删除"
+  )
+]
+
+= rua v2.0.1
+
+#let rua_ver = "2.0.1"
+#let rua_path = [bzhao/rua/#rua_ver/rua]
+
+== 存放位置
+
+- 北京: #ftp_server_bj/#rua_path
+- 苏州: #ftp_server_sz/#rua_path
+
+== 下载安装
+
+#install_guide(rua_ver)
+
+== 功能变更
+
++ 修复了一个问题，该问题导致 git 库里名字包含中文的文件无法被 clean 子命令正确删除（当 git 的 core.quotepath 为 true 时）。
+
+#pagebreak()
 
 = rua v2.0.0
 
@@ -41,26 +85,7 @@
 
 == 下载安装
 
-若已安装 rua 版本大于等于 1.4.0，则可使用更新命令更新到最新版本：
-
-```bash
-rua update
-```
-
-否则，对于北京和苏州同学，分别执行以下步骤：
-
-+ 北京，SSH登录到 *buildserver* 上，执行命令：
-  ```bash
-  curl -LO ftp://10.100.6.10/bzhao/rua/2.0.0/rua  # 下载到本地
-  install -D rua ~/.local/bin/rua  # 安装到指定位置
-  rm -f rua  # 从当前目录删除
-  ```
-+ 苏州，SSH登录到 *buildserver* 上，执行命令：
-  ```bash
-  curl -LO ftp://10.200.6.10/bzhao/rua/2.0.0/rua  # 下载到本地
-  install -D rua ~/.local/bin/rua  # 安装到指定位置
-  rm -f rua  # 从当前目录删除
-  ```
+#install_guide(rua_ver)
 
 == 功能变更
 
