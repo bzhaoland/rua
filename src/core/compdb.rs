@@ -240,7 +240,7 @@ pub(crate) fn gen_compdb_by_builtin(
     // Build the target (pseudoly)
     step += 1;
     let mut cmd = Command::new("hsdocker7");
-    let arg = format!(
+    let command_core = format!(
         "make -C {} {} -iknBj8 ISBUILDRELEASE=1 NOTBUILDUNIWEBUI=1 HS_BUILD_COVERITY=0{} >{} 2>&1",
         make_directory,
         make_target,
@@ -257,8 +257,7 @@ pub(crate) fn gen_compdb_by_builtin(
         },
         BUILDLOG_PATH
     );
-    cmd.arg(arg.as_str());
-    let cmdline = format!(r#"hsdocker7 "{}""#, arg);
+    cmd.arg(command_core.as_str());
     unsafe {
         let mut master_fd: libc::c_int = 0;
         let mut slave_fd: libc::c_int = 0;
@@ -304,7 +303,7 @@ pub(crate) fn gen_compdb_by_builtin(
                 let pb2 = ProgressBar::no_length().with_style(
                     ProgressStyle::with_template(&format!(
                         "[{}/{}] Building pseudoly ({}) {{spinner:.green}} [{{elapsed_precise}}]",
-                        step, NSTEPS, cmdline
+                        step, NSTEPS, command_core
                     ))?
                     .tick_chars(TICK_CHARS),
                 );
@@ -319,7 +318,7 @@ pub(crate) fn gen_compdb_by_builtin(
                     let exit_status = libc::WEXITSTATUS(status);
                     pb2.set_style(ProgressStyle::with_template(&format!(
                         "[{}/{}] Building pseudoly ({})...{{msg}}",
-                        step, NSTEPS, cmdline
+                        step, NSTEPS, command_core
                     ))?);
                     if exit_status == 0 {
                         pb2.finish_with_message("ok");
