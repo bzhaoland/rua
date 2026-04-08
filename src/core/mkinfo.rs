@@ -123,10 +123,7 @@ impl fmt::Display for MakeInfo {
   make_target: "{}",
   make_directory: "{}",
 }}"#,
-            self.platform_model,
-            self.product_family,
-            self.make_target,
-            self.make_directory,
+            self.platform_model, self.product_family, self.make_target, self.make_directory,
         )
     }
 }
@@ -167,9 +164,7 @@ impl fmt::Display for CompileInfo {
     }
 }
 
-pub(crate) fn read_product_registry(
-    svninfo: &RepoInfo,
-) -> Result<Vec<ProductInfo>> {
+pub(crate) fn read_product_registry(svninfo: &RepoInfo) -> Result<Vec<ProductInfo>> {
     let proj_root = PathBuf::from(svninfo.work_dir());
     let product_info_path = proj_root.join("src/libplatform/hs_platform.c");
     if !product_info_path.is_file() {
@@ -179,8 +174,7 @@ pub(crate) fn read_product_registry(
     // Find out all matched records in src/libplatform/hs_platform.c
     let product_info_file = fs::File::open(&product_info_path)
         .context(format!("Can't open file {}", product_info_path.display()))?;
-    let mut product_info_reader =
-        BufReader::with_capacity(1024 * 512, product_info_file);
+    let mut product_info_reader = BufReader::with_capacity(1024 * 512, product_info_file);
     let pattern_prodinfo = Regex::new(r#"(?i)^[[:blank:]]*\{[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,[[:blank:]]*([[:digit:]]+)[[:blank:]]*,[[:blank:]]*([[:word:]]+)[[:blank:]]*,(?:[[:blank:]]*([[:word:]]+)[[:blank:]]*,)?[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*"([^"]*)"[[:blank:]]*,[[:blank:]]*(?:"([^"]*)"|(NULL))[[:blank:]]*\}"#).context("Failed to build regex for product info")?;
     let mut product_info_list: Vec<ProductInfo> = Vec::with_capacity(128);
     let mut line = String::with_capacity(512);
@@ -207,19 +201,15 @@ pub(crate) fn read_product_registry(
 }
 
 /// Load makeinfos from the registry into a list
-pub(crate) fn read_mkinfo_registry(
-    repo_info: &RepoInfo,
-) -> anyhow::Result<Vec<MakeInfo>> {
-    let makeinfo_path =
-        PathBuf::from(repo_info.work_dir()).join("scripts/platform_table");
+pub(crate) fn read_mkinfo_registry(repo_info: &RepoInfo) -> anyhow::Result<Vec<MakeInfo>> {
+    let makeinfo_path = PathBuf::from(repo_info.work_dir()).join("scripts/platform_table");
     if !makeinfo_path.is_file() {
         bail!(r#"File "{}" not available"#, makeinfo_path.display());
     }
 
     let makeinfo_file = fs::File::open(&makeinfo_path)
         .context(format!(r#"Can't open file "{}""#, makeinfo_path.display()))?;
-    let mut makeinfo_reader =
-        BufReader::with_capacity(1024 * 512, &makeinfo_file);
+    let mut makeinfo_reader = BufReader::with_capacity(1024 * 512, &makeinfo_file);
     let mut buf = String::with_capacity(256);
     let mut mkinfos: Vec<MakeInfo> = Vec::with_capacity(256);
 
@@ -271,16 +261,14 @@ pub(crate) fn read_mkinfo_registry(
     Ok(mkinfos)
 }
 
-const STYLE_GREEN: Style =
-    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
-const STYLE_YELLOW: Style =
-    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
+const STYLE_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
+const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 
 fn abbreviate_branch(branch: &str) -> anyhow::Result<String> {
-    let pattern_branch_part = Regex::new(r"HAWAII_([-[:word:]]+)")
-        .context("Build regex for nickname failed")?;
-    let pattern_nonalnum = Regex::new(r#"[^[:alnum:]]+"#)
-        .context("Build regex for nonalnum failed")?;
+    let pattern_branch_part =
+        Regex::new(r"HAWAII_([-[:word:]]+)").context("Build regex for nickname failed")?;
+    let pattern_nonalnum =
+        Regex::new(r#"[^[:alnum:]]+"#).context("Build regex for nonalnum failed")?;
     let captures = pattern_branch_part.captures(branch);
     let nickname = pattern_nonalnum
         .replace_all(
@@ -296,9 +284,8 @@ fn abbreviate_branch(branch: &str) -> anyhow::Result<String> {
     Ok(nickname)
 }
 
-static RE_NONALNUM: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"[^[:alnum:]]+"#).expect("Failed to build regex for non-alnum")
-});
+static RE_NONALNUM: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"[^[:alnum:]]+"#).expect("Failed to build regex for non-alnum"));
 
 fn compose_compileinfo(
     product: &ProductInfo,
@@ -310,8 +297,7 @@ fn compose_compileinfo(
     if makeopts.flag.contains(MakeFlag::IPV6) {
         make_target.push_str("-ipv6");
     }
-    let mut make_comm =
-        format!("make -C {} -j8 {}", mkinfo.make_directory, make_target);
+    let mut make_comm = format!("make -C {} -j8 {}", mkinfo.make_directory, make_target);
 
     make_comm.push_str(if makeopts.flag.contains(MakeFlag::RELEASE) {
         " ISBUILDRELEASE=1"
@@ -390,8 +376,7 @@ fn compose_compileinfo(
     } else {
         'd'
     });
-    imagename_suffix
-        .push_str(chrono::Local::now().format("%m%d").to_string().as_str());
+    imagename_suffix.push_str(chrono::Local::now().format("%m%d").to_string().as_str());
     if let Some(username) = utils::get_username() {
         imagename_suffix.push_str(format!("-{}", username).as_str())
     }
@@ -500,10 +485,8 @@ pub(crate) fn gen_mkinfo_by_target(
 
     let product_list = read_product_registry(&repoinfo)?;
     let mkinfo_list = read_mkinfo_registry(&repoinfo)?;
-    let re_target = Regex::new(
-        format!("(?i)^{}$", target.strip_suffix("-ipv6").unwrap_or(target))
-            .as_str(),
-    )?;
+    let re_target =
+        Regex::new(format!("(?i)^{}$", target.strip_suffix("-ipv6").unwrap_or(target)).as_str())?;
     let mut compile_infos: Vec<CompileInfo> = Vec::new();
     for mkinfo in mkinfo_list
         .iter()
@@ -549,12 +532,8 @@ pub(crate) fn gen_mkinfo(
     repo_info: &RepoInfo,
 ) -> anyhow::Result<Vec<CompileInfo>> {
     match by_what {
-        GenBy::Nickname(nickname) => {
-            gen_mkinfo_by_nickname(nickname.as_str(), makeopts, repo_info)
-        }
-        GenBy::Target(target) => {
-            gen_mkinfo_by_target(target.as_str(), makeopts, repo_info)
-        }
+        GenBy::Nickname(nickname) => gen_mkinfo_by_nickname(nickname.as_str(), makeopts, repo_info),
+        GenBy::Target(target) => gen_mkinfo_by_target(target.as_str(), makeopts, repo_info),
     }
 }
 
@@ -588,10 +567,7 @@ fn dump_json(compile_infos: &[CompileInfo]) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
-fn dump_list(
-    compile_infos: &[CompileInfo],
-    repo_info: &RepoInfo,
-) -> anyhow::Result<()> {
+fn dump_list(compile_infos: &[CompileInfo], repo_info: &RepoInfo) -> anyhow::Result<()> {
     // Style control
     let term_cols = Term::stdout().size().1;
 
@@ -601,10 +577,8 @@ fn dump_list(
     }
 
     // Decorations
-    let outerline =
-        format!("{0}{1}{0:#}", STYLE_GREEN, "═".repeat(term_cols as usize));
-    let innerline =
-        format!("{0}{1}{0:#}", STYLE_GREEN, "─".repeat(term_cols as usize));
+    let outerline = format!("{0}{1}{0:#}", STYLE_GREEN, "═".repeat(term_cols as usize));
+    let innerline = format!("{0}{1}{0:#}", STYLE_GREEN, "─".repeat(term_cols as usize));
 
     println!(
         "{} matched info{}:",

@@ -54,10 +54,7 @@ fn git_untracked_files(dirs: Vec<&str>) -> anyhow::Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-fn untracked_files(
-    repo_info: &RepoInfo,
-    dirs: Vec<&str>,
-) -> anyhow::Result<Vec<PathBuf>> {
+fn untracked_files(repo_info: &RepoInfo, dirs: Vec<&str>) -> anyhow::Result<Vec<PathBuf>> {
     match repo_info.repo_type() {
         RepoType::Git => git_untracked_files(dirs),
         RepoType::Svn => svn_untracked_files(dirs),
@@ -82,10 +79,10 @@ pub fn clean_build(
 
     // Cleaning the objects generated in building process
     step += 1;
-    let pb1 =
-        ProgressBar::no_length().with_style(ProgressStyle::with_template(
-            &format!("[{}/{}] Removing target objs: {{msg}}", step, num_steps),
-        )?);
+    let pb1 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] Removing target objs: {{msg}}",
+        step, num_steps
+    ))?);
     let target_dir = normalize_path("target");
     if target_dir.exists() && target_dir.symlink_metadata()?.is_dir() {
         for entry in walkdir::WalkDir::new(&target_dir)
@@ -96,15 +93,11 @@ pub fn clean_build(
 
             pb1.set_message(entry.path().to_string_lossy().to_string());
             if entry.file_type().is_dir() {
-                fs::remove_dir(entry.path()).context(format!(
-                    "Remove {} failed",
-                    entry.path().display()
-                ))?;
+                fs::remove_dir(entry.path())
+                    .context(format!("Remove {} failed", entry.path().display()))?;
             } else {
-                fs::remove_file(entry.path()).context(format!(
-                    "Remove {} failed",
-                    entry.path().display()
-                ))?;
+                fs::remove_file(entry.path())
+                    .context(format!("Remove {} failed", entry.path().display()))?;
             }
         }
     }
@@ -116,10 +109,10 @@ pub fn clean_build(
 
     // Clean UI files
     step += 1;
-    let pb2 =
-        ProgressBar::no_length().with_style(ProgressStyle::with_template(
-            &format!("[{}/{}] Removing WebUI objs: {{msg}}", step, num_steps),
-        )?);
+    let pb2 = ProgressBar::no_length().with_style(ProgressStyle::with_template(&format!(
+        "[{}/{}] Removing WebUI objs: {{msg}}",
+        step, num_steps
+    ))?);
     let webui_dir = normalize_path(repo_info.branch()); // UI directory name is the same as the branch name
     if webui_dir.exists() && webui_dir.symlink_metadata()?.is_dir() {
         for entry in walkdir::WalkDir::new(&webui_dir).contents_first(true) {
@@ -127,15 +120,11 @@ pub fn clean_build(
 
             pb2.set_message(entry.path().to_string_lossy().to_string());
             if entry.file_type().is_dir() {
-                fs::remove_dir(entry.path()).context(format!(
-                    "Failed to remove {}",
-                    entry.path().display()
-                ))?;
+                fs::remove_dir(entry.path())
+                    .context(format!("Failed to remove {}", entry.path().display()))?;
             } else {
-                fs::remove_file(entry.path()).context(format!(
-                    "Failed to remove {}",
-                    entry.path().display()
-                ))?;
+                fs::remove_file(entry.path())
+                    .context(format!("Failed to remove {}", entry.path().display()))?;
             }
         }
     }
@@ -180,11 +169,9 @@ pub fn clean_build(
         }
         pb3.set_message(entry.as_path().display().to_string());
         if entry.symlink_metadata()?.is_dir() {
-            fs::remove_dir_all(&entry)
-                .context(format!("Failed to remove {}", entry.display()))?;
+            fs::remove_dir_all(&entry).context(format!("Failed to remove {}", entry.display()))?;
         } else {
-            fs::remove_file(&entry)
-                .context(format!("Failed to remove {}", entry.display()))?;
+            fs::remove_file(&entry).context(format!("Failed to remove {}", entry.display()))?;
         }
     }
     pb3.set_style(ProgressStyle::with_template(&format!(

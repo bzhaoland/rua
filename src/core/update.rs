@@ -15,8 +15,7 @@ struct ReleaseInfo {
     version: String,
 }
 
-const STYLE_BLUE: Style =
-    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(4))));
+const STYLE_BLUE: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(4))));
 
 pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
     let current_version = semver::Version::parse(env!("CARGO_PKG_VERSION"))?;
@@ -71,10 +70,9 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
         .as_str(),
     )?;
 
-    let pbar =
-        ProgressBar::no_length().with_style(ProgressStyle::with_template(
-            format!("Updating rua to {}...", target_version).as_str(),
-        )?);
+    let pbar = ProgressBar::no_length().with_style(ProgressStyle::with_template(
+        format!("Updating rua to {}...", target_version).as_str(),
+    )?);
     pbar.tick();
     let home = home_dir().context("Failed to get current user's home dir")?;
     let bin_dir = home.join(".local/bin");
@@ -88,14 +86,12 @@ pub(crate) fn update(version: Option<String>) -> anyhow::Result<()> {
             target_version
         ))?
         .into_inner();
-    let mut tmpfile =
-        NamedTempFile::with_prefix_in("rua.", dest.parent().unwrap())?;
+    let mut tmpfile = NamedTempFile::with_prefix_in("rua.", dest.parent().unwrap())?;
     tmpfile
         .write_all(data.as_slice())
         .context("Failed to save the binary data")?;
     tmpfile.flush().context("Failed to flush to temp file")?;
-    fs::rename(tmpfile.path(), dest.as_path())
-        .context("Failed to rename the binary")?;
+    fs::rename(tmpfile.path(), dest.as_path()).context("Failed to rename the binary")?;
     let mut perm = fs::metadata(dest.as_path())
         .context(format!("Failed to stat {}", dest.display()))?
         .permissions();

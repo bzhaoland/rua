@@ -31,7 +31,7 @@
 #let ftp_server_sz = "10.200.6.10"
 
 #let install_guide(version) = [
-若已安装 rua 版本大于等于 #version，则可使用更新命令更新到最新版本：
+若已安装 rua 版本大于等于 1.4.1，则可使用更新命令更新到最新版本：
 
 ```bash
 rua update

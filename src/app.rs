@@ -20,9 +20,7 @@ use crate::cli::review::ReviewArgs;
 use crate::cli::shinit::ShinitArgs;
 use crate::cli::showcc::ShowccArgs;
 use crate::cli::update::UpdateArgs;
-use crate::config::{
-    CLANGD_CACHE, COMPDB_FILE, COMPDB_STORE, PROJ_RUA_DIR, RuaConf,
-};
+use crate::config::{CLANGD_CACHE, COMPDB_FILE, COMPDB_STORE, PROJ_RUA_DIR, RuaConf};
 use crate::core::clean;
 use crate::core::compdb::{self, CompdbEngine};
 use crate::core::mkinfo::{self, GenBy, MakeOpts};
@@ -37,10 +35,8 @@ use crate::utils::progress_bar::{TICK_CHARS, TICK_INTERVAL};
 const STYLE_YELLOW_BOLD: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
-const STYLE_GREEN: Style =
-    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
-const STYLE_CYAN: Style =
-    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(6))));
+const STYLE_GREEN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(2))));
+const STYLE_CYAN: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(6))));
 const STYLES: styling::Styles = styling::Styles::styled()
     .header(STYLE_YELLOW_BOLD)
     .usage(STYLE_YELLOW_BOLD)
@@ -91,7 +87,7 @@ pub(crate) enum Comm {
 #[command(
     name = "rua",
     author = "bzhao",
-    version = "2.1.0",
+    version = "2.1.1",
     styles = STYLES,
     about = "A toolbox for developers of StoneOS and its derivatives",
     after_help = "Contact bzhao@hillstonenet.com if encountered bugs."
@@ -110,31 +106,20 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             let repo_info = utils::RepoInfo::new()?;
             let conf = RuaConf::new(&repo_info)?;
             let mut ignore_set: Vec<Regex> = Vec::new();
-            ignore_set.push(
-                Regex::new(format!("^{}$", COMPDB_FILE).as_str()).unwrap(),
-            );
-            ignore_set.push(
-                Regex::new(format!("^{}$", CLANGD_CACHE).as_str()).unwrap(),
-            );
-            ignore_set.push(
-                Regex::new(format!(r#"^{}(?:/.*)?$"#, PROJ_RUA_DIR).as_str())
-                    .unwrap(),
-            );
+            ignore_set.push(Regex::new(format!("^{}$", COMPDB_FILE).as_str()).unwrap());
+            ignore_set.push(Regex::new(format!("^{}$", CLANGD_CACHE).as_str()).unwrap());
+            ignore_set.push(Regex::new(format!(r#"^{}(?:/.*)?$"#, PROJ_RUA_DIR).as_str()).unwrap());
 
             if let Some(v) = ignores {
                 for item in v {
-                    ignore_set.push(
-                        Regex::new(format!("^{}$", item).as_str()).unwrap(),
-                    );
+                    ignore_set.push(Regex::new(format!("^{}$", item).as_str()).unwrap());
                 }
             }
             if let Some(v) = conf.clean
                 && let Some(x) = v.ignores
             {
                 for item in x {
-                    ignore_set.push(
-                        Regex::new(format!("^{}$", item).as_str()).unwrap(),
-                    );
+                    ignore_set.push(Regex::new(format!("^{}$", item).as_str()).unwrap());
                 }
             }
 
@@ -145,9 +130,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             let conf = RuaConf::new(&repo_info)?;
             let rua_cache = Path::new(COMPDB_STORE);
             if !rua_cache.is_file() {
-                print!(
-                    "The compilation database store does not exist, create it? [Y/n]: "
-                );
+                print!("The compilation database store does not exist, create it? [Y/n]: ");
                 io::stdout().flush()?;
                 let mut input_buf = String::new();
                 io::stdin().read_line(&mut input_buf)?;
@@ -186,16 +169,16 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     }
 
                     // Get intercept-build path from config or argument
-                    let final_intercept_build_path =
-                        if let Some(v) = intercept_build_path.as_ref() {
-                            Some(Path::new(v))
-                        } else if let Some(v) = compdb_conf.as_ref()
-                            && let Some(x) = v.intercept_build_path.as_ref()
-                        {
-                            Some(Path::new(x))
-                        } else {
-                            None
-                        };
+                    let final_intercept_build_path = if let Some(v) = intercept_build_path.as_ref()
+                    {
+                        Some(Path::new(v))
+                    } else if let Some(v) = compdb_conf.as_ref()
+                        && let Some(x) = v.intercept_build_path.as_ref()
+                    {
+                        Some(Path::new(x))
+                    } else {
+                        None
+                    };
 
                     let final_engine = if let Some(v) = engine {
                         Some(v)
@@ -205,27 +188,22 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         match x.as_str() {
                             "built-in" => Some(CompdbEngine::BuiltIn),
                             "bear" => Some(CompdbEngine::Bear),
-                            "intercept-build" => {
-                                Some(CompdbEngine::InterceptBuild)
-                            }
-                            y => bail!(
-                                "Invalid engine specified in config: {}",
-                                y
-                            ),
+                            "intercept-build" => Some(CompdbEngine::InterceptBuild),
+                            y => bail!("Invalid engine specified in config: {}", y),
                         }
                     } else {
                         None
                     };
 
                     // Add defines from config and cli
-                    let mut defines_map: IndexMap<String, String> =
-                        if let Some(c) = compdb_conf.as_ref()
-                            && let Some(x) = c.defines.as_ref()
-                        {
-                            x.clone()
-                        } else {
-                            IndexMap::new()
-                        };
+                    let mut defines_map: IndexMap<String, String> = if let Some(c) =
+                        compdb_conf.as_ref()
+                        && let Some(x) = c.defines.as_ref()
+                    {
+                        x.clone()
+                    } else {
+                        IndexMap::new()
+                    };
                     for item in defines.iter() {
                         if let Some((k, v)) = item.split_once("=") {
                             defines_map.insert(k.to_string(), v.to_string());
@@ -251,16 +229,10 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         defines: defines_map,
                         engine: final_engine,
                         bear_path: final_bear_path.map(|x| x.to_path_buf()),
-                        intercept_build_path: final_intercept_build_path
-                            .map(|x| x.to_path_buf()),
+                        intercept_build_path: final_intercept_build_path.map(|x| x.to_path_buf()),
                         to_merge: merge_list,
                     };
-                    compdb::gen_compdb(
-                        &repo_info,
-                        &product_dir,
-                        &make_target,
-                        compdb_options,
-                    )?;
+                    compdb::gen_compdb(&repo_info, &product_dir, &make_target, compdb_options)?;
 
                     // Archive the newly generated compilation database
                     let pb = ProgressBar::no_length().with_style(ProgressStyle::with_template(
@@ -286,9 +258,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     pb.finish_with_message("ok");
 
                     // Get the generation id and insert it into the history table
-                    if let Some(generation) =
-                        compdb::get_biggest_generation(&conn)?
-                    {
+                    if let Some(generation) = compdb::get_biggest_generation(&conn)? {
                         compdb::set_current_generation(&conn, generation)?;
                     }
                     Ok(())
@@ -318,10 +288,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             generations_string
                         );
                         stderr_.flush()?;
-                        compdb::remove_generation(
-                            &conn,
-                            compdb::DelOpt::Generations(generations),
-                        )?;
+                        compdb::remove_generation(&conn, compdb::DelOpt::Generations(generations))?;
                         eprintln!(
                             "\rRemoving generation{} {}...ok",
                             if many { "s" } else { "" },
@@ -334,10 +301,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             if n > 1 { "s" } else { "" }
                         );
                         stderr_.flush()?;
-                        compdb::remove_generation(
-                            &conn,
-                            compdb::DelOpt::Oldest(n),
-                        )?;
+                        compdb::remove_generation(&conn, compdb::DelOpt::Oldest(n))?;
                         eprintln!(
                             "\rRemoving {} oldest generation{}...ok",
                             n,
@@ -350,10 +314,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                             if n > 1 { "s" } else { "" }
                         );
                         stderr_.flush()?;
-                        compdb::remove_generation(
-                            &conn,
-                            compdb::DelOpt::Newest(n),
-                        )?;
+                        compdb::remove_generation(&conn, compdb::DelOpt::Newest(n))?;
                         eprintln!(
                             "\rRemoving {} newest generation{}...ok",
                             n,
@@ -387,10 +348,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         target.as_str(),
                         compdb_path,
                     )?;
-                    eprintln!(
-                        "\rArchiving compilation database for {}...ok",
-                        target
-                    );
+                    eprintln!("\rArchiving compilation database for {}...ok", target);
                     let file = Path::new(compdb_path);
                     let file_name = file.file_name();
                     let parent_dir = file.parent().unwrap();
@@ -398,8 +356,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     if file_name.is_some_and(|x| x == "compile_commands.json")
                         && parent_dir == current_dir
                     {
-                        let generation =
-                            compdb::get_biggest_generation(&conn)?.unwrap();
+                        let generation = compdb::get_biggest_generation(&conn)?.unwrap();
                         compdb::set_current_generation(&conn, generation)?;
                     }
                     Ok(())
@@ -410,10 +367,8 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                     files,
                 } => {
                     let pbar = ProgressBar::no_length().with_style(
-                        ProgressStyle::with_template(
-                            "Merging compilation databases...{msg}",
-                        )?
-                        .tick_chars(TICK_CHARS),
+                        ProgressStyle::with_template("Merging compilation databases...{msg}")?
+                            .tick_chars(TICK_CHARS),
                     );
                     pbar.enable_steady_tick(TICK_INTERVAL);
                     compdb::merge_compdb(files)?;
@@ -445,11 +400,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                         generation
                     );
                     io::stderr().flush()?;
-                    let rows = compdb::remark_generation(
-                        &conn,
-                        generation,
-                        remark.as_str(),
-                    )?;
+                    let rows = compdb::remark_generation(&conn, generation, remark.as_str())?;
                     if rows == 0 {
                         eprintln!(
                             "\rRemarking compilation database generation {}...",
@@ -470,10 +421,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 Some(v) => PathBuf::from_str(v.as_str())?,
                 None => PathBuf::from_str("compile_commands.json")?,
             };
-            showcc::show_compile_command(
-                comp_unit.as_str(),
-                compilation_db.as_path(),
-            )
+            showcc::show_compile_command(comp_unit.as_str(), compilation_db.as_path())
         }
         Comm::Mkinfo(MkinfoArgs {
             ipv6,
@@ -562,10 +510,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             elfs,
             format: outfmt,
         }) => {
-            let data = perfan::proc_perfanno(
-                &file,
-                elfs.iter().collect::<Vec<&PathBuf>>(),
-            )?;
+            let data = perfan::proc_perfanno(&file, elfs.iter().collect::<Vec<&PathBuf>>())?;
             perfan::dump_perfdata(&data, outfmt)
         }
         Comm::Review(ReviewArgs {
@@ -575,15 +520,20 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             diff_file,
             reviewers,
             branch_name,
-            repo_name,
+            repo_url,
             revisions,
             template_file,
         }) => {
             let repo_info = utils::RepoInfo::new()?;
             let conf = RuaConf::new(&repo_info)?;
 
-            let final_template_file = if let Some(review_conf) =
-                conf.review.as_ref()
+            let repo_url = if let Some(v) = repo_url {
+                v
+            } else {
+                repo_info.repo_url().to_string()
+            };
+
+            let final_template_file = if let Some(review_conf) = conf.review.as_ref()
                 && let Some(v) = review_conf.template_file.as_ref()
             {
                 Some(v.to_owned())
@@ -599,7 +549,7 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
                 diff_file,
                 reviewers,
                 branch_name,
-                repo_name,
+                repo_url,
                 revisions,
                 template_file: final_template_file,
             };

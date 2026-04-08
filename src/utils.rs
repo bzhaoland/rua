@@ -6,7 +6,6 @@ use std::sync::LazyLock;
 use std::{ffi::OsString, fmt::Display};
 
 use anyhow::{Context, anyhow, bail};
-use gix;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use regex::Regex;
@@ -53,6 +52,7 @@ pub fn get_username() -> Option<String> {
 #[derive(Clone, Debug)]
 pub struct RepoInfo {
     repo_type: RepoType,
+    repo_url: String,
     work_dir: String,
     commit_id: String,
     committer: String,
@@ -68,8 +68,8 @@ pub enum RepoType {
 
 impl RepoInfo {
     pub fn new() -> anyhow::Result<Self> {
-        let repo_type =
-            Self::detect_repo_type()?.expect("Failed to get repo type");
+        let repo_type = Self::detect_repo_type()?.expect("Failed to get repo type");
+        let repo_name;
         let work_dir;
         let commit_id;
         let commit_time;
@@ -78,6 +78,7 @@ impl RepoInfo {
         match repo_type {
             RepoType::Git => {
                 let repo = GitInfo::new()?;
+                repo_name = repo.repo_url().to_string();
                 work_dir = repo.work_dir().to_string();
                 commit_id = repo.commit_id().to_string();
                 commit_time = repo.commit_time().to_string();
@@ -86,8 +87,8 @@ impl RepoInfo {
             }
             RepoType::Svn => {
                 let repo = SvnInfo::new()?;
-                work_dir =
-                    repo.working_copy_root_path().to_string_lossy().to_string();
+                repo_name = repo.url().to_string();
+                work_dir = repo.working_copy_root_path().to_string_lossy().to_string();
                 commit_id = repo.revision().to_string();
                 commit_time = repo.last_changed_date().to_string();
                 committer = repo.last_changed_author().to_string();
@@ -97,6 +98,7 @@ impl RepoInfo {
 
         Ok(RepoInfo {
             repo_type,
+            repo_url: repo_name,
             work_dir,
             commit_id,
             committer,
@@ -123,6 +125,10 @@ impl RepoInfo {
 
     pub fn repo_type(&self) -> RepoType {
         self.repo_type
+    }
+
+    pub fn repo_url(&self) -> &str {
+        &self.repo_url
     }
 
     pub fn work_dir(&self) -> &str {
@@ -155,6 +161,7 @@ struct GitInfo {
     committer: String,
     commit_time: String,
     branch: String,
+    origin_push_url: String,
 }
 
 impl GitInfo {
@@ -181,16 +188,36 @@ impl GitInfo {
             .expect("Failed to get branch name")
             .shorten()
             .to_string();
+
+        let remote = repo
+            .find_remote("origin")
+            .context("Failed to find remote for origin")?;
+        let remote_repo_path = &remote
+            .url(gix::remote::Direction::Push)
+            .expect("Remote Push url not found")
+            .path;
+        let repo_name = String::from_utf8(remote_repo_path.to_vec())?
+            .strip_prefix("/")
+            .unwrap()
+            .to_string();
+        let origin_push_url = format!("/home/mirror_git_repositories/{}/.git", repo_name);
+
         Ok(GitInfo {
             work_dir: std::fs::canonicalize(work_dir)
                 .context("Failed to canonicalize work dir")?
-                .to_string_lossy()
+                .to_str()
+                .expect("Invalid unicode path")
                 .to_string(),
             commit_id: short_id.to_string(),
             committer: committer.name.to_string(),
             commit_time: commit_time.to_string(),
             branch: branch,
+            origin_push_url,
         })
+    }
+
+    pub(self) fn repo_url(&self) -> &str {
+        &self.origin_push_url
     }
 
     pub(self) fn work_dir(&self) -> &str {
@@ -277,8 +304,7 @@ impl SvnInfo {
                     .context("Command `svn info` failed")
             );
         }
-        let output = str::from_utf8(result.stdout.as_slice())
-            .context("Not valid UTF-8 string")?;
+        let output = str::from_utf8(result.stdout.as_slice()).context("Not valid UTF-8 string")?;
         let mut reader = Reader::from_str(output);
         let mut kind = None;
         let mut path = None;
@@ -297,10 +323,7 @@ impl SvnInfo {
         loop {
             match reader.read_event() {
                 Err(_) => {
-                    bail!(anyhow!(
-                        "Error at position {}",
-                        reader.error_position()
-                    ));
+                    bail!(anyhow!("Error at position {}", reader.error_position()));
                 }
                 Ok(Event::Start(elem)) => {
                     let tagname = elem.name().as_ref().to_vec();
@@ -342,9 +365,7 @@ impl SvnInfo {
                 }
                 Ok(Event::End(elem)) => {
                     if level.ends_with(elem.name().as_ref()) {
-                        level.truncate(
-                            level.len() - elem.name().as_ref().len() - 1,
-                        );
+                        level.truncate(level.len() - elem.name().as_ref().len() - 1);
                     }
                 }
                 Ok(Event::Text(elem)) => {
@@ -386,8 +407,7 @@ impl SvnInfo {
         }
 
         Ok(SvnInfo {
-            working_copy_root_path: workcopy_root
-                .expect("Working copy root path not found"),
+            working_copy_root_path: workcopy_root.expect("Working copy root path not found"),
             url: url.expect("Url not found"),
             relative_url: rel_url.expect("Relative url not found"),
             repo_root: repo_root.expect("Repository root not found"),
@@ -399,14 +419,12 @@ impl SvnInfo {
             path: path.expect("Path not found"),
             node_kind: kind.expect("Node kind not found"),
             schedule: workcopy_schedule.expect("Schedule not found"),
-            last_changed_author: commit_author
-                .expect("Last changed author not found"),
+            last_changed_author: commit_author.expect("Last changed author not found"),
             last_changed_revision: commit_revision
                 .expect("Last changed rev not found")
                 .parse()
                 .context("Last changed rev parse failed")?,
-            last_changed_date: commit_date
-                .expect("Last changed date not found"),
+            last_changed_date: commit_date.expect("Last changed date not found"),
         })
     }
 

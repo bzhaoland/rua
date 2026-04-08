@@ -46,9 +46,9 @@ pub(crate) struct ReviewArgs {
         short = 'p',
         long = "repo",
         value_name = "REPO",
-        help = "Repository name"
+        help = "Repository url"
     )]
-    pub(crate) repo_name: Option<String>,
+    pub(crate) repo_url: Option<String>,
 
     #[arg(
         short = 's',

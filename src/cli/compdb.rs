@@ -3,8 +3,7 @@ use clap::{ArgGroup, Subcommand};
 
 use crate::core::compdb::CompdbEngine;
 
-const STYLE_YELLOW: Style =
-    Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
+const STYLE_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi256(Ansi256Color(3))));
 const STYLE_YELLOW_BOLD: Style = Style::new()
     .fg_color(Some(Color::Ansi256(Ansi256Color(3))))
     .bold();
@@ -97,10 +96,7 @@ pub(crate) enum CompdbCmd {
         )]
         product_dir: String,
 
-        #[arg(
-            value_name = "TARGET",
-            help = "Target to build, such as 'a-dnv'"
-        )]
+        #[arg(value_name = "TARGET", help = "Target to build, such as 'a-dnv'")]
         make_target: String,
     },
 
@@ -189,10 +185,7 @@ pub(crate) enum CompdbCmd {
 
     /// Select a compilation database generation from store to use
     Use {
-        #[arg(
-            value_name = "GENERATION",
-            help = "Compilation database generation id"
-        )]
+        #[arg(value_name = "GENERATION", help = "Compilation database generation id")]
         generation: i64,
     },
 

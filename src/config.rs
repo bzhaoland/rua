@@ -12,8 +12,7 @@ pub(crate) static CLANGD_CACHE: &str = ".cache";
 pub(crate) static COMPDB_FILE: &str = "compile_commands.json";
 pub(crate) static COMPDB_STORE: &str = ".rua/compdb.store";
 pub(crate) static DEFAULT_BEAR: &str = "/devel/sw/bear/bin/bear";
-pub(crate) static DEFAULT_INTERCEPT_BUILD: &str =
-    "/devel/sw/llvm/bin/intercept-build";
+pub(crate) static DEFAULT_INTERCEPT_BUILD: &str = "/devel/sw/llvm/bin/intercept-build";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CleanConf {
