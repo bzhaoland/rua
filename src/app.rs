@@ -64,7 +64,7 @@ pub(crate) enum Comm {
     )]
     Mkinfo(MkinfoArgs),
 
-    /// Annotate instructions with precise locations
+    /// Annotate perf-sampled instructions with line numbers
     Perfan(PerfanArgs),
 
     /// Launch a new review request or refresh the existing one
