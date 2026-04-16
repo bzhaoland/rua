@@ -16,7 +16,7 @@ const STYLE_RED_BOLD: Style = Style::new()
 
 {1}Caution:{1:#}
   All unversioned files will be {2}REMOVED{2:#} permanantly, including files created by YOU but not
-  added to SVN. Use it carefully!"#,
+  added to svn/git. Use it carefully!"#,
   STYLE_YELLOW_BOLD,
   STYLE_RED_BOLD,
   STYLE_RED))]
