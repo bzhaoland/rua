@@ -15,7 +15,7 @@ const STYLE_RED_BOLD: Style = Style::new()
   rua clean  # Clean the entire project
 
 {1}Caution:{1:#}
-  All unversioned files will be {2}REMOVED{2:#} permanantly, including files created by YOU but not
+  All unversioned files will be {2}REMOVED{2:#} permanantly, including the files you created but not
   added to svn/git. Use it carefully!"#,
   STYLE_YELLOW_BOLD,
   STYLE_RED_BOLD,
