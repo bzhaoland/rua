@@ -106,9 +106,17 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
             let repo_info = utils::RepoInfo::new()?;
             let conf = RuaConf::new(&repo_info)?;
             let mut ignore_set: Vec<Regex> = Vec::new();
-            ignore_set.push(Regex::new(format!("^{}$", COMPDB_FILE).as_str()).unwrap());
             ignore_set.push(Regex::new(format!("^{}$", CLANGD_CACHE).as_str()).unwrap());
             ignore_set.push(Regex::new(format!(r#"^{}(?:/.*)?$"#, PROJ_RUA_DIR).as_str()).unwrap());
+            ignore_set.push(Regex::new("^.*/compile_commands.json$").unwrap());
+            ignore_set.push(Regex::new("^.*/cscope.out$").unwrap());
+            ignore_set.push(Regex::new("^.*/GPATH$").unwrap());
+            ignore_set.push(Regex::new("^.*/GTAGS$").unwrap());
+            ignore_set.push(Regex::new("^.*/GRTAGS$").unwrap());
+            ignore_set.push(Regex::new("^.*/tags$").unwrap());
+            ignore_set.push(Regex::new("^.*/.vscode/.*$").unwrap());
+            ignore_set.push(Regex::new("^.*/.gitignore$").unwrap());
+            ignore_set.push(Regex::new("^.*/.lingma/.*$").unwrap());
 
             if let Some(v) = ignores {
                 for item in v {

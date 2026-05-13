@@ -8,11 +8,11 @@ use serde::{Deserialize, Serialize};
 use crate::utils::RepoInfo;
 
 pub(crate) const PROJ_RUA_DIR: &str = ".rua";
-pub(crate) static CLANGD_CACHE: &str = ".cache";
-pub(crate) static COMPDB_FILE: &str = "compile_commands.json";
-pub(crate) static COMPDB_STORE: &str = ".rua/compdb.store";
-pub(crate) static DEFAULT_BEAR: &str = "/devel/sw/bear/bin/bear";
-pub(crate) static DEFAULT_INTERCEPT_BUILD: &str = "/devel/sw/llvm/bin/intercept-build";
+pub(crate) const CLANGD_CACHE: &str = ".cache";
+pub(crate) const COMPDB_FILE: &str = "compile_commands.json";
+pub(crate) const COMPDB_STORE: &str = ".rua/compdb.store";
+pub(crate) const DEFAULT_BEAR: &str = "/devel/sw/bear/bin/bear";
+pub(crate) const DEFAULT_INTERCEPT_BUILD: &str = "/devel/sw/llvm/bin/intercept-build";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CleanConf {

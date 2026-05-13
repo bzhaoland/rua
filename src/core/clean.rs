@@ -34,15 +34,13 @@ fn svn_untracked_files(dirs: Vec<&str>) -> anyhow::Result<Vec<PathBuf>> {
 
 fn git_untracked_files(dirs: Vec<&str>) -> anyhow::Result<Vec<PathBuf>> {
     let mut command = Command::new("git");
-    command.args(["ls-files", "-oz", "--exclude-standard"]);
-    let output = command
-        .output()
-        .context(format!("Command `svn status` failed"))?;
+    command.args(["ls-files", "-oz"]);
+    let output = command.args(dirs.iter()).output().context(format!(
+        "Command `git ls-files -oz {}` failed",
+        dirs.join(" ")
+    ))?;
     if !output.status.success() {
-        bail!(
-            "Command `git ls-files -oz --exclude-standard {:?}` failed",
-            dirs.join(" ")
-        );
+        bail!("Command `git ls-files -oz {:?}` failed", dirs.join(" "));
     }
 
     let files = String::from_utf8(output.stdout)?
