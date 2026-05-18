@@ -138,7 +138,7 @@ pub(crate) fn gen_compdb_by_builtin(
     let mut changed_files: Vec<ChangedFile> = Vec::new();
 
     // Hacking for c files
-    let pattern_c = Regex::new(r#"(?m)^\t\s*(\$\(HS_CC\)\s+\$\(CFLAGS\w*\)\s+\$\(CFLAGS\w*\)\s+-MMD(?:\s+-MP\s+-MT\s+\$@)?(?:\s+-MT\s+.*tidy\.log)?\s+-c\s+-o\s+\$@\s+\$<)\s*$"#)
+    let pattern_c = Regex::new(r#"(?m)^\t\s*\$\(HS_CC\)\s+(\$\(CFLAGS\w*\)\s+\$\(CFLAGS\w*\)\s+-MMD(?:\s+-MP\s+-MT\s+\$@)?(?:\s+-MT\s+.*tidy\.log)?\s+-c\s+-o\s+\$@\s+\$<)\s*$"#)
         .context("Failed to build regex for C compilation")?;
     let lastrules_text = fs::read_to_string(lastrules_path.as_path())
         .context(format!(r#"Can't read file "{}""#, lastrules_path.display()))?;
@@ -146,8 +146,7 @@ pub(crate) fn gen_compdb_by_builtin(
         .captures(&lastrules_text)
         .context(format!("Failed to capture pattern {}", pattern_c.as_str()))?;
     let comp_args_c = captures.get(1).unwrap().as_str();
-    // let lastrules_text_hacked = pattern_c.replace_all(&lastrules_text, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(CC) {} >>:file:>> $<", comp_args_c)).to_string();
-    let lastrules_text_hacked = pattern_c.replace_all(&lastrules_text, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> {} >>:file:>> $<", comp_args_c)).to_string();
+    let lastrules_text_hacked = pattern_c.replace_all(&lastrules_text, format!("\t##JCDB## >>:directory:>> $(shell pwd | sed -z 's/\\n//g') >>:command:>> $(CC) {} >>:file:>> $<", comp_args_c)).to_string();
     fs::write(lastrules_path.as_path(), &lastrules_text_hacked).context(format!(
         r#"Writing to file "{}" failed"#,
         lastrules_path.display()
