@@ -3,6 +3,7 @@ use std::process::Command;
 use std::{env, fs};
 
 use anyhow::{Context, bail};
+use globset::GlobSet;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
@@ -62,7 +63,7 @@ fn untracked_files(repo_info: &RepoInfo, dirs: Vec<&str>) -> anyhow::Result<Vec<
 pub fn clean_build(
     repo_info: &RepoInfo,
     dirs: Option<&Vec<String>>,
-    ignore_set: &Vec<Regex>,
+    ignore_set: &GlobSet,
 ) -> anyhow::Result<()> {
     // Check directory
     if env::current_dir()?.as_path() != repo_info.work_dir() {
@@ -155,14 +156,12 @@ pub fn clean_build(
         step, num_steps,
     ))?);
     for entry in untracked_files {
-        let mut skip = false;
-        for re in ignore_set {
-            if re.is_match(entry.as_path().to_str().unwrap()) {
-                skip = true;
-                break;
-            }
-        }
-        if skip {
+        if ignore_set.is_match(
+            entry
+                .as_path()
+                .to_str()
+                .expect(format!("Failed to convert {:?} to str", entry).as_str()),
+        ) {
             continue;
         }
         pb3.set_message(entry.as_path().display().to_string());

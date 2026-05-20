@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::RepoInfo;
 
-pub(crate) const PROJ_RUA_DIR: &str = ".rua";
-pub(crate) const CLANGD_CACHE: &str = ".cache";
 pub(crate) const COMPDB_FILE: &str = "compile_commands.json";
 pub(crate) const COMPDB_STORE: &str = ".rua/compdb.store";
 pub(crate) const DEFAULT_BEAR: &str = "/devel/sw/bear/bin/bear";

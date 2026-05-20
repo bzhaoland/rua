@@ -7,9 +7,9 @@ use anstyle::{Ansi256Color, Color, Style};
 use anyhow::{Result, bail};
 use clap::builder::styling;
 use clap::{CommandFactory, Parser, Subcommand};
+use globset::{Glob, GlobSetBuilder};
 use indexmap::IndexMap;
 use indicatif::{ProgressBar, ProgressStyle};
-use regex::Regex;
 use rusqlite::Connection;
 
 use crate::cli::clean::CleanArgs;
@@ -20,7 +20,7 @@ use crate::cli::review::ReviewArgs;
 use crate::cli::shinit::ShinitArgs;
 use crate::cli::showcc::ShowccArgs;
 use crate::cli::update::UpdateArgs;
-use crate::config::{CLANGD_CACHE, COMPDB_FILE, COMPDB_STORE, PROJ_RUA_DIR, RuaConf};
+use crate::config::{COMPDB_FILE, COMPDB_STORE, RuaConf};
 use crate::core::clean;
 use crate::core::compdb::{self, CompdbEngine};
 use crate::core::mkinfo::{self, GenBy, MakeOpts};
@@ -105,32 +105,33 @@ pub(crate) fn run_app(args: &Cli) -> Result<()> {
         Comm::Clean(CleanArgs { dirs, ignores }) => {
             let repo_info = utils::RepoInfo::new()?;
             let conf = RuaConf::new(&repo_info)?;
-            let mut ignore_set: Vec<Regex> = Vec::new();
-            ignore_set.push(Regex::new(format!("^{}$", CLANGD_CACHE).as_str()).unwrap());
-            ignore_set.push(Regex::new(format!(r#"^{}(?:/.*)?$"#, PROJ_RUA_DIR).as_str()).unwrap());
-            ignore_set.push(Regex::new("^.*/compile_commands.json$").unwrap());
-            ignore_set.push(Regex::new("^.*/cscope.out$").unwrap());
-            ignore_set.push(Regex::new("^.*/GPATH$").unwrap());
-            ignore_set.push(Regex::new("^.*/GTAGS$").unwrap());
-            ignore_set.push(Regex::new("^.*/GRTAGS$").unwrap());
-            ignore_set.push(Regex::new("^.*/tags$").unwrap());
-            ignore_set.push(Regex::new("^.*/.vscode/.*$").unwrap());
-            ignore_set.push(Regex::new("^.*/.gitignore$").unwrap());
-            ignore_set.push(Regex::new("^.*/.lingma/.*$").unwrap());
+            let mut builder = GlobSetBuilder::new();
+            builder.add(Glob::new(".cache/**")?);
+            builder.add(Glob::new(".rua/**")?);
+            builder.add(Glob::new(".vscode/**")?);
+            builder.add(Glob::new(".lingma/**")?);
+            builder.add(Glob::new("**/.gitignore")?);
+            builder.add(Glob::new("**/compile_commands.json")?);
+            builder.add(Glob::new("**/cscope.out")?);
+            builder.add(Glob::new("**/GPATH")?);
+            builder.add(Glob::new("**/GTAGS")?);
+            builder.add(Glob::new("**/GRTAGS")?);
+            builder.add(Glob::new("**/tags")?);
 
             if let Some(v) = ignores {
                 for item in v {
-                    ignore_set.push(Regex::new(format!("^{}$", item).as_str()).unwrap());
+                    builder.add(Glob::new(&item)?);
                 }
             }
             if let Some(v) = conf.clean
                 && let Some(x) = v.ignores
             {
                 for item in x {
-                    ignore_set.push(Regex::new(format!("^{}$", item).as_str()).unwrap());
+                    builder.add(Glob::new(&item)?);
                 }
             }
 
+            let ignore_set = builder.build().expect("Failed to build the ignore set");
             clean::clean_build(&repo_info, dirs.as_ref(), &ignore_set)
         }
         Comm::Compdb { compdb_comm } => {
