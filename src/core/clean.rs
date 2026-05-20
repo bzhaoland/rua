@@ -111,7 +111,7 @@ pub fn clean_build(
 
     // Clean untracked files
     let pb = ProgressBar::no_length().with_style(
-        ProgressStyle::with_template(&format!("Fetching unversioned files {{spinner}}"))?
+        ProgressStyle::with_template(&format!("Fetching untracked files {{spinner}}"))?
             .tick_chars(TICK_CHARS),
     );
     pb.enable_steady_tick(TICK_INTERVAL);
