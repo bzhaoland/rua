@@ -110,7 +110,7 @@ impl RepoInfo {
     fn detect_repo_type() -> anyhow::Result<Option<RepoType>> {
         let mut current = current_dir().context("Failed to get current dir")?;
         loop {
-            if current.join(".git").is_dir() {
+            if gix::open(current.join(".git")).is_ok() {
                 return Ok(Some(RepoType::Git));
             }
             if current.join(".svn").is_dir() {
